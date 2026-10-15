@@ -35,6 +35,22 @@ import Testing
         }
     }
 
+    @Test func newItemRequestAcceptsOneDirectoryAndRejectsUnknownActions() throws {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        let root = URL(fileURLWithPath: "/tmp/test directory", isDirectory: true)
+        board.writeObjects([root as NSURL])
+        for type in ["folder", "txt", "md", "custom", "json"] {
+            let url = try #require(FinderRequest.url(board: board.name.rawValue, format: type, action: "create"))
+            let request = try FinderRequest.read(url)
+            #expect(request.action == "create")
+            #expect(request.files == [root])
+            #expect(request.format == type)
+        }
+        #expect(FinderRequest.url(board: board.name.rawValue, format: "../bad", action: "create") == nil)
+        #expect(FinderRequest.url(board: board.name.rawValue, format: "txt", action: "delete") == nil)
+    }
+
     @Test func rejectsMalformedAndNonFileRequests() throws {
         #expect(throws: (any Error).self) { try FinderRequest.read(URL(string: "https://compress?format=7z&board=test")!) }
         #expect(FinderRequest.url(board: "test", format: "rar") == nil)
