@@ -27,7 +27,7 @@ struct ArchiveJob: Identifiable, Sendable {
     var residualWorkspaces = (UserDefaults.standard.stringArray(forKey: "unfinishedWorkspaces") ?? []).filter {
         URL(fileURLWithPath: $0).lastPathComponent.hasPrefix(".fastbudo-") && FileManager.default.fileExists(atPath: $0)
     }
-    var message = "从 Finder 服务发起压缩，或选择文件。"
+    var message = "暂无任务。从 Finder 右键服务发起压缩。"
     var results: [URL] = []
     private var engine: ArchiveEngine?
 
@@ -86,13 +86,15 @@ struct ArchiveJob: Identifiable, Sendable {
         guard let first = urls.first else { return }
         outputDirectory = first.deletingLastPathComponent()
         name = urls.count == 1 ? first.lastPathComponent : "归档"
-        if quick { format = .zip; password = ""; submit() }
+        password = ""
+        format = quick ? .zip : (ArchiveFormat(rawValue: UserDefaults.standard.string(forKey: "defaultFormat") ?? "zip") ?? .zip)
+        excludeDSStore = UserDefaults.standard.object(forKey: "excludeDSStore") as? Bool ?? true
+        preserveAttributes = UserDefaults.standard.bool(forKey: "preserveAttributes")
+        if quick { submit() }
     }
     func submit() {
-        UserDefaults.standard.set(excludeDSStore, forKey: "excludeDSStore")
-        UserDefaults.standard.set(preserveAttributes, forKey: "preserveAttributes")
         let request = CreateRequest(inputs: files, outputDirectory: outputDirectory, name: name, format: format,
-                                    excludeDSStore: excludeDSStore, preserveAttributes: preserveAttributes)
+                                    excludeDSStore: excludeDSStore, preserveAttributes: preserveAttributes && format == .zip && password.isEmpty)
         enqueue(ArchiveJob(operation: .create(request), password: password))
         password = ""
     }
