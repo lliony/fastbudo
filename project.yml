@@ -1,0 +1,34 @@
+name: FastBudo
+options:
+  deploymentTarget:
+    macOS: '27.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  FastBudo:
+    type: application
+    platform: macOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.fastbudo.app
+        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+  FastBudoTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [AppTests]
+    dependencies:
+      - target: FastBudo
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  FastBudo:
+    build:
+      targets:
+        FastBudo: all
+    test:
+      targets: [FastBudoTests]
