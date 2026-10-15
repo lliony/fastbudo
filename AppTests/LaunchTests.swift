@@ -4,7 +4,13 @@ import Testing
 
 @MainActor struct LaunchTests {
     @Test func settingsFollowLaunchIntentAndReopen() throws {
-        let delegate = AppDelegate()
+        let board = NSPasteboard.withUniqueName()
+        let suite = "FastBudoTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.set(false, forKey: "clipHotKeyEnabled")
+        let clipboard = ClipboardController(defaults: defaults, board: board)
+        let delegate = AppDelegate(clipboard: clipboard)
+        defer { clipboard.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite) }
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification,
             userInfo: [NSApplication.launchIsDefaultUserInfoKey: false]))
         #expect(delegate.settingsWindow == nil)
