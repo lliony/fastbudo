@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = ArchiveModel()
     private var taskWindow: NSWindow?
+    private(set) var settingsWindow: NSWindow?
     private let services = ServicesProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -12,7 +13,31 @@ import SwiftUI
         }
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
+        // AppKit 区分正常启动与文件/服务唤起，避免右键压缩时抢出设置页。
+        if notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool == true {
+            showSettings()
+        }
     }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
+    func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
+                                  styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+            window.title = "FastBudo 设置"
+            window.isReleasedWhenClosed = false
+            window.contentViewController = NSHostingController(rootView: PreferencesView())
+            window.center()
+            settingsWindow = window
+        }
+        settingsWindow?.deminiaturize(nil)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "fastbudo" {
             do {

@@ -5,14 +5,8 @@ import FinderSync
 struct FastBudoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
-        Window("FastBudo 设置", id: "settings") {
-            PreferencesView()
-        }
-        .defaultSize(width: 600, height: 520)
-        .windowResizability(.contentSize)
-        .defaultLaunchBehavior(.suppressed)
         MenuBarExtra("FastBudo", systemImage: "command") {
-            StatusPopover(model: delegate.model)
+            StatusPopover(model: delegate.model, showSettings: delegate.showSettings)
         }
         .menuBarExtraStyle(.window)
     }
@@ -130,14 +124,14 @@ struct TaskStatusView: View {
 
 struct StatusPopover: View {
     @Bindable var model: ArchiveModel
-    @Environment(\.openWindow) private var openWindow
+    let showSettings: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("FastBudo", systemImage: "command").font(.headline)
             TaskStatusView(model: model)
             Divider()
             HStack {
-                Button("设置…") { openWindow(id: "settings"); NSApp.activate() }
+                Button("设置…", action: showSettings)
                 Spacer()
                 Button("退出") { NSApp.terminate(nil) }
             }
