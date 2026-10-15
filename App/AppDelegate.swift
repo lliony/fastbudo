@@ -7,31 +7,38 @@ import SwiftUI
     private let services = ServicesProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        services.receive = { [weak self] files, action in
-            self?.model.select(files, quick: action == "快捷 ZIP")
-            self?.showTask(options: action != "快捷 ZIP")
+        services.receive = { [weak self] files, format in
+            self?.model.compress(files, as: format)
         }
         NSApp.servicesProvider = services
         NSUpdateDynamicServices()
     }
     func application(_ application: NSApplication, open urls: [URL]) {
-        model.open(urls.filter(\.isFileURL))
-        showTask(options: false)
+        for url in urls where url.scheme == "fastbudo" {
+            do {
+                let request = try FinderRequest.read(url)
+                guard let format = ArchiveFormat(rawValue: request.format) else { continue }
+                model.compress(request.files, as: format)
+                if let board = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "board" })?.value {
+                    NSPasteboard(name: NSPasteboard.Name(board)).releaseGlobally()
+                }
+            } catch {
+                model.message = "无法读取 Finder 选择，请重新右键选择压缩格式。"
+            }
+        }
+        let archives = urls.filter(\.isFileURL)
+        if !archives.isEmpty { model.open(archives); showTask() }
     }
     // 明确持有任务窗口，避免把 Finder 请求错误地送进设置窗口。
-    private func showTask(options: Bool) {
+    private func showTask() {
         if taskWindow == nil {
             taskWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             taskWindow?.isReleasedWhenClosed = false
             taskWindow?.center()
         }
-        taskWindow?.title = options ? "更多压缩选项" : "FastBudo 任务"
-        if options {
-            taskWindow?.contentViewController = NSHostingController(rootView: ArchiveView(model: model))
-        } else {
-            taskWindow?.contentViewController = NSHostingController(rootView: TaskStatusView(model: model).padding(24).frame(width: 400))
-        }
+        taskWindow?.title = "FastBudo 任务"
+        taskWindow?.contentViewController = NSHostingController(rootView: TaskStatusView(model: model).padding(24).frame(width: 400))
         NSApp.activate()
         taskWindow?.makeKeyAndOrderFront(nil)
     }
