@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */; };
 		2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */; };
+		347C464930DF8991BE7E8DE8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E12B9D801C6BBFB70441AF2C /* Assets.xcassets */; };
 		3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */; };
 		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
 		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
@@ -52,6 +53,7 @@
 		CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastBudoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DB83FC5BD11F79DB2650302D /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		E0A2291C35709F9F350A317F /* FastBudo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastBudo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E12B9D801C6BBFB70441AF2C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E1E8BEFB8D54C6F5A88F342D /* 7zz */ = {isa = PBXFileReference; path = 7zz; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -63,6 +65,7 @@
 				AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */,
 				59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */,
 				14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */,
+				E12B9D801C6BBFB70441AF2C /* Assets.xcassets */,
 				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
 				36CB2387AB1D27C166DB4CEF /* Info.plist */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
@@ -200,6 +203,7 @@
 				4C9305357074324FDB4B3F0B /* 7z.so in Resources */,
 				4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */,
 				EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */,
+				347C464930DF8991BE7E8DE8 /* Assets.xcassets in Resources */,
 				C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

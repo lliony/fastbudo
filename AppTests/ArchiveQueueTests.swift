@@ -3,6 +3,15 @@ import Testing
 @testable import FastBudo
 
 @MainActor struct ArchiveQueueTests {
+    @Test func newSelectionResetsTransientOptions() {
+        let model = ArchiveModel()
+        model.password = "previous-secret"
+        model.format = .tarGz
+        model.select([URL(fileURLWithPath: "/tmp/example.txt")], quick: false)
+        #expect(model.password.isEmpty)
+        #expect(model.format == .zip)
+    }
+
     @Test func queueKeepsSubmissionOrderAndUniqueOutputs() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
