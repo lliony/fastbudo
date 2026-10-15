@@ -1,7 +1,8 @@
 ---
 title: FastBudo 首版产品与技术设计
-status: draft
+status: active
 last_updated: 2026-10-15
+related_plan: ../plans/2026-10-15-fastbudo.md
 ---
 
 # FastBudo 首版产品与技术设计
@@ -14,7 +15,7 @@ last_updated: 2026-10-15
 
 验证环境：Apple Silicon，macOS 27.0.1；本机已安装 Xcode，Swift 6.4。以上为本机命令输出，不代表已验证的最低系统版本。首版只承诺本机环境；扩展兼容范围需另行测试。
 
-本文合并需求、设计与验收，不另设重复的需求文档。状态为 draft，等待用户审阅完整文档；分段讨论中的确认不等于技术风险已经验证。
+本文合并需求、设计与验收，不另设重复的需求文档。用户已于 2026-10-15 确认完整设计，状态为 active；设计确认不等于技术风险已经验证。
 
 ## 2. 用户流程
 
