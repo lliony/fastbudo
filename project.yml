@@ -10,7 +10,16 @@ targets:
   FastBudo:
     type: application
     platform: macOS
-    sources: [App]
+    sources:
+      - path: App
+      - path: .build/engine/7zz
+        buildPhase: resources
+      - path: .build/engine/7z.so
+        buildPhase: resources
+      - path: .build/engine/ArchiveBridge
+        buildPhase: resources
+      - path: Vendor/7zip/LICENSE.txt
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.fastbudo.app

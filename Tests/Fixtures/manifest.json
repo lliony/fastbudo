@@ -1,0 +1,62 @@
+{
+  "source": "https://www.libarchive.org/downloads/libarchive-3.8.1.tar.xz",
+  "license": "libarchive/COPYING; per-source notices alongside fixtures",
+  "fixtures": [
+    {
+      "file": "test_read_format_rar5_stored.rar.uu",
+      "sha256": "ec73ba623a8e8eee4909dcdf45f0526ff9adc1d856d054ce742e6c1ba1fb5fa8"
+    },
+    {
+      "file": "test_read_format_rar4_encrypted_filenames.rar.uu",
+      "sha256": "aa4d2a0235c7627bc6011c081d16b3b36b1986f315de0be5891315622213c383"
+    },
+    {
+      "file": "test_read_format_rar5_encrypted_filenames.rar.uu",
+      "sha256": "f113860fd2f06aa13b2f933150a1f80988038cdeef393fbb6a1a0d302c86148e"
+    },
+    {
+      "file": "test_rar_multivolume_single_file.part1.rar.uu",
+      "sha256": "27a0510a1efc95bc2c407326c5af8615314fc37c5a4c39041693bc200a1b0180"
+    },
+    {
+      "file": "test_rar_multivolume_single_file.part2.rar.uu",
+      "sha256": "cee2fdd30ab1302e607289303f24fbe4a9362e5b87af0a63ee52d9f5ee3dec52"
+    },
+    {
+      "file": "test_rar_multivolume_single_file.part3.rar.uu",
+      "sha256": "ccb5fd25a87790b3beb2722d11a4a69d13684002b31f87e8a0cdbf78e33c83dd"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part01.rar.uu",
+      "sha256": "93481eb23735afd0b5c527a04585b6d79f0f821ce14d33e0c788c243a54e3e49"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part02.rar.uu",
+      "sha256": "fb00b8cacdeb055197595a3d0ce61095b401aecd945880a14114b9c95ffc7552"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part03.rar.uu",
+      "sha256": "25252a3834839995d2de6de48b1e005747140042ca771cad24d58b5e8093b3c9"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part04.rar.uu",
+      "sha256": "84ac4783f777f36ebc7a9149a5a8619409503fa82549b44e5b9b52db4a517f7c"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part05.rar.uu",
+      "sha256": "012ada9608abb5587924a0e8c6db5bbee675ee46987497fe2bac31cd8fafe155"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part06.rar.uu",
+      "sha256": "81769852ce98c052a1eb08a4dc4a5392bd008f8ac24ef5498b0207d0ff9397db"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part07.rar.uu",
+      "sha256": "12a3e733a6b3903e1b0b270d589c1c21581e1bd9876f5ac3cb6db810a186fc25"
+    },
+    {
+      "file": "test_read_format_rar5_multiarchive.part08.rar.uu",
+      "sha256": "4b4f05f2d91e8f49c8628fee67e90877c0bb9402a830497a8f0b185a21ac92e6"
+    }
+  ]
+}
