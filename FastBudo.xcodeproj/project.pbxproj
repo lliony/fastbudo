@@ -7,11 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */; };
 		2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */; };
 		3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */; };
+		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
+		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
+		4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */ = {isa = PBXBuildFile; fileRef = E1E8BEFB8D54C6F5A88F342D /* 7zz */; };
+		78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */; };
 		88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */; };
 		8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */; };
+		96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */; };
+		C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = DB83FC5BD11F79DB2650302D /* LICENSE.txt */; };
+		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
+		EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */ = {isa = PBXBuildFile; fileRef = 7D8E06ECA429F61162A1C775 /* ArchiveBridge */; };
+		F4D16DD673E68DC6B91E5470 /* ArchiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,13 +36,23 @@
 
 /* Begin PBXFileReference section */
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
+		0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFilesTests.swift; sourceTree = "<group>"; };
+		14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveModel.swift; sourceTree = "<group>"; };
 		36CB2387AB1D27C166DB4CEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFiles.swift; sourceTree = "<group>"; };
 		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
 		71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInput.swift; sourceTree = "<group>"; };
+		7D8E06ECA429F61162A1C775 /* ArchiveBridge */ = {isa = PBXFileReference; path = ArchiveBridge; sourceTree = "<group>"; };
+		8CB3C403F734BA2DAC066B22 /* 7z.so */ = {isa = PBXFileReference; path = 7z.so; sourceTree = "<group>"; };
+		8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngineTests.swift; sourceTree = "<group>"; };
 		AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastBudoApp.swift; sourceTree = "<group>"; };
+		AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveQueueTests.swift; sourceTree = "<group>"; };
+		AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
 		B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastBudoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB83FC5BD11F79DB2650302D /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		E0A2291C35709F9F350A317F /* FastBudo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastBudo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1E8BEFB8D54C6F5A88F342D /* 7zz */ = {isa = PBXFileReference; path = 7zz; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -40,6 +60,9 @@
 			isa = PBXGroup;
 			children = (
 				B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */,
+				AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */,
+				59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */,
+				14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */,
 				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
 				36CB2387AB1D27C166DB4CEF /* Info.plist */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
@@ -57,9 +80,32 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		55018354948884BCD23417CA /* 7zip */ = {
+			isa = PBXGroup;
+			children = (
+				DB83FC5BD11F79DB2650302D /* LICENSE.txt */,
+			);
+			name = 7zip;
+			path = Vendor/7zip;
+			sourceTree = "<group>";
+		};
+		95EC35DE7AA551B129F8FAA5 /* engine */ = {
+			isa = PBXGroup;
+			children = (
+				8CB3C403F734BA2DAC066B22 /* 7z.so */,
+				E1E8BEFB8D54C6F5A88F342D /* 7zz */,
+				7D8E06ECA429F61162A1C775 /* ArchiveBridge */,
+			);
+			name = engine;
+			path = .build/engine;
+			sourceTree = "<group>";
+		};
 		B9F3570F4426F580FE2372F8 /* AppTests */ = {
 			isa = PBXGroup;
 			children = (
+				8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */,
+				0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */,
+				AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */,
 				0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */,
 			);
 			path = AppTests;
@@ -68,8 +114,10 @@
 		F1252085FE5655324721D034 = {
 			isa = PBXGroup;
 			children = (
+				55018354948884BCD23417CA /* 7zip */,
 				19458CDBB902DFBFEDA3D497 /* App */,
 				B9F3570F4426F580FE2372F8 /* AppTests */,
+				95EC35DE7AA551B129F8FAA5 /* engine */,
 				4F77CC56CA38696BA452EAC6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -82,6 +130,7 @@
 			buildConfigurationList = 153C8758D4EFE77645F72C89 /* Build configuration list for PBXNativeTarget "FastBudo" */;
 			buildPhases = (
 				37AF6A9E2D2962A01FD388B5 /* Sources */,
+				D31C2B2F9B9828A794880F06 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -143,12 +192,29 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		D31C2B2F9B9828A794880F06 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C9305357074324FDB4B3F0B /* 7z.so in Resources */,
+				4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */,
+				EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */,
+				C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		37AF6A9E2D2962A01FD388B5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */,
+				F4D16DD673E68DC6B91E5470 /* ArchiveEngine.swift in Sources */,
+				78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */,
+				48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */,
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
 				E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */,
 				2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */,
@@ -159,6 +225,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */,
+				2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */,
+				E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */,
 				3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
