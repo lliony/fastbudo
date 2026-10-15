@@ -3,11 +3,15 @@ import SwiftUI
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = ArchiveModel()
+    let clipboard: ClipboardController
+    override convenience init() { self.init(clipboard: ClipboardController()) }
+    init(clipboard: ClipboardController) { self.clipboard = clipboard; super.init() }
     private var taskWindow: NSWindow?
     private(set) var settingsWindow: NSWindow?
     private let services = ServicesProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        clipboard.start()
         services.receive = { [weak self] files, format in
             self?.model.compress(files, as: format)
         }
@@ -34,7 +38,7 @@ import SwiftUI
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             window.title = "FastBudo 设置"
             window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: PreferencesView())
+            window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard))
             window.center()
             settingsWindow = window
         }
@@ -103,6 +107,8 @@ import SwiftUI
         NSApp.activate()
         taskWindow?.makeKeyAndOrderFront(nil)
     }
+
+    func applicationWillTerminate(_ notification: Notification) { clipboard.stop() }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model.busy else { return .terminateNow }

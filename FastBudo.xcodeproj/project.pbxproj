@@ -16,21 +16,29 @@
 		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
 		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
 		4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */ = {isa = PBXBuildFile; fileRef = E1E8BEFB8D54C6F5A88F342D /* 7zz */; };
+		55A66CEA297E04B215494092 /* ClipboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A27E28A2E0845B62222F547C /* ClipboardTests.swift */; };
+		677985DEC3B189DABF3D37F0 /* ClipboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0072148CB646A4EDD0D6F14 /* ClipboardStore.swift */; };
+		6F69093E72EF4776E6ECA4B2 /* ClipboardItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FFD9BC750A0B0B7FC1C7C32 /* ClipboardItem.swift */; };
 		6FC4A139C7FA8692D953AB0E /* NewItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E0AFF12B3C1966C6E2351E /* NewItemTests.swift */; };
 		78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */; };
 		88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */; };
 		8A2A5F2FBEB33D5E105678BB /* LaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6AE767EFC0E67B93F9A1D6 /* LaunchTests.swift */; };
+		8C8C75F1E345649B175FD997 /* ClipboardCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 516279CCFA36229DE419F1AB /* ClipboardCapture.swift */; };
 		8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */; };
 		96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */; };
+		A530613BBC75E1CB453F5ACF /* ClipboardController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA0D2B490F0DDF4264022EE /* ClipboardController.swift */; };
 		A7E306B7673893658A98BEC6 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
 		B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
 		BC65EF8E1FDD89F20FFE6146 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
+		BC83761CD83DAD3315025ED2 /* ClipboardPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C06EAB40762B4F341C8AD9D /* ClipboardPanel.swift */; };
 		BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639BC4B4F3049C9B56581E59 /* NewItem.swift */; };
 		C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = DB83FC5BD11F79DB2650302D /* LICENSE.txt */; };
 		D56D4F2DD6A9CEA5478CD084 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
 		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
+		E6C594070E4D0337B691945C /* ClipboardHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62D4A19E2D62A952E008656 /* ClipboardHotKey.swift */; };
 		EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */ = {isa = PBXBuildFile; fileRef = 7D8E06ECA429F61162A1C775 /* ArchiveBridge */; };
+		EE00D6A9B39894FFE0FBE665 /* ClipboardSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA3787D0C29B1709AD56A10 /* ClipboardSettings.swift */; };
 		F4D16DD673E68DC6B91E5470 /* ArchiveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */; };
 /* End PBXBuildFile section */
 
@@ -70,8 +78,12 @@
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
 		0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFilesTests.swift; sourceTree = "<group>"; };
 		14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveModel.swift; sourceTree = "<group>"; };
+		2DA3787D0C29B1709AD56A10 /* ClipboardSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardSettings.swift; sourceTree = "<group>"; };
 		36CB2387AB1D27C166DB4CEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FastBudoFinder.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C06EAB40762B4F341C8AD9D /* ClipboardPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardPanel.swift; sourceTree = "<group>"; };
+		4FFD9BC750A0B0B7FC1C7C32 /* ClipboardItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardItem.swift; sourceTree = "<group>"; };
+		516279CCFA36229DE419F1AB /* ClipboardCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardCapture.swift; sourceTree = "<group>"; };
 		59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFiles.swift; sourceTree = "<group>"; };
 		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
 		639BC4B4F3049C9B56581E59 /* NewItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItem.swift; sourceTree = "<group>"; };
@@ -80,6 +92,8 @@
 		7D8E06ECA429F61162A1C775 /* ArchiveBridge */ = {isa = PBXFileReference; path = ArchiveBridge; sourceTree = "<group>"; };
 		8CB3C403F734BA2DAC066B22 /* 7z.so */ = {isa = PBXFileReference; path = 7z.so; sourceTree = "<group>"; };
 		8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngineTests.swift; sourceTree = "<group>"; };
+		8FA0D2B490F0DDF4264022EE /* ClipboardController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardController.swift; sourceTree = "<group>"; };
+		A27E28A2E0845B62222F547C /* ClipboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardTests.swift; sourceTree = "<group>"; };
 		AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastBudoApp.swift; sourceTree = "<group>"; };
 		AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveQueueTests.swift; sourceTree = "<group>"; };
 		AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
@@ -89,9 +103,11 @@
 		D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRequest.swift; sourceTree = "<group>"; };
 		DB83FC5BD11F79DB2650302D /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		DD6AE767EFC0E67B93F9A1D6 /* LaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchTests.swift; sourceTree = "<group>"; };
+		E0072148CB646A4EDD0D6F14 /* ClipboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardStore.swift; sourceTree = "<group>"; };
 		E0A2291C35709F9F350A317F /* FastBudo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastBudo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E12B9D801C6BBFB70441AF2C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E1E8BEFB8D54C6F5A88F342D /* 7zz */ = {isa = PBXFileReference; path = 7zz; sourceTree = "<group>"; };
+		E62D4A19E2D62A952E008656 /* ClipboardHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHotKey.swift; sourceTree = "<group>"; };
 		E8DE785ADE84FC6498DBC751 /* FinderExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderExtension.entitlements; sourceTree = "<group>"; };
 		E9127C8225AC91A3024B51FB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -110,6 +126,7 @@
 				639BC4B4F3049C9B56581E59 /* NewItem.swift */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
 				5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */,
+				89A4ABF49C18BD80DA129125 /* Clipboard */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -152,6 +169,20 @@
 			path = Vendor/7zip;
 			sourceTree = "<group>";
 		};
+		89A4ABF49C18BD80DA129125 /* Clipboard */ = {
+			isa = PBXGroup;
+			children = (
+				516279CCFA36229DE419F1AB /* ClipboardCapture.swift */,
+				8FA0D2B490F0DDF4264022EE /* ClipboardController.swift */,
+				E62D4A19E2D62A952E008656 /* ClipboardHotKey.swift */,
+				4FFD9BC750A0B0B7FC1C7C32 /* ClipboardItem.swift */,
+				3C06EAB40762B4F341C8AD9D /* ClipboardPanel.swift */,
+				2DA3787D0C29B1709AD56A10 /* ClipboardSettings.swift */,
+				E0072148CB646A4EDD0D6F14 /* ClipboardStore.swift */,
+			);
+			path = Clipboard;
+			sourceTree = "<group>";
+		};
 		95EC35DE7AA551B129F8FAA5 /* engine */ = {
 			isa = PBXGroup;
 			children = (
@@ -169,6 +200,7 @@
 				8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */,
 				0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */,
 				AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */,
+				A27E28A2E0845B62222F547C /* ClipboardTests.swift */,
 				DD6AE767EFC0E67B93F9A1D6 /* LaunchTests.swift */,
 				C2E0AFF12B3C1966C6E2351E /* NewItemTests.swift */,
 				0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */,
@@ -303,6 +335,13 @@
 				F4D16DD673E68DC6B91E5470 /* ArchiveEngine.swift in Sources */,
 				78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */,
 				48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */,
+				8C8C75F1E345649B175FD997 /* ClipboardCapture.swift in Sources */,
+				A530613BBC75E1CB453F5ACF /* ClipboardController.swift in Sources */,
+				E6C594070E4D0337B691945C /* ClipboardHotKey.swift in Sources */,
+				6F69093E72EF4776E6ECA4B2 /* ClipboardItem.swift in Sources */,
+				BC83761CD83DAD3315025ED2 /* ClipboardPanel.swift in Sources */,
+				EE00D6A9B39894FFE0FBE665 /* ClipboardSettings.swift in Sources */,
+				677985DEC3B189DABF3D37F0 /* ClipboardStore.swift in Sources */,
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
 				B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */,
 				BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */,
@@ -319,6 +358,7 @@
 				96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */,
 				2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */,
 				E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */,
+				55A66CEA297E04B215494092 /* ClipboardTests.swift in Sources */,
 				8A2A5F2FBEB33D5E105678BB /* LaunchTests.swift in Sources */,
 				6FC4A139C7FA8692D953AB0E /* NewItemTests.swift in Sources */,
 				3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */,

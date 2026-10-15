@@ -6,13 +6,14 @@ struct FastBudoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
         MenuBarExtra("FastBudo", systemImage: "command") {
-            StatusPopover(model: delegate.model, showSettings: delegate.showSettings)
+            StatusPopover(model: delegate.model, showSettings: delegate.showSettings, showClipboard: delegate.clipboard.show)
         }
         .menuBarExtraStyle(.window)
     }
 }
 
 struct PreferencesView: View {
+    @Bindable var clipboard: ClipboardController
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
@@ -33,10 +34,13 @@ struct PreferencesView: View {
                 Text("压缩").tag("压缩")
                 Text("解压").tag("解压")
                 Text("新建").tag("新建")
+                Text("剪贴板").tag("剪贴板")
             }
             .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 24)
             Form {
-                if page == "通用" {
+                if page == "剪贴板" {
+                    ClipboardSettings(controller: clipboard)
+                } else if page == "通用" {
                     Section("使用方式") {
                         LabeledContent("发起操作", value: "Finder 右键 → FastBudo 压缩")
                         Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
@@ -140,9 +144,11 @@ struct TaskStatusView: View {
 struct StatusPopover: View {
     @Bindable var model: ArchiveModel
     let showSettings: () -> Void
+    let showClipboard: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("FastBudo", systemImage: "command").font(.headline)
+            Button("剪贴板…", action: showClipboard)
             TaskStatusView(model: model)
             Divider()
             HStack {

@@ -13,3 +13,6 @@ last_updated: 2026-10-15
 | 查看本机验证与阻塞证据 | [技术验证记录](validation/2026-10-15-feasibility.md) |
 | 构建与日常使用 | [项目说明](../README.md) |
 | 检查第三方分发条款 | [第三方声明](../THIRD-PARTY-NOTICES.md) |
+| 审阅剪贴板模块的本地竞品证据与实现范围 | [iCopy 分析与范围建议](analysis/2026-10-15-icopy-clipboard.md) |
+| 使用剪贴板与核对测试边界 | [剪贴板使用与验证](guides/clipboard.md) |
+| 查看剪贴板实施步骤 | [剪贴板实施计划](superpowers/plans/2026-10-15-clipboard.md) |
