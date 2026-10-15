@@ -7,9 +7,9 @@ struct FastBudoApp: App {
         Window("FastBudo 设置", id: "settings") {
             PreferencesView()
         }
-        .defaultSize(width: 520, height: 380)
+        .defaultSize(width: 600, height: 520)
         .windowResizability(.contentSize)
-        MenuBarExtra("FastBudo", systemImage: "archivebox") {
+        MenuBarExtra("FastBudo", systemImage: "command") {
             StatusPopover(model: delegate.model)
         }
         .menuBarExtraStyle(.window)
@@ -20,29 +20,74 @@ struct PreferencesView: View {
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage("defaultFormat") private var defaultFormat = "zip"
+    @State private var page = "压缩"
     var body: some View {
-        Form {
-            Section("默认压缩选项") {
-                Picker("格式", selection: $defaultFormat) {
-                    ForEach(ArchiveFormat.allCases, id: \.rawValue) { Text($0.rawValue.uppercased()).tag($0.rawValue) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable().frame(width: 48, height: 48).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("FastBudo").font(.title2.bold())
+                    Text("让日常操作更顺手").foregroundStyle(.secondary)
                 }
-                Text("快捷压缩始终使用 ZIP；更多压缩选项可单独调整。")
-                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+            }.padding(24)
+            Picker("设置分类", selection: $page) {
+                Text("通用").tag("通用")
+                Text("压缩").tag("压缩")
+                Text("解压").tag("解压")
             }
-            Section("元数据") {
-                Toggle("过滤 .DS_Store", isOn: $excludeDSStore)
-                Toggle("保留 Mac 属性", isOn: $preserveAttributes)
-                Text("属性保留仅适用于无密码 ZIP。普通隐藏文件仍会保留，不修改源文件。")
-                    .font(.caption).foregroundStyle(.secondary)
+            .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 24)
+            Form {
+                if page == "通用" {
+                    Section("使用方式") {
+                        LabeledContent("发起操作", value: "Finder 右键 → 服务")
+                        LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
+                        Text("快捷压缩直接生成 ZIP；更多压缩选项可选择格式、密码与保存位置。")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    Section("本机运行") {
+                        Text("文件处理完全在本机完成。关闭任务窗口或收起浮窗，任务仍会继续。")
+                        Text("任务执行时请先取消，等待清理完成后退出应用。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } else if page == "压缩" {
+                    Section("默认选项") {
+                        Picker("压缩格式", selection: $defaultFormat) {
+                            ForEach(ArchiveFormat.allCases, id: \.rawValue) { Text($0.rawValue.uppercased()).tag($0.rawValue) }
+                        }
+                        LabeledContent("初始保存位置", value: "原文件所在文件夹")
+                        Text("快捷压缩始终使用 ZIP。本次压缩的调整不会改变默认设置。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Section("元数据") {
+                        Toggle("过滤 .DS_Store", isOn: $excludeDSStore)
+                        Toggle("保留 Mac 属性", isOn: $preserveAttributes)
+                        Text("仅无密码 ZIP 支持保留属性。普通隐藏文件仍会保留，源文件不会被修改。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section("输出规则") {
+                        LabeledContent("保存位置", value: "压缩包所在文件夹")
+                        LabeledContent("解压内容", value: "放入独立文件夹")
+                        LabeledContent("遇到重名", value: "自动编号，保留已有文件")
+                    }
+                    Section("安全处理") {
+                        Text("大体积或无法预估的归档会在解压前请求确认。")
+                        Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }.formStyle(.grouped)
+            HStack {
+                Label("设置自动保存", systemImage: "checkmark.circle")
+                Spacer()
+                Text("FastBudo · 本地工具")
             }
-            Section {
-                Label("从 Finder 右键服务发起压缩", systemImage: "cursorarrow")
-                Text("点击菜单栏归档图标查看任务。密码在每次压缩时输入，设置自动保存。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            .font(.caption).foregroundStyle(.secondary)
+            .padding(.horizontal, 24).padding(.bottom, 18)
         }
-        .formStyle(.grouped)
-        .frame(width: 520, height: 380)
+        .frame(width: 600, height: 520)
     }
 }
 
@@ -88,7 +133,7 @@ struct StatusPopover: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("FastBudo", systemImage: "archivebox").font(.headline)
+            Label("FastBudo", systemImage: "command").font(.headline)
             TaskStatusView(model: model)
             Divider()
             HStack {
@@ -106,7 +151,10 @@ struct ArchiveView: View {
     @Bindable var model: ArchiveModel
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("压缩 \(model.files.count) 个项目").font(.title2.bold())
+            Label("压缩 \(model.files.count) 个项目", systemImage: "archivebox")
+                .font(.title2.bold())
+            Text("选择格式与保存位置，然后开始压缩。")
+                .foregroundStyle(.secondary)
             Form {
                 Picker("格式", selection: $model.format) {
                     ForEach(ArchiveFormat.allCases, id: \.self) { Text($0.rawValue.uppercased()).tag($0) }
@@ -120,7 +168,7 @@ struct ArchiveView: View {
                     }
                 }
                 HStack {
-                    Text(model.outputDirectory.path).lineLimit(1).truncationMode(.middle)
+                    Text(model.outputDirectory.path).lineLimit(1).truncationMode(.middle).help(model.outputDirectory.path)
                     Spacer()
                     Button("保存到…", action: model.chooseOutput)
                 }
@@ -128,7 +176,10 @@ struct ArchiveView: View {
             .onChange(of: model.format) {
                 if model.format == .tarGz { model.password = "" }
             }
-            TaskStatusView(model: model)
+            if model.busy || model.failed != nil || !model.results.isEmpty {
+                Divider()
+                TaskStatusView(model: model)
+            }
             HStack {
                 Text("仅应用于本次压缩").font(.caption).foregroundStyle(.secondary)
                 Spacer()
