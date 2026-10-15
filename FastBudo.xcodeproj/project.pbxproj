@@ -1,0 +1,395 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */; };
+		3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */; };
+		88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */; };
+		8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */; };
+		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D832D815E764AE44E267E7E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0F3F4B2E094E79F6F321C026 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 298EEDE9F57554F4086CC6C6;
+			remoteInfo = FastBudo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
+		36CB2387AB1D27C166DB4CEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
+		71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInput.swift; sourceTree = "<group>"; };
+		AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastBudoApp.swift; sourceTree = "<group>"; };
+		B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastBudoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0A2291C35709F9F350A317F /* FastBudo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastBudo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		19458CDBB902DFBFEDA3D497 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */,
+				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
+				36CB2387AB1D27C166DB4CEF /* Info.plist */,
+				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
+				5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		4F77CC56CA38696BA452EAC6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E0A2291C35709F9F350A317F /* FastBudo.app */,
+				CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B9F3570F4426F580FE2372F8 /* AppTests */ = {
+			isa = PBXGroup;
+			children = (
+				0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */,
+			);
+			path = AppTests;
+			sourceTree = "<group>";
+		};
+		F1252085FE5655324721D034 = {
+			isa = PBXGroup;
+			children = (
+				19458CDBB902DFBFEDA3D497 /* App */,
+				B9F3570F4426F580FE2372F8 /* AppTests */,
+				4F77CC56CA38696BA452EAC6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		298EEDE9F57554F4086CC6C6 /* FastBudo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 153C8758D4EFE77645F72C89 /* Build configuration list for PBXNativeTarget "FastBudo" */;
+			buildPhases = (
+				37AF6A9E2D2962A01FD388B5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FastBudo;
+			packageProductDependencies = (
+			);
+			productName = FastBudo;
+			productReference = E0A2291C35709F9F350A317F /* FastBudo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C5CFB755FF6C50298D58BD10 /* FastBudoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B621D10DA92D54477D4CA08A /* Build configuration list for PBXNativeTarget "FastBudoTests" */;
+			buildPhases = (
+				A18760153FA1276529722E88 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				09142931499238BA98C31169 /* PBXTargetDependency */,
+			);
+			name = FastBudoTests;
+			packageProductDependencies = (
+			);
+			productName = FastBudoTests;
+			productReference = CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0F3F4B2E094E79F6F321C026 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = A1A5542CC433A8DC2998FFF3 /* Build configuration list for PBXProject "FastBudo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = F1252085FE5655324721D034;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4F77CC56CA38696BA452EAC6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				298EEDE9F57554F4086CC6C6 /* FastBudo */,
+				C5CFB755FF6C50298D58BD10 /* FastBudoTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		37AF6A9E2D2962A01FD388B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */,
+				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
+				E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */,
+				2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A18760153FA1276529722E88 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		09142931499238BA98C31169 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 298EEDE9F57554F4086CC6C6 /* FastBudo */;
+			targetProxy = D832D815E764AE44E267E7E0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3FD77D8BBD2B66338BE8A167 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FastBudo.app/Contents/MacOS/FastBudo";
+			};
+			name = Release;
+		};
+		470E53A13857ACCFC6B10C1A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fastbudo.app;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7BD847BFF9046E95C148283F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fastbudo.app;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		BEF0F6C7F309C7A94210E79B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		D8F18C75B4485449C6A128E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		E6971E775D30BDF7F58CF3AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FastBudo.app/Contents/MacOS/FastBudo";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		153C8758D4EFE77645F72C89 /* Build configuration list for PBXNativeTarget "FastBudo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7BD847BFF9046E95C148283F /* Debug */,
+				470E53A13857ACCFC6B10C1A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A1A5542CC433A8DC2998FFF3 /* Build configuration list for PBXProject "FastBudo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BEF0F6C7F309C7A94210E79B /* Debug */,
+				D8F18C75B4485449C6A128E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B621D10DA92D54477D4CA08A /* Build configuration list for PBXNativeTarget "FastBudoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E6971E775D30BDF7F58CF3AA /* Debug */,
+				3FD77D8BBD2B66338BE8A167 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0F3F4B2E094E79F6F321C026 /* Project object */;
+}
