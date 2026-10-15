@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		13DD8019D1E38E344CD458D7 /* FinderSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2A0836547B8EDF349C3E01 /* FinderSync.swift */; };
 		2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */; };
 		2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */; };
 		347C464930DF8991BE7E8DE8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E12B9D801C6BBFB70441AF2C /* Assets.xcassets */; };
 		3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */; };
+		43D13E56E3631952BF076BC7 /* FastBudoFinder.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
 		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
 		4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */ = {isa = PBXBuildFile; fileRef = E1E8BEFB8D54C6F5A88F342D /* 7zz */; };
@@ -18,6 +20,8 @@
 		88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */; };
 		8F0AA5137EFD3CD42CDF333F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */; };
 		96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */; };
+		A7E306B7673893658A98BEC6 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
+		B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
 		C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = DB83FC5BD11F79DB2650302D /* LICENSE.txt */; };
 		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
@@ -26,6 +30,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		D555EA167FDD13C977323AD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0F3F4B2E094E79F6F321C026 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8A62AAFB9F8DB747578FF493;
+			remoteInfo = FastBudoFinder;
+		};
 		D832D815E764AE44E267E7E0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0F3F4B2E094E79F6F321C026 /* Project object */;
@@ -35,11 +46,27 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		45ECF98C8BD2D7A9A4D50A11 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				43D13E56E3631952BF076BC7 /* FastBudoFinder.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0C2A0836547B8EDF349C3E01 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
 		0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFilesTests.swift; sourceTree = "<group>"; };
 		14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveModel.swift; sourceTree = "<group>"; };
 		36CB2387AB1D27C166DB4CEF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FastBudoFinder.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFiles.swift; sourceTree = "<group>"; };
 		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
 		71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInput.swift; sourceTree = "<group>"; };
@@ -51,10 +78,13 @@
 		AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
 		B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastBudoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRequest.swift; sourceTree = "<group>"; };
 		DB83FC5BD11F79DB2650302D /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		E0A2291C35709F9F350A317F /* FastBudo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastBudo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E12B9D801C6BBFB70441AF2C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E1E8BEFB8D54C6F5A88F342D /* 7zz */ = {isa = PBXFileReference; path = 7zz; sourceTree = "<group>"; };
+		E8DE785ADE84FC6498DBC751 /* FinderExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinderExtension.entitlements; sourceTree = "<group>"; };
+		E9127C8225AC91A3024B51FB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -74,10 +104,29 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		3B465A430BD2822715C35F92 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		434E051896E1BB76E1190522 /* FinderExtension */ = {
+			isa = PBXGroup;
+			children = (
+				E8DE785ADE84FC6498DBC751 /* FinderExtension.entitlements */,
+				0C2A0836547B8EDF349C3E01 /* FinderSync.swift */,
+				E9127C8225AC91A3024B51FB /* Info.plist */,
+			);
+			path = FinderExtension;
+			sourceTree = "<group>";
+		};
 		4F77CC56CA38696BA452EAC6 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				E0A2291C35709F9F350A317F /* FastBudo.app */,
+				37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */,
 				CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */,
 			);
 			name = Products;
@@ -121,6 +170,8 @@
 				19458CDBB902DFBFEDA3D497 /* App */,
 				B9F3570F4426F580FE2372F8 /* AppTests */,
 				95EC35DE7AA551B129F8FAA5 /* engine */,
+				434E051896E1BB76E1190522 /* FinderExtension */,
+				3B465A430BD2822715C35F92 /* Shared */,
 				4F77CC56CA38696BA452EAC6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -134,10 +185,12 @@
 			buildPhases = (
 				37AF6A9E2D2962A01FD388B5 /* Sources */,
 				D31C2B2F9B9828A794880F06 /* Resources */,
+				45ECF98C8BD2D7A9A4D50A11 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				CE7A2944AA025EA2F59B7082 /* PBXTargetDependency */,
 			);
 			name = FastBudo;
 			packageProductDependencies = (
@@ -145,6 +198,23 @@
 			productName = FastBudo;
 			productReference = E0A2291C35709F9F350A317F /* FastBudo.app */;
 			productType = "com.apple.product-type.application";
+		};
+		8A62AAFB9F8DB747578FF493 /* FastBudoFinder */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 90B226FF3C38C9773E69D955 /* Build configuration list for PBXNativeTarget "FastBudoFinder" */;
+			buildPhases = (
+				ACDA1C44663C751EE250EAA9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FastBudoFinder;
+			packageProductDependencies = (
+			);
+			productName = FastBudoFinder;
+			productReference = 37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		C5CFB755FF6C50298D58BD10 /* FastBudoTests */ = {
 			isa = PBXNativeTarget;
@@ -190,6 +260,7 @@
 			projectRoot = "";
 			targets = (
 				298EEDE9F57554F4086CC6C6 /* FastBudo */,
+				8A62AAFB9F8DB747578FF493 /* FastBudoFinder */,
 				C5CFB755FF6C50298D58BD10 /* FastBudoTests */,
 			);
 		};
@@ -220,6 +291,7 @@
 				78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */,
 				48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */,
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
+				B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */,
 				E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */,
 				2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */,
 			);
@@ -236,6 +308,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ACDA1C44663C751EE250EAA9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7E306B7673893658A98BEC6 /* FinderRequest.swift in Sources */,
+				13DD8019D1E38E344CD458D7 /* FinderSync.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -244,9 +325,32 @@
 			target = 298EEDE9F57554F4086CC6C6 /* FastBudo */;
 			targetProxy = D832D815E764AE44E267E7E0 /* PBXContainerItemProxy */;
 		};
+		CE7A2944AA025EA2F59B7082 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8A62AAFB9F8DB747578FF493 /* FastBudoFinder */;
+			targetProxy = D555EA167FDD13C977323AD8 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		234E73BA5E4FDFD37D9EF798 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = FinderExtension/FinderExtension.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = FinderExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fastbudo.app.finder;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
 		3FD77D8BBD2B66338BE8A167 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -418,6 +522,24 @@
 			};
 			name = Release;
 		};
+		E1FEE42DF185202F23D966C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = FinderExtension/FinderExtension.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = FinderExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.fastbudo.app.finder;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 		E6971E775D30BDF7F58CF3AA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -442,6 +564,15 @@
 			buildConfigurations = (
 				7BD847BFF9046E95C148283F /* Debug */,
 				470E53A13857ACCFC6B10C1A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		90B226FF3C38C9773E69D955 /* Build configuration list for PBXNativeTarget "FastBudoFinder" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				234E73BA5E4FDFD37D9EF798 /* Debug */,
+				E1FEE42DF185202F23D966C8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

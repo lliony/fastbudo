@@ -1,4 +1,5 @@
 import SwiftUI
+import FinderSync
 
 @main
 struct FastBudoApp: App {
@@ -9,6 +10,7 @@ struct FastBudoApp: App {
         }
         .defaultSize(width: 600, height: 520)
         .windowResizability(.contentSize)
+        .defaultLaunchBehavior(.suppressed)
         MenuBarExtra("FastBudo", systemImage: "command") {
             StatusPopover(model: delegate.model)
         }
@@ -19,7 +21,6 @@ struct FastBudoApp: App {
 struct PreferencesView: View {
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
-    @AppStorage("defaultFormat") private var defaultFormat = "zip"
     @State private var page = "压缩"
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,9 +42,10 @@ struct PreferencesView: View {
             Form {
                 if page == "通用" {
                     Section("使用方式") {
-                        LabeledContent("发起操作", value: "Finder 右键 → 服务")
+                        LabeledContent("发起操作", value: "Finder 右键 → FastBudo 压缩")
+                        Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
                         LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
-                        Text("快捷压缩直接生成 ZIP；更多压缩选项可选择格式、密码与保存位置。")
+                        Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Section("本机运行") {
@@ -53,11 +55,9 @@ struct PreferencesView: View {
                     }
                 } else if page == "压缩" {
                     Section("默认选项") {
-                        Picker("压缩格式", selection: $defaultFormat) {
-                            ForEach(ArchiveFormat.allCases, id: \.rawValue) { Text($0.rawValue.uppercased()).tag($0.rawValue) }
-                        }
+                        LabeledContent("压缩格式", value: "在 Finder 右键子菜单中选择")
                         LabeledContent("初始保存位置", value: "原文件所在文件夹")
-                        Text("快捷压缩始终使用 ZIP。本次压缩的调整不会改变默认设置。")
+                        Text("选择格式后立即执行，不弹出选项窗口、不设密码。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Section("元数据") {
@@ -144,50 +144,5 @@ struct StatusPopover: View {
         }
         .padding(20)
         .frame(width: 320)
-    }
-}
-
-struct ArchiveView: View {
-    @Bindable var model: ArchiveModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label("压缩 \(model.files.count) 个项目", systemImage: "archivebox")
-                .font(.title2.bold())
-            Text("选择格式与保存位置，然后开始压缩。")
-                .foregroundStyle(.secondary)
-            Form {
-                Picker("格式", selection: $model.format) {
-                    ForEach(ArchiveFormat.allCases, id: \.self) { Text($0.rawValue.uppercased()).tag($0) }
-                }.pickerStyle(.segmented)
-                TextField("文件名", text: $model.name)
-                if model.format != .tarGz {
-                    SecureField("密码（可选）", text: $model.password)
-                    if !model.password.isEmpty {
-                        Text(model.format == .zip ? "ZIP 文件名仍可见；部分解压器不支持 AES。" : "7z 同时加密文件名。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                HStack {
-                    Text(model.outputDirectory.path).lineLimit(1).truncationMode(.middle).help(model.outputDirectory.path)
-                    Spacer()
-                    Button("保存到…", action: model.chooseOutput)
-                }
-            }
-            .onChange(of: model.format) {
-                if model.format == .tarGz { model.password = "" }
-            }
-            if model.busy || model.failed != nil || !model.results.isEmpty {
-                Divider()
-                TaskStatusView(model: model)
-            }
-            HStack {
-                Text("仅应用于本次压缩").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("压缩", action: model.submit)
-                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
-                    .disabled(model.files.isEmpty || model.name.isEmpty || model.busy || model.failed != nil)
-            }
-        }
-        .padding(24).frame(width: 500)
     }
 }

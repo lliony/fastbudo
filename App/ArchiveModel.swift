@@ -87,10 +87,17 @@ struct ArchiveJob: Identifiable, Sendable {
         outputDirectory = first.deletingLastPathComponent()
         name = urls.count == 1 ? first.lastPathComponent : "归档"
         password = ""
-        format = quick ? .zip : (ArchiveFormat(rawValue: UserDefaults.standard.string(forKey: "defaultFormat") ?? "zip") ?? .zip)
+        format = .zip
         excludeDSStore = UserDefaults.standard.object(forKey: "excludeDSStore") as? Bool ?? true
         preserveAttributes = UserDefaults.standard.bool(forKey: "preserveAttributes")
         if quick { submit() }
+    }
+    // 菜单显式选择的格式优先于默认值，且不沿用上次密码。
+    func compress(_ urls: [URL], as format: ArchiveFormat) {
+        guard !urls.isEmpty else { return }
+        select(urls, quick: false)
+        self.format = format
+        submit()
     }
     func submit() {
         let request = CreateRequest(inputs: files, outputDirectory: outputDirectory, name: name, format: format,
@@ -100,17 +107,6 @@ struct ArchiveJob: Identifiable, Sendable {
     }
     func open(_ urls: [URL]) {
         for url in urls { enqueue(ArchiveJob(operation: .extract(url, url.deletingLastPathComponent()))) }
-    }
-    func chooseFiles() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        if panel.runModal() == .OK { select(panel.urls, quick: false) }
-    }
-    func chooseArchives() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        if panel.runModal() == .OK { open(panel.urls) }
     }
     func chooseOutput() {
         let panel = NSOpenPanel()

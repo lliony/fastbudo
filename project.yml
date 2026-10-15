@@ -12,6 +12,7 @@ targets:
     platform: macOS
     sources:
       - path: App
+      - path: Shared
       - path: .build/engine/7zz
         buildPhase: resources
       - path: .build/engine/7z.so
@@ -20,6 +21,9 @@ targets:
         buildPhase: resources
       - path: Vendor/7zip/LICENSE.txt
         buildPhase: resources
+    dependencies:
+      - target: FastBudoFinder
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.fastbudo.app
@@ -27,6 +31,17 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_FILE: App/Info.plist
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+  FastBudoFinder:
+    type: app-extension
+    platform: macOS
+    sources: [FinderExtension, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.fastbudo.app.finder
+        INFOPLIST_FILE: FinderExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: FinderExtension/FinderExtension.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
   FastBudoTests:
     type: bundle.unit-test
     platform: macOS
