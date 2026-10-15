@@ -15,6 +15,7 @@ struct FastBudoApp: App {
 struct PreferencesView: View {
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
+    @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
     @State private var page = "压缩"
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -31,6 +32,7 @@ struct PreferencesView: View {
                 Text("通用").tag("通用")
                 Text("压缩").tag("压缩")
                 Text("解压").tag("解压")
+                Text("新建").tag("新建")
             }
             .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 24)
             Form {
@@ -58,6 +60,19 @@ struct PreferencesView: View {
                         Toggle("过滤 .DS_Store", isOn: $excludeDSStore)
                         Toggle("保留 Mac 属性", isOn: $preserveAttributes)
                         Text("仅无密码 ZIP 支持保留属性。普通隐藏文件仍会保留，源文件不会被修改。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } else if page == "新建" {
+                    Section("常用文件类型") {
+                        TextField("扩展名", text: $newFileTypes)
+                            .onChange(of: newFileTypes) { NewItemTypes.broadcast() }
+                        Text("用逗号分隔，例如 txt, md, json, py。支持字母和数字，最多 12 项。保持应用运行，重新打开右键菜单后生效。")
+                            .font(.caption).foregroundStyle(.secondary)
+                        LabeledContent("菜单中显示", value: NewItemTypes.parse(newFileTypes).joined(separator: "、"))
+                    }
+                    Section("创建规则") {
+                        Text("在 Finder 当前文件夹的空白处右键 → FastBudo 新建。")
+                        Text("快捷项创建空文件；自定义文件可指定完整文件名。重名自动编号，完成后在 Finder 中选中。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 } else {

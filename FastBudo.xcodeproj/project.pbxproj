@@ -16,6 +16,7 @@
 		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
 		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
 		4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */ = {isa = PBXBuildFile; fileRef = E1E8BEFB8D54C6F5A88F342D /* 7zz */; };
+		6FC4A139C7FA8692D953AB0E /* NewItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E0AFF12B3C1966C6E2351E /* NewItemTests.swift */; };
 		78E7FD78908D4A6D782F6192 /* ArchiveFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */; };
 		88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */; };
 		8A2A5F2FBEB33D5E105678BB /* LaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6AE767EFC0E67B93F9A1D6 /* LaunchTests.swift */; };
@@ -23,7 +24,10 @@
 		96BE4B77F20AF78D5711E40D /* ArchiveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */; };
 		A7E306B7673893658A98BEC6 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
 		B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */; };
+		BC65EF8E1FDD89F20FFE6146 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
+		BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639BC4B4F3049C9B56581E59 /* NewItem.swift */; };
 		C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = DB83FC5BD11F79DB2650302D /* LICENSE.txt */; };
+		D56D4F2DD6A9CEA5478CD084 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
 		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
 		EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */ = {isa = PBXBuildFile; fileRef = 7D8E06ECA429F61162A1C775 /* ArchiveBridge */; };
@@ -70,7 +74,9 @@
 		37C938B4734E21AE9903BB19 /* FastBudoFinder.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FastBudoFinder.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFiles.swift; sourceTree = "<group>"; };
 		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
+		639BC4B4F3049C9B56581E59 /* NewItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItem.swift; sourceTree = "<group>"; };
 		71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInput.swift; sourceTree = "<group>"; };
+		73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItemTypes.swift; sourceTree = "<group>"; };
 		7D8E06ECA429F61162A1C775 /* ArchiveBridge */ = {isa = PBXFileReference; path = ArchiveBridge; sourceTree = "<group>"; };
 		8CB3C403F734BA2DAC066B22 /* 7z.so */ = {isa = PBXFileReference; path = 7z.so; sourceTree = "<group>"; };
 		8F07EC4F41742B0BB7AF66BF /* ArchiveEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngineTests.swift; sourceTree = "<group>"; };
@@ -78,6 +84,7 @@
 		AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveQueueTests.swift; sourceTree = "<group>"; };
 		AE7FE3DA01991E6E720D74A8 /* ArchiveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveEngine.swift; sourceTree = "<group>"; };
 		B4C5FAEBA8A909061B37A0BF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		C2E0AFF12B3C1966C6E2351E /* NewItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItemTests.swift; sourceTree = "<group>"; };
 		CE3C023D49684EA1E4AA8F4D /* FastBudoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastBudoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRequest.swift; sourceTree = "<group>"; };
 		DB83FC5BD11F79DB2650302D /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
@@ -100,6 +107,7 @@
 				E12B9D801C6BBFB70441AF2C /* Assets.xcassets */,
 				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
 				36CB2387AB1D27C166DB4CEF /* Info.plist */,
+				639BC4B4F3049C9B56581E59 /* NewItem.swift */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
 				5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */,
 			);
@@ -110,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				D9E852A6A44700EBBBF37F5E /* FinderRequest.swift */,
+				73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -161,6 +170,7 @@
 				0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */,
 				AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */,
 				DD6AE767EFC0E67B93F9A1D6 /* LaunchTests.swift */,
+				C2E0AFF12B3C1966C6E2351E /* NewItemTests.swift */,
 				0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */,
 			);
 			path = AppTests;
@@ -295,6 +305,8 @@
 				48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */,
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
 				B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */,
+				BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */,
+				BC65EF8E1FDD89F20FFE6146 /* NewItemTypes.swift in Sources */,
 				E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */,
 				2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */,
 			);
@@ -308,6 +320,7 @@
 				2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */,
 				E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */,
 				8A2A5F2FBEB33D5E105678BB /* LaunchTests.swift in Sources */,
+				6FC4A139C7FA8692D953AB0E /* NewItemTests.swift in Sources */,
 				3CCB3E11A9C82809A55482CB /* ServiceInputTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -318,6 +331,7 @@
 			files = (
 				A7E306B7673893658A98BEC6 /* FinderRequest.swift in Sources */,
 				13DD8019D1E38E344CD458D7 /* FinderSync.swift in Sources */,
+				D56D4F2DD6A9CEA5478CD084 /* NewItemTypes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
