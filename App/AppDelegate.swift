@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = ArchiveModel()
     let clipboard: ClipboardController
     override convenience init() { self.init(clipboard: ClipboardController()) }
@@ -32,12 +32,25 @@ import SwiftUI
         return false
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let closing = notification.object as? NSWindow else { return }
+        // 只计算主窗口，菜单栏和剪贴板浮窗不需要程序坞图标。
+        let hasOpenWindow = [settingsWindow, taskWindow].compactMap { $0 }.contains {
+            $0 !== closing && ($0.isVisible || $0.isMiniaturized)
+        }
+        if !hasOpenWindow { NSApp.setActivationPolicy(.accessory) }
+    }
+
     func showSettings() {
+        NSApp.setActivationPolicy(.regular)
         if settingsWindow == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             window.title = "FastBudo 设置"
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard))
             window.center()
             settingsWindow = window
@@ -96,10 +109,12 @@ import SwiftUI
 
     // 明确持有任务窗口，避免把 Finder 请求错误地送进设置窗口。
     private func showTask() {
+        NSApp.setActivationPolicy(.regular)
         if taskWindow == nil {
             taskWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             taskWindow?.isReleasedWhenClosed = false
+            taskWindow?.delegate = self
             taskWindow?.center()
         }
         taskWindow?.title = "FastBudo 任务"
