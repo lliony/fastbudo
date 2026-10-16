@@ -2,6 +2,19 @@ import Cocoa
 import FinderSync
 
 final class FinderSync: FIFinderSync {
+    private var nextCommand = 0
+    private var commands: [Int: (files: [URL], value: String, action: String)] = [:]
+
+    // Finder 转发菜单项时不能依赖 representedObject；用 tag 查找扩展内的请求快照。
+    private func commandItem(title: String, files: [URL], value: String, action: String) -> NSMenuItem {
+        nextCommand += 1
+        let item = NSMenuItem(title: title, action: #selector(executeCommand(_:)), keyEquivalent: "")
+        item.target = self
+        item.tag = nextCommand
+        commands[item.tag] = (files, value, action)
+        return item
+    }
+
     override init() {
         super.init()
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(updateTypes(_:)),
@@ -20,6 +33,7 @@ final class FinderSync: FIFinderSync {
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu? {
         guard menuKind == .contextualMenuForItems || menuKind == .contextualMenuForContainer else { return nil }
+        commands.removeAll()
         let menu = NSMenu()
         let controller = FIFinderSyncController.default()
         let selection = controller.selectedItemURLs() ?? []
@@ -30,9 +44,7 @@ final class FinderSync: FIFinderSync {
             let children = NSMenu()
             for type in ["folder"] + NewItemTypes.current + ["custom"] {
                 let title = type == "folder" ? "文件夹" : type == "custom" ? "自定义文件…" : "\(type.uppercased()) 文件"
-                let item = NSMenuItem(title: title, action: #selector(createItem(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = ["type": type, "directory": directory.absoluteString]
+                let item = commandItem(title: title, files: [directory], value: type, action: "create")
                 children.addItem(item)
             }
             parent.submenu = children
@@ -42,9 +54,7 @@ final class FinderSync: FIFinderSync {
         let parent = NSMenuItem(title: "FastBudo 压缩", action: nil, keyEquivalent: "")
         let formats = NSMenu()
         for format in FinderRequest.formats {
-            let item = NSMenuItem(title: format.uppercased(), action: #selector(compress(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = format
+            let item = commandItem(title: format.uppercased(), files: selection, value: format, action: "compress")
             formats.addItem(item)
         }
         parent.submenu = formats
@@ -52,17 +62,9 @@ final class FinderSync: FIFinderSync {
         return menu
     }
 
-    @objc private func compress(_ sender: NSMenuItem) {
-        guard let format = sender.representedObject as? String,
-              let files = FIFinderSyncController.default().selectedItemURLs(), !files.isEmpty else { return }
-        send(files, value: format, action: "compress")
-    }
-
-    @objc private func createItem(_ sender: NSMenuItem) {
-        guard let values = sender.representedObject as? [String: String],
-              let type = values["type"], let path = values["directory"],
-              let directory = URL(string: path), directory.isFileURL else { return }
-        send([directory], value: type, action: "create")
+    @objc private func executeCommand(_ sender: NSMenuItem) {
+        guard let command = commands.removeValue(forKey: sender.tag) else { return }
+        send(command.files, value: command.value, action: command.action)
     }
 
     private func send(_ files: [URL], value: String, action: String) {
