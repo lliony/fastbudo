@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import FastBudo
 
@@ -154,5 +155,76 @@ struct ClipboardStoreTests {
         await controller.reload()
         #expect(controller.items.count == 1)
         #expect(controller.items.first?.preview == "new synthetic content")
+    }
+}
+
+@MainActor @Suite(.serialized) struct ClipboardInteractionTests {
+    @Test(arguments: ["", "-1", "3.5", "abc", "99", "10001"])
+    func invalidHistoryLimit(_ input: String) {
+        #expect(ClipboardController.validatedLimit(input, range: 100...10000) == nil)
+    }
+    @Test func manualLimits() {
+        #expect(ClipboardController.validatedLimit(" 350 ", range: 100...10000) == 350)
+        #expect(ClipboardController.validatedLimit("75", range: 20...1024) == 75)
+        #expect(ClipboardController.validatedLimit("365", range: 1...365) == 365)
+        #expect(ClipboardController.validatedLimit("366", range: 1...365) == nil)
+    }
+    @Test(arguments: [true, false]) func copyRespectsClosePreference(_ close: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = "ClipboardInteraction.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let board = NSPasteboard.withUniqueName()
+        let controller = ClipboardController(defaults: defaults, board: board, directory: root)
+        defer { controller.hide(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: root) }
+        #expect(controller.copyOnClick && controller.closeAfterAction)
+        defaults.set(close, forKey: "clipCloseAfterAction")
+        let db = try ClipboardStore(directory: root)
+        let id = try db.capture(.text("合成拷贝测试"), source: "Tests", policy: .standard)
+        controller.show()
+        controller.copy(id)
+        let deadline = Date().addingTimeInterval(5)
+        while controller.copying && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(board.string(forType: .string) == "合成拷贝测试")
+        #expect(controller.isPanelVisible == !close)
+        controller.show()
+        controller.copy(UUID())
+        while controller.copying && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(controller.isPanelVisible)
+        #expect(board.string(forType: .string) == "合成拷贝测试")
+    }
+}
+
+@MainActor struct ClipboardLayoutTests {
+    @Test func compactPanelRendersSyntheticContent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = "ClipboardLayout.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let board = NSPasteboard.withUniqueName()
+        let db = try ClipboardStore(directory: root)
+        defer { board.releaseGlobally(); defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: root) }
+        for text in ["周五前确认设计稿与开发排期", "https://example.com/design", "会议纪要.md", "项目资料已整理，请查收附件。这是一条用于检查长文本换行和操作按钮对齐的合成记录。"] {
+            _ = try db.capture(.text(text), source: "示例内容", policy: .standard)
+        }
+        let controller = ClipboardController(defaults: defaults, board: board, directory: root)
+        await controller.reload()
+        for dark in [false, true] {
+            for width in [480, 620] {
+                let view = NSHostingView(rootView: ClipboardPanel(controller: controller))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 560), styleMask: [.borderless], backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+                window.contentView = view
+                view.frame = window.contentLayoutRect
+                window.orderFront(nil)
+                try await Task.sleep(for: .milliseconds(150))
+                view.layoutSubtreeIfNeeded()
+                let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+                let data = try #require(bitmap.representation(using: .png, properties: [:]))
+                #expect(view.bounds.width == CGFloat(width))
+                try data.write(to: URL(fileURLWithPath: "/private/tmp/fastbudo-panel-\(dark ? "dark" : "light")-\(width).png"))
+                window.orderOut(nil)
+            }
+        }
     }
 }

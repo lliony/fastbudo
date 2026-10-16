@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 import Carbon
-@preconcurrency import ApplicationServices
 
 @MainActor @Observable final class ClipboardController {
     var items: [ClipboardItem] = []
@@ -25,11 +24,8 @@ import Carbon
     private var lastChange: Int
     private var timer: Timer?
     private var captureInFlight = false
-    private var sending = false
+    private(set) var copying = false
     private var panel: NSPanel?
-    private var target: NSRunningApplication?
-    private var lastExternal: NSRunningApplication?
-    private var activationObserver: NSObjectProtocol?
     private let hotKey = ClipboardHotKey()
 
     init(defaults: UserDefaults = .standard, board: NSPasteboard = .general, directory: URL? = nil,
@@ -41,7 +37,16 @@ import Carbon
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FastBudo/Clipboard", isDirectory: true)
     }
-    var targetName: String { target?.localizedName ?? "未指定；将只复制" }
+    var isPanelVisible: Bool { panel?.isVisible == true }
+    var copyOnClick: Bool { defaults.object(forKey: "clipCopyOnClick") as? Bool ?? true }
+    var closeAfterAction: Bool { defaults.object(forKey: "clipCloseAfterAction") as? Bool ?? true }
+    /// 仅提交范围内的整数，编辑中的空值或无效字符不能改变清理策略。
+    static func validatedLimit(_ text: String, range: ClosedRange<Int>) -> Int? {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, value.allSatisfy({ $0.isASCII && $0.isNumber }),
+              let number = Int(value), range.contains(number) else { return nil }
+        return number
+    }
     var enabled: Bool { defaults.bool(forKey: "clipEnabled") }
     var policy: ClipPolicy {
         ClipPolicy(count: min(10000, max(1, defaults.object(forKey: "clipCount") as? Int ?? 1000)),
@@ -65,16 +70,6 @@ import Carbon
     func start() {
         guard timer == nil else { return }
         lastChange = board.changeCount
-        lastExternal = NSWorkspace.shared.frontmostApplication
-        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil, queue: .main) { [weak self] notification in
-            let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
-            MainActor.assumeIsolated {
-                if let pid, pid != ProcessInfo.processInfo.processIdentifier {
-                    self?.lastExternal = NSRunningApplication(processIdentifier: pid)
-                }
-            }
-        }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
         }
@@ -82,7 +77,6 @@ import Carbon
     }
     func stop() {
         timer?.invalidate(); timer = nil; hotKey.stop()
-        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver); self.activationObserver = nil }
     }
     func configureShortcut() {
         hotKey.stop()
@@ -185,66 +179,37 @@ import Carbon
     }
     func toggle() { if panel?.isVisible == true { panel?.orderOut(nil) } else { show() } }
     func show() {
-        let front = NSWorkspace.shared.frontmostApplication
-        target = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? lastExternal : front
         if panel == nil {
-            let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
+            let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
                                  styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             window.title = "FastBudo 剪贴板"
             window.isReleasedWhenClosed = false
             window.hidesOnDeactivate = false
-            window.minSize = NSSize(width: 720, height: 420)
+            window.minSize = NSSize(width: 480, height: 400)
             window.contentViewController = NSHostingController(rootView: ClipboardPanel(controller: self))
-            window.center(); window.setFrameAutosaveName("FastBudoClipboard")
+            window.center(); window.setFrameAutosaveName("FastBudoClipboardCompact")
             panel = window
         }
         panel?.makeKeyAndOrderFront(nil); NSApp.activate()
         Task { await reload() }
     }
     func hide() { panel?.orderOut(nil) }
-    func use(_ id: UUID, paste: Bool) {
-        guard !sending else { return }
-        sending = true
-        let destination = target, mode = mode
+    /// 所有拷贝入口共用完成逻辑；失败时不关闭面板，也不再发送粘贴按键。
+    func copy(_ id: UUID) {
+        guard !copying else { return }
+        copying = true
+        let mode = mode
         Task {
-            defer { sending = false }
+            defer { copying = false }
             do {
                 let db = try database()
                 let payload = try await Task.detached { try db.payload(id) }.value
                 try ClipboardCapture.write(payload, to: board, mode: mode)
                 lastChange = board.changeCount
-                guard paste else { message = "已复制"; return }
-                guard AXIsProcessTrusted(), let destination, !destination.isTerminated,
-                      destination.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-                      !excluded(destination.bundleIdentifier ?? "", key: "clipHotKeyExcluded") else {
-                    message = "已复制；自动粘贴需要辅助功能权限及有效目标应用。请手动粘贴。"; return
-                }
-                hide(); destination.activate()
-                try await Task.sleep(for: .milliseconds(180))
-                guard NSWorkspace.shared.frontmostApplication?.processIdentifier == destination.processIdentifier,
-                      Self.editableFocus(in: destination.processIdentifier) else {
-                    message = "已复制；目标焦点无法确认，请手动粘贴。"; return
-                }
-                guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: true),
-                      let up = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: false) else { throw ClipError.invalid }
-                down.flags = .maskCommand; up.flags = .maskCommand
-                down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
-                // 系统不回报粘贴是否被目标接收；保留堆栈条目，让用户明确移除。
-                message = "已发送粘贴快捷键；堆栈条目保留，可确认后移除。"
+                message = "已拷贝"
+                if closeAfterAction { hide() }
             } catch { message = error.localizedDescription }
         }
-    }
-    static func editableFocus(in pid: pid_t) -> Bool {
-        let app = AXUIElementCreateApplication(pid)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &value) == .success,
-              let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return false }
-        let element = unsafeDowncast(value, to: AXUIElement.self)
-        var role: CFTypeRef?, subrole: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
-        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
-        guard (subrole as? String) != "AXSecureTextField" else { return false }
-        return ["AXTextField", "AXTextArea", "AXComboBox"].contains(role as? String ?? "")
     }
     func exportBackup() {
         let save = NSSavePanel(); save.nameFieldStringValue = "FastBudo-剪贴板.json"; save.allowedContentTypes = [.json]

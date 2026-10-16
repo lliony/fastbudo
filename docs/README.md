@@ -16,3 +16,4 @@ last_updated: 2026-10-15
 | 审阅剪贴板模块的本地竞品证据与实现范围 | [iCopy 分析与范围建议](analysis/2026-10-15-icopy-clipboard.md) |
 | 使用剪贴板与核对测试边界 | [剪贴板使用与验证](guides/clipboard.md) |
 | 查看剪贴板实施步骤 | [剪贴板实施计划](superpowers/plans/2026-10-15-clipboard.md) |
+| 审阅数值输入、单击复制与面板改版 | [剪贴板交互改版计划](superpowers/plans/2026-10-16-clipboard-interaction.md) |
