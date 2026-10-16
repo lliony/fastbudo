@@ -89,7 +89,7 @@ struct PreferencesView: View {
                     }
                     Section("创建规则") {
                         Text("在 Finder 当前文件夹的空白处右键 → FastBudo 新建。")
-                        Text("快捷项创建空文件；自定义文件可指定完整文件名。重名自动编号，完成后在 Finder 中选中。")
+                        Text("选择类型后输入名称，确认才创建文件或文件夹。重名自动编号，完成后在 Finder 中选中。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
