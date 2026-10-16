@@ -53,8 +53,8 @@ struct FinderNewItemDestinationTests {
 }
 
 
-@MainActor struct NewItemPromptTests {
-    @Test func everyTypePromptsBeforeCreating() throws {
+@MainActor struct NewItemFinderTests {
+    @Test func createsBeforeFinderRenameWithoutPrompt() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -62,36 +62,34 @@ struct FinderNewItemDestinationTests {
         let defaults = UserDefaults(suiteName: suite)!
         let board = NSPasteboard.withUniqueName()
         let clipboard = ClipboardController(defaults: defaults, board: board)
-        let delegate = AppDelegate(clipboard: clipboard)
+        var revealed: [URL] = []
+        let delegate = AppDelegate(clipboard: clipboard, revealNewItem: { revealed.append($0) })
         defer { clipboard.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite) }
-        for type in ["txt", "md", "folder", "custom"] {
-            var didPrompt = false
+        for (type, expected) in [("txt", "未命名.txt"), ("md", "未命名.md"), ("folder", "新建文件夹"), ("custom", "未命名 2.txt")] {
+            var prompted = false
             let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
                 MainActor.assumeIsolated {
-                    didPrompt = NSApp.modalWindow != nil
-                    let input = NSApp.modalWindow?.initialFirstResponder as? NSTextField
-                    let expected = type == "folder" ? "新建文件夹" : "未命名.\(type == "custom" ? "txt" : type)"
-                    #expect(input?.stringValue == expected)
-                    #expect((input?.currentEditor() as? NSTextView)?.selectedRange() == NSRange(location: 0, length: type == "folder" ? 5 : 3))
+                    prompted = true
                     NSApp.abortModal()
                 }
             }
             RunLoop.main.add(timer, forMode: .modalPanel)
             delegate.createItem(in: root, type: type)
             timer.invalidate()
-            #expect(didPrompt)
-            #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
+            #expect(!prompted)
+            #expect(revealed.last?.lastPathComponent == expected)
+            #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent(expected).path))
         }
-        let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
-            MainActor.assumeIsolated {
-                let input = NSApp.modalWindow?.initialFirstResponder as? NSTextField
-                input?.stringValue = "项目笔记.md"
-                NSApp.stopModal(withCode: .alertFirstButtonReturn)
-            }
-        }
-        RunLoop.main.add(timer, forMode: .modalPanel)
-        defer { timer.invalidate() }
-        delegate.createItem(in: root, type: "md")
-        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["项目笔记.md"])
+    }
+}
+
+
+@MainActor struct FinderRenameTests {
+    @Test func onlyRenamesTheExactSingleSelection() {
+        let target = URL(fileURLWithPath: "/tmp/new-item/未命名.txt")
+        #expect(FinderRename.matches([target], target: target))
+        #expect(!FinderRename.matches([], target: target))
+        #expect(!FinderRename.matches([URL(fileURLWithPath: "/tmp/other/未命名.txt")], target: target))
+        #expect(!FinderRename.matches([target, URL(fileURLWithPath: "/tmp/new-item/other.txt")], target: target))
     }
 }

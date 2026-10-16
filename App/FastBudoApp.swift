@@ -83,9 +83,14 @@ struct PreferencesView: View {
                             .font(.caption).foregroundStyle(.secondary)
                         LabeledContent("菜单中显示", value: NewItemTypes.parse(newFileTypes).joined(separator: "、"))
                     }
+                    Section("Finder 原地重命名") {
+                        Button("允许 Finder 原地重命名…") { FinderRename.requestPermission() }
+                        Text("需要在系统设置 → 隐私与安全性 → 辅助功能中允许 FastBudo。未授权时会选中新项目，可手动按回车改名。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Section("创建规则") {
                         Text("在 Finder 当前文件夹的空白处右键 → FastBudo 新建。")
-                        Text("选择类型后输入名称，确认才创建文件或文件夹。重名自动编号，完成后在 Finder 中选中。")
+                        Text("创建后直接在 Finder 中修改名称。回车确认，Esc 保留默认名；重名自动编号。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 

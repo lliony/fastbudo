@@ -4,9 +4,11 @@ import SwiftUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = ArchiveModel()
     let clipboard: ClipboardController
+    private let revealNewItem: @MainActor (URL) -> Void
     override convenience init() { self.init(clipboard: ClipboardController()) }
-    init(clipboard: ClipboardController) {
+    init(clipboard: ClipboardController, revealNewItem: @escaping @MainActor (URL) -> Void = FinderRename.revealAndRename) {
         self.clipboard = clipboard
+        self.revealNewItem = revealNewItem
         super.init()
     }
     private var taskWindow: NSWindow?
@@ -85,28 +87,9 @@ import SwiftUI
     func createItem(in directory: URL, type: String) {
         let folder = type == "folder"
         let name = folder ? "新建文件夹" : "未命名.\(type == "custom" ? "txt" : type)"
-        let alert = NSAlert()
-        alert.messageText = folder ? "新建文件夹" : "新建文件"
-        alert.informativeText = folder ? "输入文件夹名称。重名会自动编号。" : "输入完整文件名（包含扩展名），例如 config.json。重名会自动编号。"
-        let input = NSTextField(string: name)
-        input.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
-        alert.accessoryView = input
-        alert.addButton(withTitle: "创建").keyEquivalent = "\r"
-        alert.addButton(withTitle: "取消").keyEquivalent = "\u{1b}"
-        NSApp.activate()
-        alert.window.initialFirstResponder = input
-        // 等模态窗口建立字段编辑器后，只选中文件名主体，保留扩展名。
-        RunLoop.main.perform(inModes: [.modalPanel]) {
-            MainActor.assumeIsolated {
-                input.selectText(nil)
-                let stem = folder ? name : (name as NSString).deletingPathExtension
-                (input.currentEditor() as? NSTextView)?.setSelectedRange(NSRange(location: 0, length: (stem as NSString).length))
-            }
-        }
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
-            let result = try NewItem.create(in: directory, name: input.stringValue, folder: folder)
-            NSWorkspace.shared.activateFileViewerSelecting([result])
+            let result = try NewItem.create(in: directory, name: name, folder: folder)
+            revealNewItem(result)
         } catch {
             let alert = NSAlert()
             alert.messageText = "无法创建"
