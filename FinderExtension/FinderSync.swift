@@ -21,8 +21,11 @@ final class FinderSync: FIFinderSync {
     override func menu(for menuKind: FIMenuKind) -> NSMenu? {
         guard menuKind == .contextualMenuForItems || menuKind == .contextualMenuForContainer else { return nil }
         let menu = NSMenu()
-        if menuKind == .contextualMenuForContainer {
-            guard let directory = FIFinderSyncController.default().targetedURL() else { return nil }
+        let controller = FIFinderSyncController.default()
+        let selection = controller.selectedItemURLs() ?? []
+        let directory = menuKind == .contextualMenuForContainer
+            ? controller.targetedURL() : FinderRequest.creationDirectory(for: selection)
+        if let directory, directory.isFileURL {
             let parent = NSMenuItem(title: "FastBudo 新建", action: nil, keyEquivalent: "")
             let children = NSMenu()
             for type in ["folder"] + NewItemTypes.current + ["custom"] {
@@ -34,9 +37,8 @@ final class FinderSync: FIFinderSync {
             }
             parent.submenu = children
             menu.addItem(parent)
-            return menu
         }
-        guard let urls = FIFinderSyncController.default().selectedItemURLs(), !urls.isEmpty else { return nil }
+        guard menuKind == .contextualMenuForItems, !selection.isEmpty else { return menu.items.isEmpty ? nil : menu }
         let parent = NSMenuItem(title: "FastBudo 压缩", action: nil, keyEquivalent: "")
         let formats = NSMenu()
         for format in FinderRequest.formats {
