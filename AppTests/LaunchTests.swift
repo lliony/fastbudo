@@ -4,6 +4,8 @@ import Testing
 
 @MainActor struct LaunchTests {
     @Test func settingsFollowLaunchIntentAndReopen() throws {
+        let originalPolicy = NSApp.activationPolicy()
+        defer { NSApp.setActivationPolicy(originalPolicy) }
         let board = NSPasteboard.withUniqueName()
         let suite = "FastBudoTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -19,9 +21,13 @@ import Testing
         let window = try #require(delegate.settingsWindow)
         defer { window.close() }
         #expect(window.isVisible)
+        #expect(NSApp.activationPolicy() == .regular)
         window.close()
         #expect(!window.isVisible)
+        #expect(NSApp.activationPolicy() == .accessory)
+        #expect(delegate.applicationShouldTerminateAfterLastWindowClosed(NSApp) == false)
         #expect(!delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false))
+        #expect(NSApp.activationPolicy() == .regular)
         #expect(delegate.settingsWindow === window)
         #expect(window.isVisible)
     }
