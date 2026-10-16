@@ -19,3 +19,5 @@ last_updated: 2026-10-16
 | 审阅数值输入、单击复制与面板改版 | [剪贴板交互改版计划](superpowers/plans/2026-10-16-clipboard-interaction.md) |
 | 审阅菜单栏图标收纳、拖动分区与恢复行为 | [菜单栏收纳设计](superpowers/specs/2026-10-16-menu-bar-design.md) |
 | 实施菜单栏收纳及核对验证步骤 | [菜单栏收纳实施计划](superpowers/plans/2026-10-16-menu-bar.md) |
+| 查看菜单栏收纳原型的实际证据与待验收项 | [菜单栏验证记录](validation/2026-10-16-menu-bar.md) |
+| 使用菜单栏收纳及恢复隐藏图标 | [菜单栏使用说明](guides/menu-bar.md) |

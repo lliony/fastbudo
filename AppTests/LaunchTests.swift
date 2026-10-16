@@ -11,7 +11,7 @@ import Testing
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(false, forKey: "clipHotKeyEnabled")
         let clipboard = ClipboardController(defaults: defaults, board: board)
-        let delegate = AppDelegate(clipboard: clipboard)
+        let delegate = AppDelegate(clipboard: clipboard, menuBar: MenuBarController(defaults: defaults, statusBar: nil))
         defer { clipboard.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite) }
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification,
             userInfo: [NSApplication.launchIsDefaultUserInfoKey: false]))
