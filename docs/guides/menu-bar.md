@@ -1,11 +1,13 @@
 ---
 title: 菜单栏收纳使用说明
-status: active
+status: deprecated
 last_updated: 2026-10-16
 related_spec: ../superpowers/specs/2026-10-16-menu-bar-design.md
 ---
 
 # 菜单栏收纳
+
+> 已按用户要求移除菜单栏收纳功能。本文仅保留历史记录，不再适用于当前版本；FastBudo 原有菜单栏工具入口仍保留。
 
 在 FastBudo 设置中进入「菜单栏」，开启「启用菜单栏收纳」。初次安装默认关闭，启用后保持展开。
 

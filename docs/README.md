@@ -17,7 +17,7 @@ last_updated: 2026-10-16
 | 使用剪贴板与核对测试边界 | [剪贴板使用与验证](guides/clipboard.md) |
 | 查看剪贴板实施步骤 | [剪贴板实施计划](superpowers/plans/2026-10-15-clipboard.md) |
 | 审阅数值输入、单击复制与面板改版 | [剪贴板交互改版计划](superpowers/plans/2026-10-16-clipboard-interaction.md) |
-| 审阅菜单栏图标收纳、拖动分区与恢复行为 | [菜单栏收纳设计](superpowers/specs/2026-10-16-menu-bar-design.md) |
-| 实施菜单栏收纳及核对验证步骤 | [菜单栏收纳实施计划](superpowers/plans/2026-10-16-menu-bar.md) |
-| 查看菜单栏收纳原型的实际证据与待验收项 | [菜单栏验证记录](validation/2026-10-16-menu-bar.md) |
-| 使用菜单栏收纳及恢复隐藏图标 | [菜单栏使用说明](guides/menu-bar.md) |
+| 历史：菜单栏收纳设计（已移除） | [菜单栏收纳设计](superpowers/specs/2026-10-16-menu-bar-design.md) |
+| 历史：菜单栏收纳计划（已移除） | [菜单栏收纳实施计划](superpowers/plans/2026-10-16-menu-bar.md) |
+| 历史：菜单栏验证记录（已移除） | [菜单栏验证记录](validation/2026-10-16-menu-bar.md) |
+| 历史：菜单栏使用说明（已移除） | [菜单栏使用说明](guides/menu-bar.md) |
