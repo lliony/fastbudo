@@ -1,5 +1,6 @@
 import SwiftUI
 import FinderSync
+import ApplicationServices
 
 @main
 struct FastBudoApp: App {
@@ -18,6 +19,8 @@ struct PreferencesView: View {
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
     @State private var page = "压缩与解压"
+    @State private var finderEnabled = false
+    @State private var renameEnabled = false
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -42,7 +45,12 @@ struct PreferencesView: View {
                 } else if page == "通用" {
                     Section("使用方式") {
                         LabeledContent("发起操作", value: "Finder 右键 → FastBudo 压缩")
-                        Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
+                        if finderEnabled {
+                            Label("Finder 右键扩展 · 已启用", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
+                        }
                         LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
                         Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
                             .font(.callout).foregroundStyle(.secondary)
@@ -84,7 +92,12 @@ struct PreferencesView: View {
                         LabeledContent("菜单中显示", value: NewItemTypes.parse(newFileTypes).joined(separator: "、"))
                     }
                     Section("Finder 原地重命名") {
-                        Button("允许 Finder 原地重命名…") { FinderRename.requestPermission() }
+                        if renameEnabled {
+                            Label("Finder 原地重命名 · 已启用", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Button("允许 Finder 原地重命名…") { FinderRename.requestPermission() }
+                        }
                         Text("需要在系统设置 → 隐私与安全性 → 辅助功能中允许 FastBudo。未授权时会选中新项目，可手动按回车改名。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -105,6 +118,16 @@ struct PreferencesView: View {
             .padding(.horizontal, 24).padding(.bottom, 18)
         }
         .frame(width: 600, height: 520)
+        .onAppear(perform: refreshEnabledStates)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshEnabledStates()
+        }
+    }
+
+    private func refreshEnabledStates() {
+        // 每次返回应用重新读取系统状态，避免撤销授权后仍显示已启用。
+        finderEnabled = FIFinderSyncController.isExtensionEnabled
+        renameEnabled = AXIsProcessTrusted()
     }
 }
 
