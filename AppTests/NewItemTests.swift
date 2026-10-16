@@ -38,3 +38,16 @@ struct NewItemTests {
         #expect(NewItemTypes.parse("../bad, a/b, , .txt") == ["txt"])
     }
 }
+
+struct FinderNewItemDestinationTests {
+    @Test func selectedItemsCreateBesideSelection() {
+        let root = URL(fileURLWithPath: "/tmp/menu-test", isDirectory: true)
+        let folder = root.appendingPathComponent("folder", isDirectory: true)
+        let file = root.appendingPathComponent("file.txt")
+        #expect(FinderRequest.creationDirectory(for: [folder]) == root)
+        #expect(FinderRequest.creationDirectory(for: [folder, file]) == root)
+        #expect(FinderRequest.creationDirectory(for: []) == nil)
+        #expect(FinderRequest.creationDirectory(for: [file, URL(fileURLWithPath: "/other/file")]) == nil)
+        #expect(FinderRequest.creationDirectory(for: [URL(string: "https://example.com/file")!]) == nil)
+    }
+}

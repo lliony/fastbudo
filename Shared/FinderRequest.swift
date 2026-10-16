@@ -14,6 +14,13 @@ enum FinderRequest {
         return components.url
     }
 
+    /// 在选择项旁边新建；搜索结果跨目录时不猜测目标位置。
+    static func creationDirectory(for selection: [URL]) -> URL? {
+        guard let first = selection.first, selection.allSatisfy({ $0.isFileURL }) else { return nil }
+        let parent = first.deletingLastPathComponent().standardizedFileURL
+        return selection.allSatisfy { $0.deletingLastPathComponent().standardizedFileURL == parent } ? parent : nil
+    }
+
     private static func valid(action: String, value: String) -> Bool {
         if action == "compress" { return formats.contains(value) }
         return action == "create" && (value == "folder" || value == "custom" || NewItemTypes.parse(value) == [value])
