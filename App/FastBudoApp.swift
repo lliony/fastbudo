@@ -17,7 +17,7 @@ struct PreferencesView: View {
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
-    @State private var page = "压缩"
+    @State private var page = "压缩与解压"
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -31,8 +31,7 @@ struct PreferencesView: View {
             }.padding(24)
             Picker("设置分类", selection: $page) {
                 Text("通用").tag("通用")
-                Text("压缩").tag("压缩")
-                Text("解压").tag("解压")
+                Text("压缩与解压").tag("压缩与解压")
                 Text("新建").tag("新建")
                 Text("剪贴板").tag("剪贴板")
             }
@@ -53,17 +52,27 @@ struct PreferencesView: View {
                         Text("任务执行时请先取消，等待清理完成后退出应用。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                } else if page == "压缩" {
-                    Section("默认选项") {
+                } else if page == "压缩与解压" {
+                    Section("压缩 · 默认选项") {
                         LabeledContent("压缩格式", value: "在 Finder 右键子菜单中选择")
                         LabeledContent("初始保存位置", value: "原文件所在文件夹")
                         Text("选择格式后立即执行，不弹出选项窗口、不设密码。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Section("元数据") {
+                    Section("压缩 · 元数据") {
                         Toggle("过滤 .DS_Store", isOn: $excludeDSStore)
                         Toggle("保留 Mac 属性", isOn: $preserveAttributes)
                         Text("仅无密码 ZIP 支持保留属性。普通隐藏文件仍会保留，源文件不会被修改。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Section("解压 · 输出规则") {
+                        LabeledContent("保存位置", value: "压缩包所在文件夹")
+                        LabeledContent("解压内容", value: "放入独立文件夹")
+                        LabeledContent("遇到重名", value: "自动编号，保留已有文件")
+                    }
+                    Section("解压 · 安全处理") {
+                        Text("大体积或无法预估的归档会在解压前请求确认。")
+                        Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 } else if page == "新建" {
@@ -79,17 +88,7 @@ struct PreferencesView: View {
                         Text("快捷项创建空文件；自定义文件可指定完整文件名。重名自动编号，完成后在 Finder 中选中。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                } else {
-                    Section("输出规则") {
-                        LabeledContent("保存位置", value: "压缩包所在文件夹")
-                        LabeledContent("解压内容", value: "放入独立文件夹")
-                        LabeledContent("遇到重名", value: "自动编号，保留已有文件")
-                    }
-                    Section("安全处理") {
-                        Text("大体积或无法预估的归档会在解压前请求确认。")
-                        Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+
                 }
             }.formStyle(.grouped)
             HStack {
