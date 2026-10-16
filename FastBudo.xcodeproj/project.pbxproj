@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0481A495AE2D0E4F5B6AFF27 /* FinderRename.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */; };
 		13DD8019D1E38E344CD458D7 /* FinderSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2A0836547B8EDF349C3E01 /* FinderSync.swift */; };
 		2CB6B5B07A6D0A45174AC226 /* ArchiveFilesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */; };
 		2D729B70EC01D04CA9E1F44D /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */; };
@@ -74,6 +75,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRename.swift; sourceTree = "<group>"; };
 		0C2A0836547B8EDF349C3E01 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
 		0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFilesTests.swift; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 				14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */,
 				E12B9D801C6BBFB70441AF2C /* Assets.xcassets */,
 				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
+				09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */,
 				36CB2387AB1D27C166DB4CEF /* Info.plist */,
 				639BC4B4F3049C9B56581E59 /* NewItem.swift */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
@@ -343,6 +346,7 @@
 				EE00D6A9B39894FFE0FBE665 /* ClipboardSettings.swift in Sources */,
 				677985DEC3B189DABF3D37F0 /* ClipboardStore.swift in Sources */,
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
+				0481A495AE2D0E4F5B6AFF27 /* FinderRename.swift in Sources */,
 				B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */,
 				BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */,
 				BC65EF8E1FDD89F20FFE6146 /* NewItemTypes.swift in Sources */,
