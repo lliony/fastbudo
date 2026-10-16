@@ -1,11 +1,13 @@
 ---
 title: 菜单栏图标收纳设计
-status: active
+status: deprecated
 last_updated: 2026-10-16
 related_plan: ../plans/2026-10-16-menu-bar.md
 ---
 
 # 菜单栏图标收纳设计
+
+> 已按用户要求移除菜单栏收纳功能。本文仅保留历史记录，不再适用于当前版本；FastBudo 原有菜单栏工具入口仍保留。
 
 ## 目标与已确认范围
 

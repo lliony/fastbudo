@@ -14,7 +14,6 @@ struct FastBudoApp: App {
 
 struct PreferencesView: View {
     @Bindable var clipboard: ClipboardController
-    @Bindable var menuBar: MenuBarController
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
@@ -33,15 +32,12 @@ struct PreferencesView: View {
             Picker("设置分类", selection: $page) {
                 Text("通用").tag("通用")
                 Text("压缩与解压").tag("压缩与解压")
-                Text("菜单栏").tag("菜单栏")
                 Text("新建").tag("新建")
                 Text("剪贴板").tag("剪贴板")
             }
             .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 24)
             Form {
-                if page == "菜单栏" {
-                    MenuBarSettings(controller: menuBar)
-                } else if page == "剪贴板" {
+                if page == "剪贴板" {
                     ClipboardSettings(controller: clipboard)
                 } else if page == "通用" {
                     Section("使用方式") {

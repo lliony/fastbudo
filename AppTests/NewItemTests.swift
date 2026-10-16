@@ -62,7 +62,7 @@ struct FinderNewItemDestinationTests {
         let defaults = UserDefaults(suiteName: suite)!
         let board = NSPasteboard.withUniqueName()
         let clipboard = ClipboardController(defaults: defaults, board: board)
-        let delegate = AppDelegate(clipboard: clipboard, menuBar: MenuBarController(defaults: defaults, statusBar: nil))
+        let delegate = AppDelegate(clipboard: clipboard)
         defer { clipboard.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite) }
         for type in ["txt", "md", "folder", "custom"] {
             var didPrompt = false
