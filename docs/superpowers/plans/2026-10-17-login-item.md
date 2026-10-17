@@ -1,13 +1,13 @@
 ---
-title: 登录时打开实施计划
+title: 开机自动启动实施计划
 status: active
 last_updated: 2026-10-17
 related_spec: ../specs/2026-10-15-fastbudo-design.md
 ---
 
-# 登录时打开 Implementation Plan
+# 开机自动启动 Implementation Plan
 
-**Goal:** 设置页「通用 → 本机运行」提供「登录时打开」开关，登录 macOS 后 FastBudo 自动静默驻留菜单栏，默认关闭。
+**Goal:** 设置页「通用 → 本机运行」提供「开机自动启动」开关，登录 macOS 后 FastBudo 自动静默驻留菜单栏，默认关闭。
 
 **Architecture:** 主应用未沙盒、本地临时签名，直接以 `SMAppService.mainApp` 注册主应用登录项，不引入 helper bundle 或 LaunchAgent。状态以系统为准（`SMAppService.mainApp.status`），不存本地偏好，与「系统设置 → 登录项」中的用户改动保持一致。
 
@@ -37,7 +37,7 @@ related_spec: ../specs/2026-10-15-fastbudo-design.md
 ## 任务一：实现开关与状态同步
 
 - [x] 新建 `LoginItem` 封装（status / setEnabled / openSystemSettings）。本 SDK 中 `unregister()` 为 throwing 签名，与旧文档的回调式不同，按探针编译结果适配。
-- [x] 设置页加 `Toggle("登录时打开")`，状态并入 `refreshEnabledStates()`；失败回弹 + alert；`.requiresApproval` 显示系统设置引导。
+- [x] 设置页加 `Toggle("开机自动启动")`，状态并入 `refreshEnabledStates()`；失败回弹 + alert；`.requiresApproval` 显示系统设置引导。
 - [x] XcodeGen 重生成，工程 diff 仅含新文件（4 行）。
 
 ## 任务二：验证
