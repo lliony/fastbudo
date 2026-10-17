@@ -21,6 +21,9 @@ struct PreferencesView: View {
     @State private var page = "压缩与解压"
     @State private var finderEnabled = false
     @State private var renameEnabled = false
+    @State private var loginItemEnabled = false
+    @State private var loginItemNeedsApproval = false
+    @State private var loginItemError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -56,6 +59,14 @@ struct PreferencesView: View {
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Section("本机运行") {
+                        Toggle("登录时打开", isOn: loginItemBinding)
+                        if loginItemNeedsApproval {
+                            Button("在系统设置中允许…") { LoginItem.openSystemSettings() }
+                            Text("macOS 需要确认后才允许登录时自动打开。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Text("登录 macOS 后自动驻留菜单栏，不弹出窗口。")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text("文件处理完全在本机完成。关闭任务窗口或收起浮窗，任务仍会继续。")
                         Text("任务执行时请先取消，等待清理完成后退出应用。")
                             .font(.caption).foregroundStyle(.secondary)
@@ -122,12 +133,38 @@ struct PreferencesView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshEnabledStates()
         }
+        .alert("登录时打开设置失败", isPresented: Binding(
+            get: { loginItemError != nil },
+            set: { if !$0 { loginItemError = nil } }
+        )) {
+            Button("好") { loginItemError = nil }
+        } message: {
+            Text(loginItemError ?? "")
+        }
+    }
+
+    private var loginItemBinding: Binding<Bool> {
+        Binding(
+            get: { loginItemEnabled },
+            set: { enabled in
+                do {
+                    try LoginItem.setEnabled(enabled)
+                } catch {
+                    loginItemError = error.localizedDescription
+                }
+                // 无论成败都回读系统状态，失败时开关自然回弹。
+                refreshEnabledStates()
+            }
+        )
     }
 
     private func refreshEnabledStates() {
         // 每次返回应用重新读取系统状态，避免撤销授权后仍显示已启用。
         finderEnabled = FIFinderSyncController.isExtensionEnabled
         renameEnabled = AXIsProcessTrusted()
+        let loginItemStatus = LoginItem.status
+        loginItemEnabled = loginItemStatus == .enabled
+        loginItemNeedsApproval = loginItemStatus == .requiresApproval
     }
 }
 
