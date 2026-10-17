@@ -59,10 +59,10 @@ struct PreferencesView: View {
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Section("本机运行") {
-                        Toggle("登录时打开", isOn: loginItemBinding)
+                        Toggle("开机自动启动", isOn: loginItemBinding)
                         if loginItemNeedsApproval {
                             Button("在系统设置中允许…") { LoginItem.openSystemSettings() }
-                            Text("macOS 需要确认后才允许登录时自动打开。")
+                            Text("macOS 需要确认后才允许开机自动启动。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Text("登录 macOS 后自动驻留菜单栏，不弹出窗口。")
@@ -133,7 +133,7 @@ struct PreferencesView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshEnabledStates()
         }
-        .alert("登录时打开设置失败", isPresented: Binding(
+        .alert("开机自动启动设置失败", isPresented: Binding(
             get: { loginItemError != nil },
             set: { if !$0 { loginItemError = nil } }
         )) {

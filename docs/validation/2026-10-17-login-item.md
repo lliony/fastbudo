@@ -1,11 +1,11 @@
 ---
-title: 登录时打开验证记录
+title: 开机自动启动验证记录
 status: active
 last_updated: 2026-10-17
 related_plan: ../superpowers/plans/2026-10-17-login-item.md
 ---
 
-# 登录时打开验证记录
+# 开机自动启动验证记录
 
 ## 自动化验证
 
@@ -23,7 +23,7 @@ related_plan: ../superpowers/plans/2026-10-17-login-item.md
 
 ## 手动验证步骤（待执行）
 
-1. 安装新版 FastBudo.app 到 `~/Applications` 并打开，设置 → 通用 → 打开「登录时打开」。
+1. 安装新版 FastBudo.app 到 `~/Applications` 并打开，设置 → 通用 → 打开「开机自动启动」。
 2. 确认「系统设置 → 通用 → 登录项」中出现 FastBudo。
 3. 注销并重新登录，确认菜单栏出现 ⌘ 图标且不弹出设置窗。
 4. 关闭开关，再次注销登录，确认不再自动启动。
