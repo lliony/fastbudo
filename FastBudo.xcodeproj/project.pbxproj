@@ -37,6 +37,7 @@
 		D56D4F2DD6A9CEA5478CD084 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
 		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
+		E6917EFBD7E1FA4A8746E8FB /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD54D0D9C980C8ED6600C81 /* LoginItem.swift */; };
 		E6C594070E4D0337B691945C /* ClipboardHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62D4A19E2D62A952E008656 /* ClipboardHotKey.swift */; };
 		EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */ = {isa = PBXBuildFile; fileRef = 7D8E06ECA429F61162A1C775 /* ArchiveBridge */; };
 		EE00D6A9B39894FFE0FBE665 /* ClipboardSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA3787D0C29B1709AD56A10 /* ClipboardSettings.swift */; };
@@ -78,6 +79,7 @@
 		09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRename.swift; sourceTree = "<group>"; };
 		0C2A0836547B8EDF349C3E01 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
+		0DD54D0D9C980C8ED6600C81 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
 		0ECC82A81A5D1010BE5AF524 /* ArchiveFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFilesTests.swift; sourceTree = "<group>"; };
 		14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveModel.swift; sourceTree = "<group>"; };
 		2DA3787D0C29B1709AD56A10 /* ClipboardSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardSettings.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				AAE9F03A794FB4B09D759F9B /* FastBudoApp.swift */,
 				09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */,
 				36CB2387AB1D27C166DB4CEF /* Info.plist */,
+				0DD54D0D9C980C8ED6600C81 /* LoginItem.swift */,
 				639BC4B4F3049C9B56581E59 /* NewItem.swift */,
 				71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */,
 				5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */,
@@ -348,6 +351,7 @@
 				88EC20AECF9D0196AAE57CA2 /* FastBudoApp.swift in Sources */,
 				0481A495AE2D0E4F5B6AFF27 /* FinderRename.swift in Sources */,
 				B8F8ADC7B960427E897CED40 /* FinderRequest.swift in Sources */,
+				E6917EFBD7E1FA4A8746E8FB /* LoginItem.swift in Sources */,
 				BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */,
 				BC65EF8E1FDD89F20FFE6146 /* NewItemTypes.swift in Sources */,
 				E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */,
