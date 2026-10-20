@@ -11,7 +11,6 @@ struct ClipboardPanel: View {
     @State private var manageGroups = false
     @State private var newGroup = ""
     @FocusState private var searchFocused: Bool
-    @State private var showDetail = false
     @AppStorage("clipCopyOnClick") private var copyOnClick = true
     @AppStorage("clipCloseAfterAction") private var closeAfterAction = true
 
@@ -95,7 +94,7 @@ struct ClipboardPanel: View {
             Divider()
             HStack {
                 Menu("管理") {
-                    Button("查看所选条目…") { showDetail = true }.disabled(controller.selected == nil)
+                    Button("查看所选条目…") { controller.showDetail = true }.disabled(controller.selected == nil)
                     Divider()
                     Button("新建快捷回复…") { edit(nil) }
                     Button("管理分组…") { manageGroups = true }
@@ -128,31 +127,29 @@ struct ClipboardPanel: View {
             }
             await controller.reload()
         }
-        .task(id: controller.selected) { await controller.loadDetail() }
         .onChange(of: controller.section) { controller.selected = controller.visible.first?.id }
         .onChange(of: controller.group) { controller.selected = controller.visible.first?.id }
         .onChange(of: controller.kind) { controller.selected = controller.visible.first?.id }
         .onKeyPress(.escape) { controller.hide(); return .handled }
-        .onKeyPress(.return) { guard !replyEditor && !manageGroups && !showDetail else { return .ignored }; if let id = controller.selected { controller.copy(id); return .handled }; return .ignored }
+        .onKeyPress(.return) { guard !replyEditor && !manageGroups && !controller.showDetail else { return .ignored }; if let id = controller.selected { controller.copy(id); return .handled }; return .ignored }
         .background {
             ForEach(1...9, id: \.self) { number in
                 Button("") { if controller.visible.count >= number { controller.copy(controller.visible[number - 1].id) } }
                     .keyboardShortcut(KeyEquivalent(Character(String(number))), modifiers: .command).hidden().accessibilityHidden(true)
             }
         }
-        .sheet(isPresented: $showDetail) {
+        .sheet(isPresented: $controller.showDetail, onDismiss: { controller.clearDetail() }) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("内容详情").font(.headline)
                     Spacer()
-                    Button("完成") { showDetail = false }.keyboardShortcut(.cancelAction)
+                    Button("完成") { controller.showDetail = false }.keyboardShortcut(.cancelAction)
                 }
                 ScrollView {
-                    if let payload = controller.detail {
-                        if payload.kind == .image,
-                           let data = payload.items.first?["public.png"] ?? payload.items.first?["public.tiff"], let image = NSImage(data: data) {
-                            Image(nsImage: image).resizable().scaledToFit().accessibilityLabel("剪贴板图片预览")
-                        } else if payload.kind == .files {
+                    if let image = controller.detailImage {
+                        Image(image, scale: 1, label: Text("剪贴板图片预览")).resizable().scaledToFit()
+                    } else if let payload = controller.detail {
+                        if payload.kind == .files {
                             ForEach(payload.fileURLs, id: \.self) { url in
                                 Text(url.path).textSelection(.enabled)
                                 if !FileManager.default.fileExists(atPath: url.path) { Text("源文件已不存在").foregroundStyle(.secondary) }
@@ -171,7 +168,7 @@ struct ClipboardPanel: View {
                 }
             }.padding(20).frame(width: 420).task { await controller.loadDetail() }
         }
-        .sheet(isPresented: $replyEditor) {
+        .sheet(isPresented: $replyEditor, onDismiss: { replyText = ""; controller.clearDetail() }) {
             VStack(alignment: .leading, spacing: 14) {
                 Text(replyID == nil ? "新建快捷回复" : "编辑快捷回复").font(.headline)
                 TextField("标题", text: $replyTitle)
@@ -218,7 +215,7 @@ struct ClipboardPanel: View {
     }
     @ViewBuilder private func actions(_ item: ClipboardItem) -> some View {
         Button("拷贝") { controller.copy(item.id) }
-        Button("查看详情…") { controller.selected = item.id; showDetail = true }
+        Button("查看详情…") { controller.selected = item.id; controller.showDetail = true }
         Button(item.favorite ? "取消收藏" : "收藏") { controller.work { try $0.update(item.id, favorite: !item.favorite) } }
         Button(item.pinned ? "取消置顶" : "置顶") { controller.work { try $0.update(item.id, pinned: !item.pinned) } }
         Button(item.queued ? "从堆栈移除" : "加入堆栈") { controller.enqueue(item) }
@@ -233,7 +230,7 @@ struct ClipboardPanel: View {
         replyID = item?.id; replyTitle = item?.title ?? ""; replyGroup = item?.group ?? ""; replyText = ""
         if let item {
             controller.selected = item.id
-            Task { await controller.loadDetail(); guard controller.selected == item.id else { return }; replyText = controller.detail?.plainText ?? ""; replyEditor = true }
+            Task { await controller.loadDetail(); guard controller.selected == item.id, let detail = controller.detail else { return }; replyText = detail.plainText; controller.clearDetail(); replyEditor = true }
         } else { replyEditor = true }
     }
 }

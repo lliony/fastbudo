@@ -8,7 +8,7 @@ final class ClipboardStore: @unchecked Sendable {
     private var db: OpaquePointer?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
     private enum Value { case text(String), blob(Data) }
-    private struct Backup: Codable { var version = 1; var groups: [String]; var records: [Record] }
+    static let backupLimit = 2 * 1024 * 1024 * 1024
     private struct Record: Codable { var item: ClipboardItem; var payload: ClipPayload }
 
     init(directory: URL) throws {
@@ -266,29 +266,160 @@ final class ClipboardStore: @unchecked Sendable {
         for var item in try records() where item.group == name { item.group = ""; try putMetadata(item) }
         try run("DELETE FROM groups WHERE name=?", [.text(name)])
     } } }
-    func exportData() throws -> Data { try lock.withLock {
-        let records = try records().map { Record(item: $0, payload: try content($0.id)) }
-        return try JSONEncoder().encode(Backup(groups: groupNames(), records: records))
+    /// 同目录临时文件完成后再替换目标，失败不破坏已有备份。
+    func exportBackup(to url: URL) throws { try lock.withLock {
+        let temporary = url.deletingLastPathComponent().appendingPathComponent(".fastbudo-\(UUID().uuidString).tmp")
+        guard FileManager.default.createFile(atPath: temporary.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw ClipError.storage }
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let file = try FileHandle(forWritingTo: temporary)
+        defer { try? file.close() }
+        var bytes = 0
+        func write(_ data: Data) throws {
+            guard data.count <= Self.backupLimit - bytes else { throw ClipError.backupTooLarge }
+            try file.write(contentsOf: data); bytes += data.count
+        }
+        let groups = try groupNames()
+        guard groups.count <= 1000 else { throw ClipError.invalid }
+        try write(Data("{\"version\":1,\"groups\":".utf8))
+        try write(Data([91]))
+        for (index, name) in groups.enumerated() {
+            let data = try JSONEncoder().encode(name)
+            guard data.count <= BackupReader.valueLimit else { throw ClipError.backupTooLarge }
+            if index > 0 { try write(Data([44])) }
+            try write(data)
+        }
+        try write(Data("],\"records\":[".utf8))
+        let stmt = try statement("SELECT meta, payload FROM clips")
+        defer { sqlite3_finalize(stmt) }
+        var code = sqlite3_step(stmt), count = 0
+        while code == SQLITE_ROW {
+            guard count < 10000 else { throw ClipError.invalid }
+            try autoreleasepool {
+                let record = Record(item: try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0)),
+                                    payload: try JSONDecoder().decode(ClipPayload.self, from: blob(stmt, 1)))
+                let data = try JSONEncoder().encode(record)
+                guard data.count <= BackupReader.valueLimit else { throw ClipError.backupTooLarge }
+                if count > 0 { try write(Data([44])) }
+                try write(data)
+            }
+            count += 1; code = sqlite3_step(stmt)
+        }
+        guard code == SQLITE_DONE else { throw ClipError.storage }
+        try write(Data("]}".utf8)); try file.synchronize(); try file.close()
+        if FileManager.default.fileExists(atPath: url.path) {
+            _ = try FileManager.default.replaceItemAt(url, withItemAt: temporary, backupItemName: nil, options: .usingNewMetadataOnly)
+        } else { try FileManager.default.moveItem(at: temporary, to: url) }
     } }
-    func importData(_ data: Data, policy: ClipPolicy) throws {
-        guard data.count <= 300 * 1024 * 1024 else { throw ClipError.tooLarge }
-        let backup = try JSONDecoder().decode(Backup.self, from: data)
-        guard backup.version == 1, backup.records.count <= 10000, backup.groups.count <= 1000, Set(backup.records.map { $0.item.id }).count == backup.records.count else { throw ClipError.invalid }
+
+    /// 保留 v1 JSON 格式；逐条校验和入库，尾部损坏也回滚整个导入。
+    func importBackup(from url: URL, policy: ClipPolicy) throws {
+        let reader = try BackupReader(url)
         try lock.withLock { try transaction {
             let ids = Set(try records().map(\.id))
-            for name in backup.groups {
-                guard !name.isEmpty, name.count <= 80 else { throw ClipError.invalid }
-                try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(name)])
+            var seen = Set<UUID>(), fields = Set<String>()
+            try reader.expect(123)
+            while true {
+                let key = try JSONDecoder().decode(String.self, from: reader.value())
+                guard fields.insert(key).inserted else { throw ClipError.invalid }
+                try reader.expect(58)
+                switch key {
+                case "version":
+                    guard try JSONDecoder().decode(Int.self, from: reader.value()) == 1 else { throw ClipError.invalid }
+                case "groups":
+                    try reader.expect(91)
+                    var count = 0
+                    if try reader.peek() != 93 {
+                        while true {
+                            let name = try JSONDecoder().decode(String.self, from: reader.value())
+                            guard count < 1000, !name.isEmpty, name.count <= 80 else { throw ClipError.invalid }
+                            try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(name)])
+                            count += 1
+                            if try reader.peek() == 93 { break }
+                            try reader.expect(44)
+                        }
+                    }
+                    try reader.expect(93)
+                case "records":
+                    try reader.expect(91)
+                    if try reader.peek() != 93 {
+                        while true {
+                            try autoreleasepool {
+                                let record = try JSONDecoder().decode(Record.self, from: reader.value())
+                                guard seen.count < 10000, seen.insert(record.item.id).inserted else { throw ClipError.invalid }
+                                var item = record.item
+                                try record.payload.validate()
+                                item.kind = record.payload.kind; item.preview = record.payload.preview
+                                guard item.created.timeIntervalSince1970.isFinite, item.used.timeIntervalSince1970.isFinite,
+                                      item.order.isFinite, item.queueOrder.isFinite,
+                                      item.title.count <= 1000, item.group.count <= 80, item.source.count <= 300 else { throw ClipError.invalid }
+                                if !ids.contains(item.id) { try put(item, record.payload) }
+                            }
+                            if try reader.peek() == 93 { break }
+                            try reader.expect(44)
+                        }
+                    }
+                    try reader.expect(93)
+                default: throw ClipError.invalid
+                }
+                if try reader.peek() == 125 { break }
+                try reader.expect(44)
             }
-            for record in backup.records where !ids.contains(record.item.id) {
-                var item = record.item
-                try record.payload.validate()
-                item.kind = record.payload.kind; item.preview = record.payload.preview
-                guard item.created.timeIntervalSince1970.isFinite, item.used.timeIntervalSince1970.isFinite, item.order.isFinite else { throw ClipError.invalid }
-                try put(item, record.payload)
-            }
-            try deduplicate()
-            try prune(policy)
+            try reader.expect(125)
+            guard fields == ["version", "groups", "records"], try reader.peek() == nil else { throw ClipError.invalid }
+            try deduplicate(); try prune(policy)
         } }
+    }
+
+    /// 仅分隔 JSON 值，语法仍由 JSONDecoder 校验；内存上限为单条记录而非整个备份。
+    private final class BackupReader {
+        static let valueLimit = 64 * 1024 * 1024
+        let file: FileHandle
+        var buffer: [UInt8] = [], index = 0, total = 0
+        init(_ url: URL) throws {
+            file = try FileHandle(forReadingFrom: url)
+            do {
+                guard try file.seekToEnd() <= UInt64(ClipboardStore.backupLimit) else { throw ClipError.backupTooLarge }
+                try file.seek(toOffset: 0)
+            } catch { try? file.close(); throw error }
+        }
+        deinit { try? file.close() }
+        private func byte() throws -> UInt8? {
+            if index == buffer.count {
+                let data = try file.read(upToCount: 65536) ?? Data()
+                guard data.count <= ClipboardStore.backupLimit - total else { throw ClipError.backupTooLarge }
+                total += data.count; buffer = Array(data); index = 0
+            }
+            return index < buffer.count ? buffer[index] : nil
+        }
+        func peek() throws -> UInt8? {
+            while let ch = try byte() {
+                if ch != 32 && ch != 9 && ch != 10 && ch != 13 { return ch }
+                index += 1
+            }
+            return nil
+        }
+        func expect(_ ch: UInt8) throws {
+            guard try peek() == ch else { throw ClipError.invalid }
+            index += 1
+        }
+        func value() throws -> Data {
+            guard let first = try peek() else { throw ClipError.invalid }
+            let container = first == 123 || first == 91
+            var result: [UInt8] = [], depth = 0, quoted = false, escaped = false
+            while let ch = try byte() {
+                if !container && first != 34 && (ch == 44 || ch == 93 || ch == 125 || ch == 32 || ch == 9 || ch == 10 || ch == 13) { break }
+                guard result.count < Self.valueLimit else { throw ClipError.backupTooLarge }
+                result.append(ch); index += 1
+                if quoted {
+                    if escaped { escaped = false }
+                    else if ch == 92 { escaped = true }
+                    else if ch == 34 { quoted = false; if !container { break } }
+                } else if ch == 34 { quoted = true }
+                else if ch == 123 || ch == 91 { depth += 1; guard depth <= 128 else { throw ClipError.invalid } }
+                else if ch == 125 || ch == 93 { depth -= 1; if depth == 0 { break } }
+            }
+            guard !result.isEmpty, !quoted, depth == 0 else { throw ClipError.invalid }
+            return Data(result)
+        }
     }
 }

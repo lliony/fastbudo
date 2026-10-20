@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Carbon
 
-@MainActor @Observable final class ClipboardController {
+@MainActor @Observable final class ClipboardController: NSObject, NSWindowDelegate {
     var items: [ClipboardItem] = []
     var groups: [String] = []
     var query = ""
@@ -11,6 +11,9 @@ import Carbon
     var kind = ""
     var selected: UUID?
     var detail: ClipPayload?
+    var detailImage: CGImage?
+    var showDetail = false
+    private var detailGeneration = 0
     var message = "开启记录后，只收集新复制的内容。"
     var hotKeyMessage = ""
     var mode = ClipMode.original
@@ -37,6 +40,7 @@ import Carbon
         self.defaults = defaults; self.board = board; self.sourceInfo = sourceInfo; lastChange = board.changeCount
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("FastBudo/Clipboard", isDirectory: true)
+        super.init()
     }
     var isPanelVisible: Bool { panel?.isVisible == true }
     var copyOnClick: Bool { defaults.object(forKey: "clipCopyOnClick") as? Bool ?? true }
@@ -136,13 +140,22 @@ import Carbon
             if selected == nil || !visible.contains(where: { $0.id == selected }) { selected = visible.first?.id }
         } catch { message = error.localizedDescription }
     }
+    func clearDetail() {
+        detailGeneration += 1; detail = nil; detailImage = nil
+    }
     func loadDetail() async {
-        detail = nil
+        clearDetail()
+        let generation = detailGeneration
         guard let id = selected else { return }
         do {
             let db = try database()
-            let payload = try await Task.detached { try db.payload(id) }.value
-            if selected == id { detail = payload }
+            let result = try await Task.detached {
+                let payload = try db.payload(id)
+                let image = try payload.thumbnail()
+                return (image == nil ? payload : nil, image)
+            }.value
+            guard !Task.isCancelled, generation == detailGeneration, selected == id else { return }
+            detail = result.0; detailImage = result.1
         } catch { message = error.localizedDescription }
     }
     func work(_ operation: @escaping @Sendable (ClipboardStore) throws -> Void, onSuccess: @escaping () -> Void = {}) {
@@ -154,7 +167,7 @@ import Carbon
                 defer { loading = false }
                 do {
                     try await Task.detached { try operation(db) }.value
-                    await reload(); await loadDetail(); message = "操作已完成"; onSuccess()
+                    await reload(); message = "操作已完成"; onSuccess()
                 } catch { message = error.localizedDescription }
             }
         } catch { message = error.localizedDescription }
@@ -180,12 +193,13 @@ import Carbon
         let a = first, b = second
         work { try $0.update(a.id, order: a.order); try $0.update(b.id, order: b.order) }
     }
-    func toggle() { if panel?.isVisible == true { panel?.orderOut(nil) } else { show() } }
+    func toggle() { if panel?.isVisible == true { hide() } else { show() } }
     func show() {
         if panel == nil {
             let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
                                  styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             window.title = "FastBudo 剪贴板"
+            window.delegate = self
             window.isReleasedWhenClosed = false
             window.hidesOnDeactivate = false
             window.minSize = NSSize(width: 480, height: 400)
@@ -196,7 +210,8 @@ import Carbon
         panel?.makeKeyAndOrderFront(nil); NSApp.activate()
         Task { await reload() }
     }
-    func hide() { panel?.orderOut(nil) }
+    func hide() { showDetail = false; clearDetail(); panel?.orderOut(nil) }
+    func windowWillClose(_ notification: Notification) { showDetail = false; clearDetail() }
     /// 所有拷贝入口共用完成逻辑；失败时不关闭面板，也不再发送粘贴按键。
     func copy(_ id: UUID) {
         guard !copying else { return }
@@ -226,9 +241,7 @@ import Carbon
         let save = NSSavePanel(); save.nameFieldStringValue = "FastBudo-剪贴板.json"; save.allowedContentTypes = [.json]
         guard save.runModal() == .OK, let url = save.url else { return }
         work { db in
-            let data = try db.exportData()
-            try data.write(to: url, options: .atomic)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            try db.exportBackup(to: url)
         }
     }
     func importBackup() {
@@ -236,9 +249,7 @@ import Carbon
         guard open.runModal() == .OK, let url = open.url else { return }
         let policy = policy
         work { db in
-            let file = try FileHandle(forReadingFrom: url); defer { try? file.close() }
-            let data = try file.read(upToCount: 300 * 1024 * 1024 + 1) ?? Data()
-            try db.importData(data, policy: policy)
+            try db.importBackup(from: url, policy: policy)
         }
     }
 }

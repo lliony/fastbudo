@@ -10,12 +10,13 @@ struct ClipPolicy: Sendable {
 }
 
 enum ClipError: LocalizedError {
-    case invalid, tooLarge, full, storage
+    case invalid, tooLarge, full, storage, backupTooLarge
     var errorDescription: String? {
         switch self {
         case .invalid: return "内容格式无效或不受支持。"
         case .tooLarge: return "内容超过单条 20 MiB 或图片尺寸限制。"
         case .full: return "保留内容已达到容量限制，请清理或提高上限。"
+        case .backupTooLarge: return "备份超过 2 GiB 或单条记录超过 64 MiB 限制。"
         case .storage: return "剪贴板数据库读写失败，请检查磁盘空间及权限。"
         }
     }
@@ -51,6 +52,19 @@ struct ClipPayload: Codable, Equatable, Sendable {
         if kind == .files { return fileURLs.map(\.lastPathComponent).joined(separator: ", ") }
         if !plainText.isEmpty { return String(plainText.prefix(500)) }
         return kind.title
+    }
+    /// ImageIO 直接降采样，避免先解码完整的四千万像素图片。
+    func thumbnail() throws -> CGImage? {
+        guard kind == .image else { return nil }
+        guard let data = items.lazy.compactMap({ $0["public.png"] ?? $0["public.tiff"] }).first,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 1024,
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else { throw ClipError.invalid }
+        return image
     }
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
