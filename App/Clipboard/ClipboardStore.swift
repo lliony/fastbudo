@@ -21,11 +21,15 @@ final class ClipboardStore: @unchecked Sendable {
         do {
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             let version = try statement("PRAGMA user_version")
-            let supported = sqlite3_step(version) == SQLITE_ROW && sqlite3_column_int(version, 0) <= 1
+            let schema = sqlite3_step(version) == SQLITE_ROW ? sqlite3_column_int(version, 0) : -1
+            let supported = schema >= 0 && schema <= 2
             sqlite3_finalize(version)
             guard supported else { throw ClipError.storage }
             sqlite3_busy_timeout(db, 3000)
-            try exec("PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, meta BLOB NOT NULL, payload BLOB NOT NULL, hash TEXT NOT NULL, search TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS clip_hash ON clips(hash); CREATE TABLE IF NOT EXISTS groups (name TEXT PRIMARY KEY); PRAGMA user_version=1;")
+            try exec("PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, meta BLOB NOT NULL, payload BLOB NOT NULL, hash TEXT NOT NULL, search TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS clip_hash ON clips(hash); CREATE TABLE IF NOT EXISTS groups (name TEXT PRIMARY KEY); ")
+            if schema < 2 {
+                try transaction { try deduplicate(); try exec("PRAGMA user_version=2") }
+            }
         } catch { sqlite3_close(db); db = nil; throw error }
     }
     deinit { sqlite3_close(db) }
@@ -77,6 +81,68 @@ final class ClipboardStore: @unchecked Sendable {
         return try JSONDecoder().decode(ClipPayload.self, from: blob(stmt, 0))
     }
     func payload(_ id: UUID) throws -> ClipPayload { try lock.withLock { try content(id) } }
+    // 只改元数据和计费长度，不读取或重写可能达 20 MiB 的内容。
+    private func putMetadata(_ item: ClipboardItem, previousTitle: String? = nil) throws {
+        let meta = try JSONEncoder().encode(item)
+        try run("UPDATE clips SET bytes=bytes-length(meta)+?, meta=? WHERE id=?",
+                [.text(String(meta.count)), .blob(meta), .text(item.id.uuidString)])
+        if let previousTitle, previousTitle != item.title {
+            try run("UPDATE clips SET search=? || substr(search,length(?)+1), bytes=bytes+? WHERE id=?",
+                    [.text(item.title), .text(previousTitle), .text(String(item.title.utf8.count - previousTitle.utf8.count)), .text(item.id.uuidString)])
+        }
+    }
+    /// 成功拷贝后持久化最近使用时间，返回更新后的单条元数据。
+    func markUsed(_ id: UUID) throws -> ClipboardItem {
+        try lock.withLock { try transaction {
+            let stmt = try statement("SELECT meta FROM clips WHERE id=?", [.text(id.uuidString)])
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { throw ClipError.invalid }
+            var item = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
+            item.used = Date()
+            try putMetadata(item)
+            return item
+        } }
+    }
+    // 迁移和导入时按哈希逐组处理；不把所有历史的图片、富文本载入内存。
+    private func deduplicate() throws {
+        let hashes = try statement("SELECT hash FROM clips GROUP BY hash HAVING count(*)>1")
+        var values: [String] = []
+        var code = sqlite3_step(hashes)
+        while code == SQLITE_ROW {
+            values.append(String(cString: sqlite3_column_text(hashes, 0)))
+            code = sqlite3_step(hashes)
+        }
+        sqlite3_finalize(hashes)
+        guard code == SQLITE_DONE else { throw ClipError.storage }
+        for hash in values {
+            let stmt = try statement("SELECT meta FROM clips WHERE hash=?", [.text(hash)])
+            var items: [ClipboardItem] = []
+            do {
+                var code = sqlite3_step(stmt)
+                while code == SQLITE_ROW {
+                    let item = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
+                    if !item.reply { items.append(item) }
+                    code = sqlite3_step(stmt)
+                }
+                guard code == SQLITE_DONE else { throw ClipError.storage }
+            } catch { sqlite3_finalize(stmt); throw error }
+            sqlite3_finalize(stmt)
+            items.sort { $0.used > $1.used }
+            guard items.count > 1, var keep = items.first else { continue }
+            let title = keep.title
+            for old in items.dropFirst() {
+                keep.favorite = keep.favorite || old.favorite
+                keep.pinned = keep.pinned || old.pinned
+                if old.queued && (!keep.queued || old.queueOrder < keep.queueOrder) { keep.queueOrder = old.queueOrder }
+                keep.queued = keep.queued || old.queued
+                if keep.title.isEmpty { keep.title = old.title }
+                if keep.group.isEmpty { keep.group = old.group }
+                keep.created = min(keep.created, old.created)
+                try run("DELETE FROM clips WHERE id=?", [.text(old.id.uuidString)])
+            }
+            try putMetadata(keep, previousTitle: title)
+        }
+    }
     private func put(_ item: ClipboardItem, _ payload: ClipPayload) throws {
         try payload.validate()
         guard item.title.count <= 1000, item.group.count <= 80, item.source.count <= 300 else { throw ClipError.invalid }
@@ -112,16 +178,19 @@ final class ClipboardStore: @unchecked Sendable {
         try lock.withLock {
             try transaction {
                 try payload.validate()
+                guard source.count <= 300 else { throw ClipError.invalid }
                 let hash = SHA256.hash(data: try payload.encoded()).map { String(format: "%02x", $0) }.joined()
                 let stmt = try statement("SELECT meta FROM clips WHERE hash=?", [.text(hash)])
                 defer { sqlite3_finalize(stmt) }
                 var item = ClipboardItem(kind: payload.kind, preview: payload.preview, source: source)
+                var existing = false
                 while sqlite3_step(stmt) == SQLITE_ROW {
                     let old = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
-                    if !old.reply { item = old; break }
+                    if !old.reply { item = old; existing = true; break }
                 }
                 item.used = Date(); item.source = source
-                try put(item, payload); try prune(policy, excluding: item.id)
+                if existing { try putMetadata(item) } else { try put(item, payload) }
+                try prune(policy, excluding: item.id)
                 return item.id
             }
         }
@@ -176,6 +245,7 @@ final class ClipboardStore: @unchecked Sendable {
                 guard item.created.timeIntervalSince1970.isFinite, item.used.timeIntervalSince1970.isFinite, item.order.isFinite else { throw ClipError.invalid }
                 try put(item, record.payload)
             }
+            try deduplicate()
             try prune(policy)
         } }
     }
