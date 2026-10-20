@@ -59,6 +59,72 @@ struct ClipboardStoreTests {
         #expect(Set(try db.list().map(\.id)) == [protected, recent])
     }
 
+    @Test func failedExportPreservesExistingBackup() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try db.capture(.text("测试"), source: "Tests", policy: .standard)
+        let backup = root.appendingPathComponent("backup.json")
+        let previous = Data("已有备份".utf8)
+        try previous.write(to: backup)
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(root.appendingPathComponent("clipboard.sqlite").path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        #expect(sqlite3_exec(raw, "UPDATE clips SET payload=x'00'", nil, nil, nil) == SQLITE_OK)
+        #expect(throws: (any Error).self) { try db.exportBackup(to: backup) }
+        #expect(try Data(contentsOf: backup) == previous)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).allSatisfy { !$0.hasSuffix(".tmp") })
+    }
+
+    @Test func oversizedBackupIsRejectedBeforeReading() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("oversized.json")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let file = try FileHandle(forWritingTo: url)
+        defer { try? file.close() }
+        try file.truncate(atOffset: UInt64(ClipboardStore.backupLimit) + 1)
+        #expect(throws: ClipError.backupTooLarge) { try db.importBackup(from: url, policy: .standard) }
+        #expect(try db.list().isEmpty)
+    }
+
+    @Test func streamingBackupSupportsLegacyJSONAndRollsBackMalformedTail() throws {
+        let (db, root) = try store()
+        let (other, destination) = try store()
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: destination) }
+        let payload = String(repeating: "边界\n\"\\", count: 20000)
+        let id = try db.capture(.text(payload), source: "Tests", policy: .standard)
+        try db.update(id, title: #"括号 } ], " 与反斜线 \"#, group: "测试")
+        let backup = root.appendingPathComponent("backup.json")
+        try Data("已有文件".utf8).write(to: backup)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: backup.path)
+        try db.exportBackup(to: backup)
+        #expect((try FileManager.default.attributesOfItem(atPath: backup.path)[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+        let object = try JSONSerialization.jsonObject(with: Data(contentsOf: backup)) as! [String: Any]
+        let legacy = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+        try legacy.write(to: backup)
+        var malformed = legacy; malformed.removeLast()
+        try malformed.write(to: backup)
+        #expect(throws: (any Error).self) { try other.importBackup(from: backup, policy: .standard) }
+        #expect(try other.list().isEmpty)
+        #expect(try other.groups().isEmpty)
+        try legacy.write(to: backup)
+        try other.importBackup(from: backup, policy: .standard)
+        #expect(try other.payload(id).plainText == payload)
+        #expect(try other.groups() == ["测试"])
+        var duplicate = object
+        let records = object["records"] as! [[String: Any]]
+        duplicate["records"] = records + records
+        try JSONSerialization.data(withJSONObject: duplicate).write(to: backup)
+        #expect(throws: (any Error).self) { try other.importBackup(from: backup, policy: .standard) }
+        #expect(try other.list().count == 1)
+        for invalid in ["{\"version\":1,\"groups\":[],\"records\":[],}",
+                        "{\"version\":1,\"groups\":[],\"records\":[]}x",
+                        "{\"version\":2,\"groups\":[],\"records\":[]}"] {
+            try Data(invalid.utf8).write(to: backup)
+            #expect(throws: (any Error).self) { try other.importBackup(from: backup, policy: .standard) }
+        }
+    }
+
     @Test func persistenceDedupeSearchAndProtectedCleanup() throws {
         let (db, root) = try store()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -149,7 +215,9 @@ struct ClipboardStoreTests {
         var favorite = try #require(first.list().first)
         favorite.favorite = true
         try first.update(favorite.id, favorite: true)
-        try first.importData(second.exportData(), policy: .standard)
+        let backup = otherRoot.appendingPathComponent("backup.json")
+        try second.exportBackup(to: backup)
+        try first.importBackup(from: backup, policy: .standard)
         #expect(try first.list().count == 1)
         #expect(try first.list().first?.favorite == true)
         #expect(try ClipboardStore(directory: root).list().count == 1)
@@ -167,14 +235,16 @@ struct ClipboardStoreTests {
         }
         #expect(try db.list().map(\.id) == [id])
         try db.addGroup("工作")
-        let data = try db.exportData()
+        let backup = root.appendingPathComponent("backup.json")
+        try db.exportBackup(to: backup)
         let (other, secondRoot) = try store()
         defer { try? FileManager.default.removeItem(at: secondRoot) }
-        try other.importData(data, policy: .standard)
-        try other.importData(data, policy: .standard)
+        try other.importBackup(from: backup, policy: .standard)
+        try other.importBackup(from: backup, policy: .standard)
         #expect(try other.list().count == 1)
         #expect(try other.groups() == ["工作"])
-        #expect(throws: (any Error).self) { try other.importData(Data("bad".utf8), policy: .standard) }
+        try Data("bad".utf8).write(to: backup)
+        #expect(throws: (any Error).self) { try other.importBackup(from: backup, policy: .standard) }
         #expect(try other.list().count == 1)
     }
 }
@@ -194,6 +264,17 @@ struct ClipboardStoreTests {
         board.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
         #expect(try ClipboardCapture.read(board) == nil)
     }
+    @Test func imagePreviewIsDownsampled() throws {
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4096, pixelsHigh: 2048,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let png = try #require(bitmap.representation(using: .png, properties: [:]))
+        let payload = ClipPayload(items: [["public.png": png]])
+        let image = try #require(try payload.thumbnail())
+        #expect(image.width == 1024 && image.height == 512)
+        #expect(try ClipPayload.text("文本").thumbnail() == nil)
+        #expect(throws: (any Error).self) { try ClipPayload(items: [["public.png": Data("bad".utf8)]]).thumbnail() }
+    }
+
     @Test func richTextAndImageRoundTrip() throws {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }
@@ -269,6 +350,26 @@ struct ClipboardStoreTests {
 }
 
 @MainActor @Suite(.serialized) struct ClipboardInteractionTests {
+    @Test func hidingReleasesDetail() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally(); try? FileManager.default.removeItem(at: root) }
+        let db = try ClipboardStore(directory: root)
+        let id = try db.capture(.text("详情"), source: "Tests", policy: .standard)
+        let controller = ClipboardController(board: board, directory: root)
+        controller.selected = id
+        await controller.loadDetail()
+        #expect(controller.detail != nil)
+        controller.hide()
+        #expect(controller.detail == nil)
+        let pending = Task { await controller.loadDetail() }
+        pending.cancel()
+        await pending.value
+        #expect(controller.detail == nil && controller.detailImage == nil)
+        await controller.reload()
+        #expect(controller.detail == nil)
+    }
+
     @Test func cancelledReloadDoesNotReplaceVisibleItems() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let board = NSPasteboard.withUniqueName()
