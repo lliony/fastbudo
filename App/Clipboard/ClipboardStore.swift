@@ -62,7 +62,7 @@ final class ClipboardStore: @unchecked Sendable {
     }
     private func records(_ query: String = "") throws -> [ClipboardItem] {
         // instr treats %, _ and quotes literally rather than as SQL patterns.
-        let stmt = try statement("SELECT meta FROM clips WHERE instr(lower(search),lower(?))>0", [.text(query)])
+        let stmt = try query.isEmpty ? statement("SELECT meta FROM clips") : statement("SELECT meta FROM clips WHERE instr(lower(search),lower(?))>0", [.text(query)])
         defer { sqlite3_finalize(stmt) }
         var items: [ClipboardItem] = []
         var code = sqlite3_step(stmt)
@@ -155,24 +155,32 @@ final class ClipboardStore: @unchecked Sendable {
     }
     private func prune(_ policy: ClipPolicy, excluding id: UUID? = nil) throws {
         guard policy.count > 0, policy.days > 0, policy.bytes > 0 else { throw ClipError.invalid }
-        var candidates = try records().filter { !$0.protected && $0.id != id }.sorted { $0.used < $1.used }
+        let stmt = try statement("SELECT meta, bytes FROM clips")
+        var candidates: [(item: ClipboardItem, bytes: Int)] = []
+        var total = 0, count = 0, ordinaryCount = 0
+        do {
+            var code = sqlite3_step(stmt)
+            while code == SQLITE_ROW {
+                let item = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
+                let bytes = Int(sqlite3_column_int64(stmt, 1))
+                total += bytes; count += 1
+                if !item.protected {
+                    ordinaryCount += 1
+                    if item.id != id { candidates.append((item, bytes)) }
+                }
+                code = sqlite3_step(stmt)
+            }
+            guard code == SQLITE_DONE else { throw ClipError.storage }
+        } catch { sqlite3_finalize(stmt); throw error }
+        sqlite3_finalize(stmt)
+        candidates.sort { $0.item.used < $1.item.used }
         let cutoff = Date().addingTimeInterval(-Double(policy.days) * 86400)
-        var ordinaryCount = try records().filter { !$0.protected }.count
-        for item in candidates where item.used < cutoff || ordinaryCount > policy.count {
-            try run("DELETE FROM clips WHERE id=?", [.text(item.id.uuidString)])
-            ordinaryCount -= 1
+        // 一次扫描计费，删除时扣减；避免每淘汰一条都重新扫描整个数据库。
+        for candidate in candidates where candidate.item.used < cutoff || ordinaryCount > policy.count || total > policy.bytes {
+            try run("DELETE FROM clips WHERE id=?", [.text(candidate.item.id.uuidString)])
+            total -= candidate.bytes; count -= 1; ordinaryCount -= 1
         }
-        candidates = try records().filter { !$0.protected && $0.id != id }.sorted { $0.used < $1.used }
-        func total() throws -> Int {
-            let stmt = try statement("SELECT COALESCE(SUM(bytes),0) FROM clips"); defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else { throw ClipError.storage }
-            return Int(sqlite3_column_int64(stmt, 0))
-        }
-        for item in candidates {
-            if try total() <= policy.bytes { break }
-            try run("DELETE FROM clips WHERE id=?", [.text(item.id.uuidString)])
-        }
-        if try total() > policy.bytes || records().count > 10000 { throw ClipError.full }
+        if total > policy.bytes || count > 10000 { throw ClipError.full }
     }
     func capture(_ payload: ClipPayload, source: String, policy: ClipPolicy) throws -> UUID {
         try lock.withLock {
@@ -195,7 +203,41 @@ final class ClipboardStore: @unchecked Sendable {
             }
         }
     }
-    func update(_ item: ClipboardItem) throws { try lock.withLock { try transaction { try put(item, content(item.id)) } } }
+    /// 只提交用户编辑的字段，避免旧界面快照覆盖最近使用时间及其他并发更新。
+    func update(_ id: UUID, title: String? = nil, group: String? = nil, favorite: Bool? = nil,
+                pinned: Bool? = nil, queued: Bool? = nil, order: Double? = nil, queueOrder: Double? = nil) throws {
+        try lock.withLock { try transaction {
+            let stmt = try statement("SELECT meta FROM clips WHERE id=?", [.text(id.uuidString)])
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { throw ClipError.invalid }
+            var item = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
+            let oldTitle = item.title
+            if let title { item.title = title }
+            if let group { item.group = group }
+            if let favorite { item.favorite = favorite }
+            if let pinned { item.pinned = pinned }
+            if let queued { item.queued = queued }
+            if let order { item.order = order }
+            if let queueOrder { item.queueOrder = queueOrder }
+            guard item.title.count <= 1000, item.group.count <= 80,
+                  item.order.isFinite, item.queueOrder.isFinite else { throw ClipError.invalid }
+            if !item.group.isEmpty { try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(item.group)]) }
+            try putMetadata(item, previousTitle: oldTitle)
+        } }
+    }
+    func matchingIDs(_ query: String) throws -> Set<UUID> { try lock.withLock {
+        let stmt = try statement("SELECT id FROM clips WHERE instr(lower(search),lower(?))>0", [.text(query)])
+        defer { sqlite3_finalize(stmt) }
+        var ids = Set<UUID>()
+        var code = sqlite3_step(stmt)
+        while code == SQLITE_ROW {
+            guard let id = UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) else { throw ClipError.storage }
+            ids.insert(id); code = sqlite3_step(stmt)
+        }
+        guard code == SQLITE_DONE else { throw ClipError.storage }
+        return ids
+    } }
+
     func reply(id: UUID?, title: String, text: String, group: String, policy: ClipPolicy) throws {
         try lock.withLock { try transaction {
             guard !text.isEmpty else { throw ClipError.invalid }
@@ -206,7 +248,7 @@ final class ClipboardStore: @unchecked Sendable {
     }
     func delete(_ ids: Set<UUID>) throws { try lock.withLock { try transaction {
         for id in ids { try run("DELETE FROM clips WHERE id=?", [.text(id.uuidString)]) }
-    }; try exec("VACUUM") } }
+    } } }
     func clean(_ policy: ClipPolicy) throws { try lock.withLock { try transaction { try prune(policy) }; try exec("VACUUM") } }
     func groups() throws -> [String] { try lock.withLock { try groupNames() } }
     private func groupNames() throws -> [String] {
@@ -221,7 +263,7 @@ final class ClipboardStore: @unchecked Sendable {
         try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(value)])
     } }
     func deleteGroup(_ name: String) throws { try lock.withLock { try transaction {
-        for var item in try records() where item.group == name { item.group = ""; try put(item, content(item.id)) }
+        for var item in try records() where item.group == name { item.group = ""; try putMetadata(item) }
         try run("DELETE FROM groups WHERE name=?", [.text(name)])
     } } }
     func exportData() throws -> Data { try lock.withLock {

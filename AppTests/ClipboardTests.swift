@@ -9,6 +9,56 @@ struct ClipboardStoreTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return (try ClipboardStore(directory: root), root)
     }
+    @Test func metadataEditKeepsLatestUse() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let id = try db.capture(.text("最近使用"), source: "Tests", policy: .standard)
+        var stale = try #require(db.list().first)
+        let latest = try db.markUsed(id)
+        stale.favorite = true
+        try db.update(stale.id, favorite: stale.favorite)
+        let saved = try #require(db.list().first)
+        #expect(saved.used == latest.used)
+        #expect(saved.favorite)
+    }
+
+    @Test func metadataEditsPreservePayloadAndLiteralSearch() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let id = try db.capture(.text("正文 %_"), source: "Tests", policy: .standard)
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(root.appendingPathComponent("clipboard.sqlite").path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        // 拒绝重写内容及替换整行，确保普通编辑不会重新编码大内容。
+        #expect(sqlite3_exec(raw, "CREATE TRIGGER no_payload BEFORE UPDATE OF payload ON clips BEGIN SELECT RAISE(ABORT,'payload'); END; CREATE TRIGGER no_replace BEFORE INSERT ON clips BEGIN SELECT RAISE(ABORT,'replace'); END;", nil, nil, nil) == SQLITE_OK)
+        try db.update(id, title: "旧标题😀", group: "工作", favorite: true)
+        try db.update(id, title: "新标题", pinned: true)
+        try db.deleteGroup("工作")
+        #expect(try db.matchingIDs("旧标题").isEmpty)
+        #expect(try db.matchingIDs("新标题") == [id])
+        #expect(try db.matchingIDs("%_") == [id])
+        #expect(try db.matchingIDs("不存在").isEmpty)
+        #expect(try db.payload(id).plainText == "正文 %_")
+        let item = try #require(db.list().first)
+        #expect(item.favorite && item.pinned && item.group.isEmpty)
+        #expect(throws: (any Error).self) { try db.update(id, title: String(repeating: "a", count: 1001)) }
+        #expect(try db.list().first?.title == "新标题")
+    }
+
+    @Test func capacityCleanupEvictsOldestAndRollsBackWhenProtected() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let protected = try db.capture(.text("保留"), source: "Tests", policy: .standard)
+        try db.update(protected, favorite: true)
+        let old = try db.capture(.text(String(repeating: "a", count: 2000)), source: "Tests", policy: .standard)
+        let recent = try db.capture(.text("最近"), source: "Tests", policy: .standard)
+        try db.clean(ClipPolicy(count: 100, days: 30, bytes: 3000))
+        #expect(Set(try db.list().map(\.id)) == [protected, recent])
+        #expect(throws: (any Error).self) { try db.payload(old) }
+        #expect(throws: (any Error).self) { try db.clean(ClipPolicy(count: 1, days: 30, bytes: 1)) }
+        #expect(Set(try db.list().map(\.id)) == [protected, recent])
+    }
+
     @Test func persistenceDedupeSearchAndProtectedCleanup() throws {
         let (db, root) = try store()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -17,7 +67,7 @@ struct ClipboardStoreTests {
         #expect(item.id == first)
         item.favorite = true
         item.group = "项目"
-        try db.update(item)
+        try db.update(item.id, group: item.group, favorite: item.favorite, pinned: item.pinned, queued: item.queued, queueOrder: item.queueOrder)
         #expect(try db.capture(.text("你好 SQLite %_"), source: "Tests2", policy: .standard) == first)
         #expect(try db.list().count == 1)
         #expect(try db.list().first?.favorite == true)
@@ -35,7 +85,7 @@ struct ClipboardStoreTests {
         var item = try #require(db.list(query: "问候").first)
         let order = item.order
         item.queued = true; item.queueOrder = 10
-        try db.update(item)
+        try db.update(item.id, group: item.group, favorite: item.favorite, pinned: item.pinned, queued: item.queued, queueOrder: item.queueOrder)
         try db.deleteGroup("工作")
         let persisted = try #require(db.list().first)
         #expect(persisted.reply && persisted.queued)
@@ -52,7 +102,7 @@ struct ClipboardStoreTests {
         let id = try db.capture(.text("迁移测试"), source: "Tests", policy: .standard)
         var item = try #require(db.list().first)
         item.favorite = true; item.group = "保留分组"; item.queued = true; item.queueOrder = 42
-        try db.update(item)
+        try db.update(item.id, group: item.group, favorite: item.favorite, pinned: item.pinned, queued: item.queued, queueOrder: item.queueOrder)
         var raw: OpaquePointer?
         #expect(sqlite3_open(root.appendingPathComponent("clipboard.sqlite").path, &raw) == SQLITE_OK)
         defer { sqlite3_close(raw) }
@@ -78,7 +128,7 @@ struct ClipboardStoreTests {
         let pinned = try db.capture(.text("置顶"), source: "Tests", policy: .standard)
         var item = try #require(db.list().first)
         item.pinned = true
-        try db.update(item)
+        try db.update(item.id, group: item.group, favorite: item.favorite, pinned: item.pinned, queued: item.queued, queueOrder: item.queueOrder)
         let older = try db.capture(.text("旧"), source: "Tests", policy: .standard)
         _ = try db.capture(.text("新"), source: "Tests", policy: .standard)
         _ = try db.markUsed(older)
@@ -98,7 +148,7 @@ struct ClipboardStoreTests {
         _ = try second.capture(.text("重复"), source: "B", policy: .standard)
         var favorite = try #require(first.list().first)
         favorite.favorite = true
-        try first.update(favorite)
+        try first.update(favorite.id, favorite: true)
         try first.importData(second.exportData(), policy: .standard)
         #expect(try first.list().count == 1)
         #expect(try first.list().first?.favorite == true)
@@ -111,7 +161,7 @@ struct ClipboardStoreTests {
         let id = try db.capture(.text("protected"), source: "Tests", policy: .standard)
         var item = try #require(db.list().first)
         item.pinned = true
-        try db.update(item)
+        try db.update(item.id, group: item.group, favorite: item.favorite, pinned: item.pinned, queued: item.queued, queueOrder: item.queueOrder)
         #expect(throws: (any Error).self) {
             try db.capture(.text(String(repeating: "x", count: 10000)), source: "Tests", policy: ClipPolicy(count: 100, days: 30, bytes: 100))
         }
@@ -219,6 +269,27 @@ struct ClipboardStoreTests {
 }
 
 @MainActor @Suite(.serialized) struct ClipboardInteractionTests {
+    @Test func cancelledReloadDoesNotReplaceVisibleItems() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally(); try? FileManager.default.removeItem(at: root) }
+        let db = try ClipboardStore(directory: root)
+        _ = try db.capture(.text("合成记录"), source: "Tests", policy: .standard)
+        let controller = ClipboardController(board: board, directory: root)
+        let pending = Task { await controller.reload() }
+        pending.cancel()
+        await pending.value
+        #expect(controller.items.isEmpty)
+        await controller.reload()
+        #expect(controller.items.count == 1)
+        controller.query = "不匹配"
+        await controller.reload()
+        #expect(controller.visible.isEmpty)
+        controller.query = ""
+        await controller.reload()
+        #expect(controller.visible.count == 1)
+    }
+
     @Test(arguments: ["", "-1", "3.5", "abc", "99", "10001"])
     func invalidHistoryLimit(_ input: String) {
         #expect(ClipboardController.validatedLimit(input, range: 100...10000) == nil)
