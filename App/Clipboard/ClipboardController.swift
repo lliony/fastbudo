@@ -206,6 +206,14 @@ import Carbon
                 let payload = try await Task.detached { try db.payload(id) }.value
                 try ClipboardCapture.write(payload, to: board, mode: mode)
                 lastChange = board.changeCount
+                let updated = try await Task.detached { try db.markUsed(id) }.value
+                if let index = items.firstIndex(where: { $0.id == id }) {
+                    items.remove(at: index)
+                    let destination = items.firstIndex {
+                        updated.pinned != $0.pinned ? updated.pinned : updated.used > $0.used
+                    } ?? items.endIndex
+                    items.insert(updated, at: destination)
+                }
                 message = "已拷贝"
                 if closeAfterAction { hide() }
             } catch { message = error.localizedDescription }

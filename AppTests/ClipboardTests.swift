@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Testing
+import SQLite3
 @testable import FastBudo
 
 struct ClipboardStoreTests {
@@ -43,6 +44,65 @@ struct ClipboardStoreTests {
         #expect(persisted.group.isEmpty)
         #expect(try db.groups().isEmpty)
         #expect(try db.payload(item.id).plainText == "你好")
+    }
+
+    @Test func legacyDuplicatesMigrateWithoutRewritingPayload() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let id = try db.capture(.text("迁移测试"), source: "Tests", policy: .standard)
+        var item = try #require(db.list().first)
+        item.favorite = true; item.group = "保留分组"; item.queued = true; item.queueOrder = 42
+        try db.update(item)
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(root.appendingPathComponent("clipboard.sqlite").path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        let duplicate = UUID().uuidString
+        // 构造旧版本数据库；触发器确保迁移和再次使用都不更新大内容列。
+        let sql = "INSERT INTO clips SELECT '\(duplicate)', CAST(json_set(CAST(meta AS TEXT),'$.id','\(duplicate)') AS BLOB), payload, hash, search, bytes FROM clips; PRAGMA user_version=1; CREATE TRIGGER no_payload_rewrite BEFORE UPDATE OF payload ON clips BEGIN SELECT RAISE(ABORT,'payload rewritten'); END;"
+        #expect(sqlite3_exec(raw, sql, nil, nil, nil) == SQLITE_OK)
+        let reopened = try ClipboardStore(directory: root)
+        let kept = try #require(reopened.list().first)
+        #expect(try reopened.list().count == 1)
+        #expect(kept.favorite && kept.queued && kept.group == "保留分组")
+        #expect(kept.queueOrder == 42)
+        _ = try reopened.markUsed(kept.id)
+        #expect(try reopened.payload(kept.id).plainText == "迁移测试")
+        #expect(try reopened.capture(.text("迁移测试"), source: "Again", policy: .standard) == kept.id)
+        #expect(throws: (any Error).self) { try reopened.capture(.text("迁移测试"), source: String(repeating: "x", count: 301), policy: .standard) }
+        #expect(kept.id == id || kept.id.uuidString == duplicate)
+    }
+
+    @Test func recentlyUsedKeepsPinAndManualOrders() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pinned = try db.capture(.text("置顶"), source: "Tests", policy: .standard)
+        var item = try #require(db.list().first)
+        item.pinned = true
+        try db.update(item)
+        let older = try db.capture(.text("旧"), source: "Tests", policy: .standard)
+        _ = try db.capture(.text("新"), source: "Tests", policy: .standard)
+        _ = try db.markUsed(older)
+        #expect(try db.list().prefix(2).map(\.id) == [pinned, older])
+        try db.reply(id: nil, title: "回复", text: "旧", group: "", policy: .standard)
+        let reply = try #require(db.list().first { $0.reply })
+        let used = try db.markUsed(reply.id)
+        #expect(used.order == reply.order && used.queueOrder == reply.queueOrder)
+        #expect(try db.list().count == 4)
+    }
+
+    @Test func importedDuplicatesMergeAndKeepFavorite() throws {
+        let (first, root) = try store()
+        let (second, otherRoot) = try store()
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: otherRoot) }
+        _ = try first.capture(.text("重复"), source: "A", policy: .standard)
+        _ = try second.capture(.text("重复"), source: "B", policy: .standard)
+        var favorite = try #require(first.list().first)
+        favorite.favorite = true
+        try first.update(favorite)
+        try first.importData(second.exportData(), policy: .standard)
+        #expect(try first.list().count == 1)
+        #expect(try first.list().first?.favorite == true)
+        #expect(try ClipboardStore(directory: root).list().count == 1)
     }
 
     @Test func backupAndQuotaAreTransactional() throws {
@@ -180,12 +240,15 @@ struct ClipboardStoreTests {
         defaults.set(close, forKey: "clipCloseAfterAction")
         let db = try ClipboardStore(directory: root)
         let id = try db.capture(.text("合成拷贝测试"), source: "Tests", policy: .standard)
+        _ = try db.capture(.text("更新的记录"), source: "Tests", policy: .standard)
         controller.show()
         controller.copy(id)
         let deadline = Date().addingTimeInterval(5)
         while controller.copying && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         #expect(board.string(forType: .string) == "合成拷贝测试")
         #expect(controller.isPanelVisible == !close)
+        #expect(controller.items.first?.id == id)
+        #expect(try ClipboardStore(directory: root).list().first?.id == id)
         controller.show()
         controller.copy(UUID())
         while controller.copying && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
