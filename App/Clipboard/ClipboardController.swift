@@ -16,6 +16,7 @@ import Carbon
     var mode = ClipMode.original
     var loading = false
     private var matched = Set<UUID>()
+    private var reloadGeneration = 0
     private var db: ClipboardStore?
     private let directory: URL
     let defaults: UserDefaults
@@ -122,11 +123,14 @@ import Carbon
         } catch { message = error.localizedDescription }
     }
     func reload() async {
+        reloadGeneration += 1
+        let generation = reloadGeneration
         do {
             let db = try database(), search = query
             let result = try await Task.detached {
-                (try db.list(), try db.groups(), Set(try db.list(query: search).map(\.id)))
+                (try db.list(), try db.groups(), search.isEmpty ? Set<UUID>() : try db.matchingIDs(search))
             }.value
+            guard !Task.isCancelled, generation == reloadGeneration, query == search else { return }
             items = result.0; groups = result.1
             if query == search { matched = result.2 }
             if selected == nil || !visible.contains(where: { $0.id == selected }) { selected = visible.first?.id }
@@ -155,7 +159,6 @@ import Carbon
             }
         } catch { message = error.localizedDescription }
     }
-    func update(_ item: ClipboardItem) { work { try $0.update(item) } }
     func delete(_ ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
         let alert = NSAlert()
@@ -164,10 +167,10 @@ import Carbon
         alert.addButton(withTitle: "删除"); alert.addButton(withTitle: "取消")
         if alert.runModal() == .alertFirstButtonReturn { work { try $0.delete(ids) } }
     }
-    func enqueue(_ item: ClipboardItem) { var item = item; item.queued.toggle(); item.queueOrder = Date().timeIntervalSince1970; update(item) }
+    func enqueue(_ item: ClipboardItem) { work { try $0.update(item.id, queued: !item.queued, queueOrder: Date().timeIntervalSince1970) } }
     func reverseQueue() {
         let reversed = Array(queue.reversed())
-        work { store in for (index, var item) in reversed.enumerated() { item.queueOrder = Double(index); try store.update(item) } }
+        work { store in for (index, item) in reversed.enumerated() { try store.update(item.id, queueOrder: Double(index)) } }
     }
     func moveReply(_ item: ClipboardItem, by delta: Int) {
         let replies = items.filter(\.reply).sorted { $0.order < $1.order }
@@ -175,7 +178,7 @@ import Carbon
         var first = item, second = replies[index + delta]
         swap(&first.order, &second.order)
         let a = first, b = second
-        work { try $0.update(a); try $0.update(b) }
+        work { try $0.update(a.id, order: a.order); try $0.update(b.id, order: b.order) }
     }
     func toggle() { if panel?.isVisible == true { panel?.orderOut(nil) } else { show() } }
     func show() {

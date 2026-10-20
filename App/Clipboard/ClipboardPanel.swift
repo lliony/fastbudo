@@ -76,7 +76,7 @@ struct ClipboardPanel: View {
                             rowButton("拷贝", symbol: "square.on.square") { controller.copy(item.id) }
                                 .disabled(controller.copying)
                             rowButton("收藏", symbol: item.favorite ? "star.fill" : "star", highlighted: item.favorite) {
-                                var value = item; value.favorite.toggle(); controller.update(value)
+                                controller.work { try $0.update(item.id, favorite: !item.favorite) }
                             }.accessibilityLabel(item.favorite ? "取消收藏" : "收藏")
                             rowButton("删除", symbol: "trash") { controller.delete([item.id]) }
                         }
@@ -122,7 +122,12 @@ struct ClipboardPanel: View {
         .disabled(controller.loading)
         .frame(minWidth: 480, minHeight: 400)
         .onAppear { searchFocused = true }
-        .task(id: controller.query) { await controller.reload() }
+        .task(id: controller.query) {
+            if !controller.query.isEmpty {
+                do { try await Task.sleep(for: .milliseconds(180)) } catch { return }
+            }
+            await controller.reload()
+        }
         .task(id: controller.selected) { await controller.loadDetail() }
         .onChange(of: controller.section) { controller.selected = controller.visible.first?.id }
         .onChange(of: controller.group) { controller.selected = controller.visible.first?.id }
@@ -159,7 +164,7 @@ struct ClipboardPanel: View {
                     } else { ProgressView() }
                 }.frame(minHeight: 180, maxHeight: 340)
                 if let item = controller.items.first(where: { $0.id == controller.selected }) {
-                    Picker("分组", selection: Binding(get: { item.group }, set: { group in var value = item; value.group = group; controller.update(value) })) {
+                    Picker("分组", selection: Binding(get: { item.group }, set: { group in controller.work { try $0.update(item.id, group: group) } })) {
                         Text("未分组").tag("")
                         ForEach(controller.groups, id: \.self) { Text($0).tag($0) }
                     }
@@ -214,8 +219,8 @@ struct ClipboardPanel: View {
     @ViewBuilder private func actions(_ item: ClipboardItem) -> some View {
         Button("拷贝") { controller.copy(item.id) }
         Button("查看详情…") { controller.selected = item.id; showDetail = true }
-        Button(item.favorite ? "取消收藏" : "收藏") { var value = item; value.favorite.toggle(); controller.update(value) }
-        Button(item.pinned ? "取消置顶" : "置顶") { var value = item; value.pinned.toggle(); controller.update(value) }
+        Button(item.favorite ? "取消收藏" : "收藏") { controller.work { try $0.update(item.id, favorite: !item.favorite) } }
+        Button(item.pinned ? "取消置顶" : "置顶") { controller.work { try $0.update(item.id, pinned: !item.pinned) } }
         Button(item.queued ? "从堆栈移除" : "加入堆栈") { controller.enqueue(item) }
         if item.reply {
             Button("编辑快捷回复…") { edit(item) }
