@@ -25,17 +25,8 @@ import AppKit
         try result.validate()
         return result
     }
-    static func write(_ payload: ClipPayload, to board: NSPasteboard, mode: ClipMode) throws {
-        try payload.validate()
-        var value = payload
-        if mode != .original {
-            guard !payload.plainText.isEmpty else { throw ClipError.invalid }
-            var text = payload.plainText
-            if mode == .lines { text = text.components(separatedBy: .newlines).joined(separator: " ") }
-            if mode == .compact { text = text.components(separatedBy: .whitespacesAndNewlines).joined() }
-            value = .text(text)
-        }
-        let objects = value.items.map { representations in
+    static func write(_ payload: ClipPayload, to board: NSPasteboard) throws {
+        let objects = payload.items.map { representations in
             let item = NSPasteboardItem()
             for (type, data) in representations { item.setData(data, forType: NSPasteboard.PasteboardType(type)) }
             item.setData(Data(), forType: marker)

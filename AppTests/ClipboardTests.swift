@@ -284,7 +284,7 @@ struct ClipboardStoreTests {
         board.setString("合成内容", forType: .string)
         let payload = try #require(try ClipboardCapture.read(board))
         #expect(payload.plainText == "合成内容")
-        try ClipboardCapture.write(payload, to: board, mode: .original)
+        try ClipboardCapture.write(payload, to: board)
         #expect(board.string(forType: .string) == "合成内容")
         #expect(try ClipboardCapture.read(board) == nil)
         board.clearContents()
@@ -309,7 +309,7 @@ struct ClipboardStoreTests {
         let rich = NSAttributedString(string: "富文本样本", attributes: [.font: NSFont.boldSystemFont(ofSize: 14)])
         let rtf = try rich.data(from: NSRange(location: 0, length: rich.length), documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
         let payload = ClipPayload(items: [["public.rtf": rtf, "public.utf8-plain-text": Data("富文本样本".utf8)]])
-        try ClipboardCapture.write(payload, to: board, mode: .original)
+        try ClipboardCapture.write(payload, to: board)
         #expect(board.data(forType: .rtf) == rtf)
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
@@ -317,7 +317,7 @@ struct ClipboardStoreTests {
         board.clearContents(); board.setData(png, forType: .png)
         let image = try #require(try ClipboardCapture.read(board))
         #expect(image.kind == .image)
-        try ClipboardCapture.write(image, to: board, mode: .original)
+        try ClipboardCapture.write(image, to: board)
         #expect(board.data(forType: .png) == png)
         #expect(throws: (any Error).self) { try ClipPayload(items: [["public.png": Data("invalid".utf8)]]).validate() }
         #expect(throws: (any Error).self) { try ClipPayload.text(String(repeating: "a", count: ClipPayload.maximum + 1)).validate() }
@@ -329,7 +329,7 @@ struct ClipboardStoreTests {
         board.writeObjects([URL(fileURLWithPath: "/tmp/test file.txt") as NSURL])
         let payload = try #require(try ClipboardCapture.read(board))
         #expect(payload.kind == .files)
-        try ClipboardCapture.write(.text("a\nb c"), to: board, mode: .compact)
+        try ClipboardCapture.write(try ClipPayload.text("a\nb c").transformed(mode: .compact), to: board)
         #expect(board.string(forType: .string) == "abc")
         #expect(throws: (any Error).self) {
             try ClipPayload(items: [["public.file-url": Data("https://example.com".utf8)]]).validate()
@@ -365,8 +365,12 @@ struct ClipboardStoreTests {
         #expect(controller.items.isEmpty)
         board.clearContents(); board.setString("new synthetic content", forType: .string)
         controller.poll()
+        let db = try ClipboardStore(directory: root)
         let deadline = Date().addingTimeInterval(5)
-        while controller.items.isEmpty && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        while try db.list().isEmpty && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(try db.list().count == 1)
+        #expect(controller.items.isEmpty)
+        await controller.reload()
         #expect(controller.items.count == 1)
         controller.setEnabled(false)
         board.clearContents(); board.setString("paused synthetic content", forType: .string)
@@ -541,5 +545,17 @@ struct ClipboardStoreTests {
                 window.orderOut(nil)
             }
         }
+    }
+}
+
+struct ClipboardTransformTests {
+    @Test func transformsUnicodeWhitespaceWithoutLosingContent() throws {
+        let text = "甲\r\n乙\t 丙\u{00a0}丁\u{0085}戊\u{2028}😀"
+        let payload = ClipPayload.text(text)
+        #expect(try payload.transformed(mode: .original) == payload)
+        #expect(try payload.transformed(mode: .plain).plainText == text)
+        #expect(try payload.transformed(mode: .lines).plainText == "甲  乙\t 丙\u{00a0}丁 戊 😀")
+        #expect(try payload.transformed(mode: .compact).plainText == "甲乙丙丁戊😀")
+        #expect(throws: (any Error).self) { try ClipPayload.text("").transformed(mode: .plain) }
     }
 }

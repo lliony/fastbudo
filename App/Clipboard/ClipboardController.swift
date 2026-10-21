@@ -20,6 +20,7 @@ import Carbon
     var loading = false
     private var matched = Set<UUID>() { didSet { rebuildVisible() } }
     private var reloadGeneration = 0
+    private var applyingSnapshot = false
     private var db: ClipboardStore?
     private let directory: URL
     let defaults: UserDefaults
@@ -62,6 +63,7 @@ import Carbon
     private(set) var visible: [ClipboardItem] = []
     // 仅数据或筛选条件改变时计算；滚动、选中和状态文字刷新复用结果。
     private func rebuildVisible() {
+        guard !applyingSnapshot else { return }
         let base = section == "堆栈" ? queue : section == "快捷回复" ? items.filter(\.reply).sorted { $0.order < $1.order } : items
         let query = query, group = group, kind = kind, section = section, matched = matched
         visible = base.filter {
@@ -123,7 +125,7 @@ import Carbon
                 defer { captureInFlight = false }
                 do {
                     _ = try await Task.detached { try db.capture(payload, source: name, policy: policy) }.value
-                    await reload()
+                    if isPanelVisible { await reload() }
                     message = "已记录 · \(name)"
                 } catch { message = error.localizedDescription }
             }
@@ -138,8 +140,10 @@ import Carbon
                 (try db.list(), try db.groups(), search.isEmpty ? Set<UUID>() : try db.matchingIDs(search))
             }.value
             guard !Task.isCancelled, generation == reloadGeneration, query == search else { return }
-            items = result.0; groups = result.1
-            if query == search { matched = result.2 }
+            applyingSnapshot = true
+            items = result.0; groups = result.1; matched = result.2
+            applyingSnapshot = false
+            rebuildVisible()
             if selected == nil || !visible.contains(where: { $0.id == selected }) { selected = visible.first?.id }
         } catch { message = error.localizedDescription }
     }
@@ -213,8 +217,8 @@ import Carbon
         panel?.makeKeyAndOrderFront(nil); NSApp.activate()
         Task { await reload() }
     }
-    func hide() { showDetail = false; clearDetail(); panel?.orderOut(nil) }
-    func windowWillClose(_ notification: Notification) { showDetail = false; clearDetail() }
+    func hide() { reloadGeneration += 1; showDetail = false; clearDetail(); panel?.orderOut(nil) }
+    func windowWillClose(_ notification: Notification) { reloadGeneration += 1; showDetail = false; clearDetail() }
     /// 所有拷贝入口共用完成逻辑；失败时不关闭面板，也不再发送粘贴按键。
     func copy(_ id: UUID) {
         guard !copying else { return }
@@ -224,8 +228,8 @@ import Carbon
             defer { copying = false }
             do {
                 let db = try database()
-                let payload = try await Task.detached { try db.payload(id) }.value
-                try ClipboardCapture.write(payload, to: board, mode: mode)
+                let payload = try await Task.detached { try db.payload(id).transformed(mode: mode) }.value
+                try ClipboardCapture.write(payload, to: board)
                 lastChange = board.changeCount
                 let updated = try await Task.detached { try db.markUsed(id) }.value
                 if let index = items.firstIndex(where: { $0.id == id }) {

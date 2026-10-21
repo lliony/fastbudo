@@ -38,6 +38,23 @@ struct ClipPayload: Codable, Equatable, Sendable {
     static let allowed = Set(["public.utf8-plain-text", "public.rtf", "public.html", "public.png", "public.tiff", "public.file-url"])
     static let maximum = 20 * 1024 * 1024
     static func text(_ value: String) -> Self { Self(items: [["public.utf8-plain-text": Data(value.utf8)]]) }
+    /// 纯数据转换可在后台执行；按 Unicode scalar 保持 CR/LF 和空白字符语义。
+    func transformed(mode: ClipMode) throws -> Self {
+        try validate()
+        guard mode != .original else { return self }
+        let text = plainText
+        guard !text.isEmpty else { throw ClipError.invalid }
+        guard mode != .plain else { return .text(text) }
+        let separators = mode == .lines ? CharacterSet.newlines : .whitespacesAndNewlines
+        var result = String.UnicodeScalarView()
+        result.reserveCapacity(text.utf8.count)
+        for scalar in text.unicodeScalars {
+            if separators.contains(scalar) {
+                if mode == .lines { result.append(" ") }
+            } else { result.append(scalar) }
+        }
+        return .text(String(result))
+    }
     var plainText: String { items.compactMap { $0["public.utf8-plain-text"].flatMap { String(data: $0, encoding: .utf8) } }.joined(separator: "\n") }
     var fileURLs: [URL] { items.compactMap { $0["public.file-url"].flatMap { String(data: $0, encoding: .utf8) }.flatMap(URL.init(string:)) } }
     var kind: ClipKind {
