@@ -8,6 +8,9 @@ last_updated: 2026-10-21
 
 | 我想… | 看这里 |
 |---|---|
+| 查看版本变化与 0.0.2 发布准备 | [变更日志](../CHANGELOG.md) |
+| 理解当前模块、数据流与并发边界 | [架构文档](../ARCHITECTURE.md) |
+| 修改代码前确认约束与验证命令 | [项目规则](../AGENTS.md) |
 | 审阅首版范围、技术选型和验收标准 | [FastBudo 首版设计](superpowers/specs/2026-10-15-fastbudo-design.md) |
 | 审阅全功能性能问题及优化门槛 | [性能优化范围](superpowers/specs/2026-10-21-performance-design.md) |
 | 查看两批优化实测与限制 | [性能验证记录](validation/2026-10-21-performance.md) |
