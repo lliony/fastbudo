@@ -6,6 +6,11 @@ settings:
   base:
     SWIFT_VERSION: '6.0'
     CODE_SIGNING_ALLOWED: NO
+  configs:
+    Release:
+      DEPLOYMENT_POSTPROCESSING: YES
+      STRIP_INSTALLED_PRODUCT: YES
+      STRIP_STYLE: debugging
 targets:
   FastBudo:
     type: application

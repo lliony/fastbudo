@@ -1,7 +1,7 @@
 ---
 title: 剪贴板基础设置与紧凑面板实施计划
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-10-21
 ---
 
 # 剪贴板基础设置与紧凑面板 Implementation Plan
@@ -36,7 +36,7 @@ last_updated: 2026-10-16
 ```sh
 xcodebuild test -scheme FastBudo -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode
 xcodebuild -scheme FastBudo -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode build
-python3 ~/.codex/skills/ai-project-standards/scripts/validate-project-standards.py --root .
+python3 "$HOME/.codex/skills/ai-project-standards/scripts/validate-project-standards.py" --root .
 git diff --check
 ```
 

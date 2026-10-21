@@ -44,7 +44,7 @@ related_spec: ../specs/2026-10-21-performance-design.md
 
 ## 执行入口与公共验证
 
-基准 `7fdd19a`，复用工作树 `~/.codex/worktrees/fastbudo-implementation/fastbudo`，分支 `feat/fastbudo-implementation`；实施前核对最新差异，不重置他人改动。先 A1，再 A2–A6，第一批完整验收后执行 B1–B6。A2 是 B1/B2 的回归基线，A5 是 B4/B5 的状态管理基线。B3 拆表最后独立决策，不阻塞其他项目。
+基准 `7fdd19a`，复用工作树 `<项目工作区>`，分支 `feat/fastbudo-implementation`；实施前核对最新差异，不重置他人改动。先 A1，再 A2–A6，第一批完整验收后执行 B1–B6。A2 是 B1/B2 的回归基线，A5 是 B4/B5 的状态管理基线。B3 拆表最后独立决策，不阻塞其他项目。
 
 所有任务先搜索函数调用方和测试，补充最小失败用例，确认失败原因后再改代码。下列命令在工作树运行；首次先构建固定引擎，涉及桥接改动后重新构建。
 
@@ -289,7 +289,7 @@ if results.count > 20 { results.removeLast(results.count - 20) }
 - [ ] 更新计划复选框；条件优化未采用标记“评估完成、未实施”，不误写成功落地。维护 spec/plan/验证记录双向链接与 docs 索引。
 - [ ] 执行文档门禁及 `git diff --check`，审查无密码/用户内容进入日志；本地提交验证记录，不推送。
 ```bash
-python3 ~/.codex/skills/ai-project-standards/scripts/validate-project-standards.py --root .
+python3 "$HOME/.codex/skills/ai-project-standards/scripts/validate-project-standards.py" --root .
 git diff --check
 ```
 - [ ] 交付代码、测试证据和残余限制。若后续获准安装：先保存当前可运行包，核验签名、Finder 扩展标识及 entitlements，正常退出再替换，启动后验证右键入口和数据库；schema 迁移回退必须使用一致性备份，安装失败保留旧包。此步骤不包含 GitHub 发布。
