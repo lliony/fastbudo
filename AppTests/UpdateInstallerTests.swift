@@ -3,6 +3,14 @@ import Testing
 @testable import FastBudo
 
 struct UpdateInstallerTests {
+    @Test func assetMatchesBuildArchitecture() {
+        #if arch(x86_64)
+        #expect(UpdateInstaller.assetName(version: "0.0.2") == "FastBudo-0.0.2-macOS-x86_64.zip")
+        #else
+        #expect(UpdateInstaller.assetName(version: "0.0.2") == "FastBudo-0.0.2-macOS-arm64.zip")
+        #endif
+    }
+
     @Test func checksumRequiresExactAssetAndMatchingBytes() throws {
         let name = "FastBudo-0.0.2-macOS-arm64.zip"
         let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

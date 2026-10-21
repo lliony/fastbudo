@@ -68,9 +68,20 @@ python3 scripts/test-low-space.py
 
 ## 文档与许可
 
-- [变更日志（含 0.0.2 未发布内容）](CHANGELOG.md)
+- [变更日志](CHANGELOG.md)
 - [架构文档](ARCHITECTURE.md)
 - [开发规则](AGENTS.md)
 - [文档索引](docs/README.md)
 - [第三方声明](THIRD-PARTY-NOTICES.md)
 - [MIT 许可证](LICENSE)
+
+## 双架构发布构建
+
+每次发布同时提供 arm64 与 x86_64 ZIP；包名、签名与验证要求见 [项目规则](AGENTS.md#文档与发布)。先完成并保存 ARM 产物，再构建 Intel，避免 `.build/engine` 的架构资源相互覆盖：
+
+```bash
+MACOSX_DEPLOYMENT_TARGET=14.0 bash scripts/build-engine.sh x86_64
+xcodebuild -scheme FastBudo -configuration Release -destination 'generic/platform=macOS' -derivedDataPath .build/release-x86_64 ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO MACOSX_DEPLOYMENT_TARGET=14.0 build
+```
+
+Intel 包最低部署目标为 macOS 14.0；交叉编译和签名检查不代表 Intel 真机验收。回到 ARM 开发前运行 `bash scripts/build-engine.sh arm64` 恢复引擎资源。

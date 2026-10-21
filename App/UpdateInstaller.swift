@@ -11,6 +11,15 @@ enum UpdateInstaller {
         let destination: URL
     }
 
+    // 发布包按编译架构选择，避免 Intel 下载无法运行的 ARM 包。
+    static func assetName(version: String) -> String {
+        #if arch(x86_64)
+        return "FastBudo-\(version)-macOS-x86_64.zip"
+        #else
+        return "FastBudo-\(version)-macOS-arm64.zip"
+        #endif
+    }
+
     static func prepare(release: UpdateChecker.Release, destination: URL) async throws -> Prepared {
         let manager = FileManager.default
         let destination = destination.standardizedFileURL
@@ -22,7 +31,7 @@ enum UpdateInstaller {
         try manager.createDirectory(at: workspace, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         do {
             let version = release.tag.hasPrefix("v") ? String(release.tag.dropFirst()) : release.tag
-            let name = "FastBudo-\(version)-macOS-arm64.zip"
+            let name = assetName(version: version)
             let base = URL(string: "https://github.com/lliony/fastbudo/releases/download/")!.appendingPathComponent(release.tag)
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 30
@@ -122,7 +131,12 @@ enum UpdateInstaller {
         }
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let systemVersion = "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
-        guard bundle.executableArchitectures?.contains(NSNumber(value: NSBundleExecutableArchitectureARM64)) == true,
+        #if arch(x86_64)
+        let architecture = NSBundleExecutableArchitectureX86_64
+        #else
+        let architecture = NSBundleExecutableArchitectureARM64
+        #endif
+        guard bundle.executableArchitectures?.contains(NSNumber(value: architecture)) == true,
               (bundle.object(forInfoDictionaryKey: "LSMinimumSystemVersion") as? String ?? "0")
                 .compare(systemVersion, options: .numeric) != .orderedDescending else {
             throw ArchiveFailure("新版本不支持当前处理器或 macOS 版本。")
