@@ -233,7 +233,7 @@ import Carbon
     func show() {
         if panel == nil {
             let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
-                                 styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+                                 styleMask: [.titled, .closable, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
             window.title = "FastBudo 剪贴板"
             window.delegate = self
             window.isReleasedWhenClosed = false
@@ -243,7 +243,8 @@ import Carbon
             window.center(); window.setFrameAutosaveName("FastBudoClipboardCompact")
             panel = window
         }
-        panel?.makeKeyAndOrderFront(nil); NSApp.activate()
+        // 只让剪贴板获取键盘焦点，避免激活应用时把设置或任务窗口一起带到前台。
+        panel?.makeKeyAndOrderFront(nil)
         Task { await reload() }
     }
     func hide() { invalidateReload(); showDetail = false; clearDetail(); panel?.orderOut(nil) }

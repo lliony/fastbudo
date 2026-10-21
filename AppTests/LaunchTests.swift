@@ -2,7 +2,30 @@ import AppKit
 import Testing
 @testable import FastBudo
 
+@Suite(.serialized)
 @MainActor struct LaunchTests {
+    @Test func clipboardPanelDoesNotActivateMainWindows() throws {
+        let board = NSPasteboard.withUniqueName()
+        let suite = "FastBudoTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let clipboard = ClipboardController(defaults: defaults, board: board)
+        let delegate = AppDelegate(clipboard: clipboard)
+        defer {
+            clipboard.hide(); clipboard.stop(); board.releaseGlobally()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        clipboard.show()
+        let panel = try #require(NSApp.windows.first { $0.title == "FastBudo 剪贴板" && $0.isVisible } as? NSPanel)
+        #expect(panel.styleMask.contains(.nonactivatingPanel))
+        #expect(panel.canBecomeKey)
+        #expect(!panel.canBecomeMain)
+        #expect(delegate.settingsWindow == nil)
+        clipboard.hide()
+        clipboard.toggle()
+        #expect(panel.isVisible)
+        #expect(delegate.settingsWindow == nil)
+    }
+
     @Test func settingsFollowLaunchIntentAndReopen() throws {
         let originalPolicy = NSApp.activationPolicy()
         defer { NSApp.setActivationPolicy(originalPolicy) }
