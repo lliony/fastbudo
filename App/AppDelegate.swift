@@ -4,9 +4,12 @@ import SwiftUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = ArchiveModel()
     let clipboard: ClipboardController
+    private let requestTermination: @MainActor () -> Void
     private let revealNewItem: @MainActor (URL) -> Void
     override convenience init() { self.init(clipboard: ClipboardController()) }
-    init(clipboard: ClipboardController, revealNewItem: @escaping @MainActor (URL) -> Void = FinderRename.revealAndRename) {
+    init(clipboard: ClipboardController, revealNewItem: @escaping @MainActor (URL) -> Void = FinderRename.revealAndRename,
+         requestTermination: @escaping @MainActor () -> Void = { NSApp.terminate(nil) }) {
+        self.requestTermination = requestTermination
         self.clipboard = clipboard
         self.revealNewItem = revealNewItem
         super.init()
@@ -65,7 +68,7 @@ import SwiftUI
         NSApp.activate()
     }
 
-    func installUpdate(_ update: UpdateInstaller.Prepared) throws {
+    func installUpdate(_ update: UpdateInstaller.Prepared) async throws {
         var retainBackup = false
         defer {
             if !retainBackup { try? FileManager.default.removeItem(at: update.workspace) }
@@ -87,8 +90,11 @@ import SwiftUI
             helper.terminate()
             throw error
         }
-        NSApp.terminate(nil)
-        // terminate 返回表示系统或应用拒绝退出；恢复目录，避免留下半完成安装。
+        // terminate 可在主循环稍后完成；返回不代表拒绝退出，先给 AppKit 留出退出时间。
+        // 提交安装后不再响应界面任务的取消，避免提前回滚正在退出的应用。
+        let gracePeriod = Task.detached { try await Task.sleep(for: .seconds(5)) }
+        DispatchQueue.main.async { [requestTermination] in requestTermination() }
+        try? await gracePeriod.value
         helper.terminate()
         do {
             try UpdateInstaller.swap(update.destination, update.application)

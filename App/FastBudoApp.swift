@@ -15,7 +15,7 @@ struct FastBudoApp: App {
 
 struct PreferencesView: View {
     @Bindable var clipboard: ClipboardController
-    let installUpdate: (UpdateInstaller.Prepared) throws -> Void
+    let installUpdate: (UpdateInstaller.Prepared) async throws -> Void
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
@@ -26,6 +26,8 @@ struct PreferencesView: View {
     @State private var loginItemNeedsApproval = false
     @State private var loginItemError: String?
     @State private var installingUpdate = false
+    @State private var updateProgress: UpdateInstaller.Progress = .manifest
+    @State private var updateOperation: UUID?
     @State private var checkingUpdate = false
     @State private var updateDialogPresented = false
     @State private var updateError: String?
@@ -180,8 +182,15 @@ struct PreferencesView: View {
         VStack(spacing: 20) {
             Text("版本更新").font(.headline)
             if installingUpdate {
-                ProgressView()
-                Text("正在下载并验证新版本，完成后将自动重启…")
+                if let fraction = updateProgress.fraction {
+                    ProgressView(value: fraction).progressViewStyle(.linear)
+                } else {
+                    ProgressView()
+                }
+                Text(updateProgress.title)
+                if let detail = updateProgress.detail {
+                    Text(detail).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                }
             } else if let updateError {
                 Text(updateError)
             } else if let release = availableRelease {
@@ -211,8 +220,9 @@ struct PreferencesView: View {
                     updateDialogPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(installingUpdate && updateProgress == .installing)
                 if availableRelease != nil && updateError == nil && !installingUpdate {
-                    Button("立即更新") { installingUpdate = true }
+                    Button("立即更新") { updateProgress = .manifest; installingUpdate = true }
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -224,10 +234,17 @@ struct PreferencesView: View {
         .interactiveDismissDisabled(installingUpdate)
         .task(id: installingUpdate) {
             guard installingUpdate, let release = availableRelease else { return }
-            defer { installingUpdate = false }
+            let operation = UUID()
+            updateOperation = operation
+            defer { installingUpdate = false; updateOperation = nil }
             let destination = Bundle.main.bundleURL
             let preparation = Task.detached {
-                try await UpdateInstaller.prepare(release: release, destination: destination)
+                try await UpdateInstaller.prepare(release: release, destination: destination) { progress in
+                    Task { @MainActor in
+                        guard updateOperation == operation, progress.order >= updateProgress.order else { return }
+                        updateProgress = progress
+                    }
+                }
             }
             do {
                 let update = try await withTaskCancellationHandler {
@@ -241,7 +258,8 @@ struct PreferencesView: View {
                     try? FileManager.default.removeItem(at: update.workspace)
                     throw error
                 }
-                try installUpdate(update)
+                updateProgress = .installing
+                try await installUpdate(update)
             } catch {
                 if !Task.isCancelled {
                     updateError = "更新失败：\(error.localizedDescription)"

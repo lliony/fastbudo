@@ -26,6 +26,42 @@ import Testing
         #expect(delegate.settingsWindow == nil)
     }
 
+    @Test func updateAllowsDeferredTerminationBeforeRollingBack() async throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let installed = root.appendingPathComponent("installed.app")
+        let workspace = root.appendingPathComponent("update")
+        let staged = workspace.appendingPathComponent("staged.app")
+        for (url, value) in [(installed, "old"), (staged, "new")] {
+            try manager.createDirectory(at: url, withIntermediateDirectories: true)
+            try Data(value.utf8).write(to: url.appendingPathComponent("version"))
+        }
+        let board = NSPasteboard.withUniqueName()
+        let suite = "FastBudoTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let clipboard = ClipboardController(defaults: defaults, board: board)
+        var requested = false
+        let delegate = AppDelegate(clipboard: clipboard, requestTermination: { requested = true })
+        defer {
+            clipboard.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite)
+            try? manager.removeItem(at: root)
+        }
+        let task = Task { try await delegate.installUpdate(.init(workspace: workspace, application: staged, destination: installed)) }
+        for _ in 0..<100 where !requested { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(requested)
+        #expect(try String(contentsOf: installed.appendingPathComponent("version"), encoding: .utf8) == "new")
+        // 退出请求返回后仍应留出 AppKit 退出时间；取消界面任务不能跳过这段保护。
+        task.cancel()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(try String(contentsOf: installed.appendingPathComponent("version"), encoding: .utf8) == "new")
+        switch await task.result {
+        case .success: Issue.record("未退出时应超时回滚")
+        case .failure: break
+        }
+        #expect(try String(contentsOf: installed.appendingPathComponent("version"), encoding: .utf8) == "old")
+        #expect(!manager.fileExists(atPath: workspace.path))
+    }
+
     @Test func settingsFollowLaunchIntentAndReopen() throws {
         let originalPolicy = NSApp.activationPolicy()
         defer { NSApp.setActivationPolicy(originalPolicy) }

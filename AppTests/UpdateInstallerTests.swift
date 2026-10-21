@@ -1,8 +1,41 @@
 import Foundation
 import Testing
+import os
 @testable import FastBudo
 
 struct UpdateInstallerTests {
+    @Test func downloadProgressHandlesKnownAndUnknownSizes() {
+        let events = OSAllocatedUnfairLock(initialState: [UpdateInstaller.Progress]())
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        let task = session.downloadTask(with: URL(string: "https://example.invalid/update.zip")!)
+        let observer = UpdateInstaller.DownloadObserver(maximumSize: 100) { value in
+            events.withLock { $0.append(value) }
+        }
+        observer.urlSession(session, downloadTask: task, didWriteData: 25, totalBytesWritten: 25, totalBytesExpectedToWrite: 100)
+        #expect(events.withLock { $0.last?.fraction } == 0.25)
+        observer.urlSession(session, downloadTask: task, didWriteData: 75, totalBytesWritten: 100, totalBytesExpectedToWrite: 100)
+        #expect(events.withLock { $0.last?.fraction } == 1)
+        let unknown = UpdateInstaller.Progress.downloading(received: 25, total: -1)
+        #expect(unknown.fraction == nil)
+        #expect(unknown.detail?.contains("已下载") == true)
+        #expect(UpdateInstaller.Progress.verifying.fraction == nil)
+        #expect(UpdateInstaller.Progress.downloading(received: 110, total: 100).fraction == 1)
+        #expect(UpdateInstaller.Progress.downloading(received: -1, total: 100).fraction == 0)
+    }
+
+    @Test func oversizedDownloadCancelsBeforeCompletion() {
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        for (received, expected): (Int64, Int64) in [(1, 101), (101, -1)] {
+            let task = session.downloadTask(with: URL(string: "https://example.invalid/update.zip")!)
+            let observer = UpdateInstaller.DownloadObserver(maximumSize: 100) { _ in Issue.record("超限下载不应上报有效进度") }
+            observer.urlSession(session, downloadTask: task, didWriteData: received,
+                                totalBytesWritten: received, totalBytesExpectedToWrite: expected)
+            #expect(task.state == .canceling || task.state == .completed)
+        }
+    }
+
     @Test func assetMatchesBuildArchitecture() {
         #if arch(x86_64)
         #expect(UpdateInstaller.assetName(version: "0.0.2") == "FastBudo-0.0.2-macOS-x86_64.zip")

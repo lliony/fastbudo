@@ -5,6 +5,65 @@ import Security
 
 /// 在应用同卷暂存并验证发布包，安装仅交换目录，旧版本始终保留。
 enum UpdateInstaller {
+    enum Progress: Sendable, Equatable {
+        case manifest, downloading(received: Int64, total: Int64), verifying, extracting, validating, installing
+
+        var order: Int {
+            switch self {
+            case .manifest: 0
+            case .downloading: 1
+            case .verifying: 2
+            case .extracting: 3
+            case .validating: 4
+            case .installing: 5
+            }
+        }
+        var title: String {
+            switch self {
+            case .manifest: "正在获取更新信息…"
+            case .downloading: "正在下载安装包…"
+            case .verifying: "正在校验下载文件…"
+            case .extracting: "正在解压新版本…"
+            case .validating: "正在验证应用签名…"
+            case .installing: "正在安装并重启…"
+            }
+        }
+        var fraction: Double? {
+            guard case let .downloading(received, total) = self, total > 0 else { return nil }
+            return min(1, max(0, Double(received) / Double(total)))
+        }
+        var detail: String? {
+            guard case let .downloading(received, total) = self else { return nil }
+            let downloaded = ByteCountFormatter.string(fromByteCount: max(0, received), countStyle: .file)
+            guard total > 0, let fraction else { return "已下载 \(downloaded)" }
+            return "\(downloaded) / \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file)) · \(Int(fraction * 100))%"
+        }
+    }
+
+    // URLSession 的串行 delegate 队列保护节流时间；文件继续落盘，不把安装包载入内存。
+    final class DownloadObserver: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+        private let maximumSize: Int64
+        private let progress: @Sendable (Progress) -> Void
+        private var lastReport = -Double.infinity
+
+        init(maximumSize: Int, progress: @escaping @Sendable (Progress) -> Void) {
+            self.maximumSize = Int64(maximumSize)
+            self.progress = progress
+        }
+        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                        didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+            guard totalBytesWritten <= maximumSize, totalBytesExpectedToWrite <= maximumSize else {
+                downloadTask.cancel()
+                return
+            }
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now - lastReport >= 0.1 || totalBytesWritten == totalBytesExpectedToWrite else { return }
+            lastReport = now
+            progress(.downloading(received: totalBytesWritten, total: totalBytesExpectedToWrite))
+        }
+        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {}
+    }
+
     struct Prepared: Sendable {
         let workspace: URL
         let application: URL
@@ -20,7 +79,8 @@ enum UpdateInstaller {
         #endif
     }
 
-    static func prepare(release: UpdateChecker.Release, destination: URL) async throws -> Prepared {
+    static func prepare(release: UpdateChecker.Release, destination: URL,
+                        progress: @escaping @Sendable (Progress) -> Void = { _ in }) async throws -> Prepared {
         let manager = FileManager.default
         let destination = destination.standardizedFileURL
         guard destination.pathExtension == "app",
@@ -38,11 +98,15 @@ enum UpdateInstaller {
             configuration.timeoutIntervalForResource = 300
             let session = URLSession(configuration: configuration)
             defer { session.invalidateAndCancel() }
+            progress(.manifest)
             let manifestFile = try await download(base.appendingPathComponent("SHA256SUMS.txt"), session: session, maximumSize: 1024 * 1024)
             defer { try? manager.removeItem(at: manifestFile) }
             let manifest = try String(contentsOf: manifestFile, encoding: .utf8)
-            let downloaded = try await download(base.appendingPathComponent(name), session: session, maximumSize: 512 * 1024 * 1024)
+            progress(.downloading(received: 0, total: -1))
+            let downloaded = try await download(base.appendingPathComponent(name), session: session,
+                                                maximumSize: 512 * 1024 * 1024, progress: progress)
             defer { try? manager.removeItem(at: downloaded) }
+            progress(.verifying)
             try verifyChecksum(file: downloaded, manifest: manifest, name: name)
             try Task.checkCancellation()
             let archive = workspace.appendingPathComponent(name)
@@ -53,6 +117,7 @@ enum UpdateInstaller {
                 engine.cancel()
             }
             defer { timeout.cancel() }
+            progress(.extracting)
             let extracted = try await withTaskCancellationHandler {
                 try Task.checkCancellation()
                 return try engine.extract(archive, to: workspace)
@@ -60,6 +125,7 @@ enum UpdateInstaller {
                 engine.cancel()
             }
             let application = try application(in: extracted, version: version)
+            progress(.validating)
             try validateApplication(at: application, version: version)
             try Task.checkCancellation()
             try manager.removeItem(at: archive)
@@ -70,8 +136,10 @@ enum UpdateInstaller {
         }
     }
 
-    private static func download(_ url: URL, session: URLSession, maximumSize: Int) async throws -> URL {
-        let (file, response) = try await session.download(from: url)
+    private static func download(_ url: URL, session: URLSession, maximumSize: Int,
+                                 progress: @escaping @Sendable (Progress) -> Void = { _ in }) async throws -> URL {
+        let observer = DownloadObserver(maximumSize: maximumSize, progress: progress)
+        let (file, response) = try await session.download(from: url, delegate: observer)
         do {
             guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.scheme == "https",
