@@ -1,7 +1,7 @@
 ---
 id: SPEC-20261021-performance
 title: 全功能性能与内存优化范围
-status: draft
+status: active
 last_updated: 2026-10-21
 related_plan: ../plans/2026-10-21-performance.md
 ---
@@ -10,7 +10,7 @@ related_plan: ../plans/2026-10-21-performance.md
 
 [返回文档索引](../../README.md) · [两批实施计划](../plans/2026-10-21-performance.md)
 
-本次由用户要求生成两批优化计划；尚未实施。审查基准为 `7fdd19a`，日期 2026-10-21。范围覆盖压缩、解压、Finder 新建与重命名、剪贴板、后台轮询与任务队列。设置、登录项和快捷键未发现值得重构的热循环，保留现状。
+两批局部优化已实施；clone、拆表及 AX 迁移的条件门槛尚未全部通过，具体见[验证记录](../../validation/2026-10-21-performance.md)。审查基准为 `7fdd19a`，日期 2026-10-21。范围覆盖压缩、解压、Finder 新建与重命名、剪贴板、后台轮询与任务队列。设置、登录项和快捷键未发现值得重构的热循环，保留现状。
 
 ## 全局约束
 
