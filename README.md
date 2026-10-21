@@ -1,7 +1,7 @@
 ---
 title: FastBudo
 status: active
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 ---
 
 # FastBudo
@@ -51,6 +51,7 @@ xcodebuild -scheme FastBudo -configuration Release -derivedDataPath .build/xcode
 ```bash
 python3 -m unittest discover -s Tests/Bridge -v
 xcodebuild test -scheme FastBudo -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode
+python3 -m unittest discover -s Tests/Performance -v
 python3 scripts/test-low-space.py
 ```
 
@@ -67,6 +68,9 @@ python3 scripts/test-low-space.py
 
 ## 文档与许可
 
+- [变更日志（含 0.0.2 未发布内容）](CHANGELOG.md)
+- [架构文档](ARCHITECTURE.md)
+- [开发规则](AGENTS.md)
 - [文档索引](docs/README.md)
 - [第三方声明](THIRD-PARTY-NOTICES.md)
 - [MIT 许可证](LICENSE)
