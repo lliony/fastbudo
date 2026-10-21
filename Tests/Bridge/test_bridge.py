@@ -36,6 +36,13 @@ class BridgeTests(unittest.TestCase):
         result = subprocess.run(args, input=password, capture_output=True, timeout=20)
         return result.returncode, json.loads(result.stdout)
 
+    def test_extract_success_does_not_repeat_listing(self):
+        self.zip([('a.txt', b'a')])
+        code, result = self.run_bridge(True)
+        self.assertEqual(code, 0)
+        self.assertEqual(result, {'ok': True})
+        self.assertEqual((self.output / 'a.txt').read_bytes(), b'a')
+
     def test_preserves_original_names_and_sizes(self):
         self.zip([('a\nb', b'newline'), ('a_b', b'underscore'), ('中文.txt', b'utf8')])
         code, result = self.run_bridge()

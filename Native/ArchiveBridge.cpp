@@ -402,14 +402,14 @@ static void run(int argc, char **argv) {
         int root = ::open(argv[3], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         require(root >= 0, "output_unavailable");
         auto *extract = new ExtractCallback(root);
-        extract->items = items;
+        extract->items = std::move(items);
         extract->password = secret;
         extract->budget.limit = approved ? UINT64_MAX : (10ULL << 30);
         CMyComPtr<IArchiveExtractCallback> extraction = extract;
         HRESULT result = archive->Extract(nullptr, (UInt32)-1, false, extraction);
         require(result == S_OK && !extract->failed, "extraction_failed");
         // 子项写完再恢复目录权限和时间，避免中途因只读目录而失败。
-        for (auto item = items.rbegin(); item != items.rend(); ++item) {
+        for (auto item = extract->items.rbegin(); item != extract->items.rend(); ++item) {
             int fd = dup(root);
             require(fd >= 0, "metadata_failed");
             for (const auto &part : components(item->path)) {
@@ -431,14 +431,18 @@ static void run(int argc, char **argv) {
         }
     }
     std::fill(secret.begin(), secret.end(), L'\0');
-    std::cout << "{\"entries\":[";
-    for (size_t i = 0; i < items.size(); ++i) {
-        const auto &item = items[i];
-        if (i) std::cout << ',';
-        std::cout << "{\"path\":" << json(item.path) << ",\"directory\":" << (item.directory ? "true" : "false")
-                  << ",\"size\":" << (item.sizeKnown ? std::to_string(item.size) : "null") << '}';
+    if (extracting) {
+        std::cout << "{\"ok\":true}\n";
+    } else {
+        std::cout << "{\"entries\":[";
+        for (size_t i = 0; i < items.size(); ++i) {
+            const auto &item = items[i];
+            if (i) std::cout << ',';
+            std::cout << "{\"path\":" << json(item.path) << ",\"directory\":" << (item.directory ? "true" : "false")
+                      << ",\"size\":" << (item.sizeKnown ? std::to_string(item.size) : "null") << '}';
+        }
+        std::cout << "]}\n";
     }
-    std::cout << "]}\n";
     archive->Close();
     // 库保持加载至子进程退出，避免接口析构早于动态库卸载的生命周期错误。
 }
