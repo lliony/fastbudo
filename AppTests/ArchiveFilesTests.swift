@@ -20,7 +20,8 @@ struct ArchiveFilesTests {
         for name in [".DS_Store", ".gitignore", "._notes", "中文.txt"] {
             try Data(name.utf8).write(to: source.appendingPathComponent(name))
         }
-        try ArchiveFiles.stage([source], into: stage, excludeDSStore: true, preserveAttributes: false)
+        try ArchiveFiles.stage([source, source.appendingPathComponent("中文.txt"), source], into: stage, excludeDSStore: true, preserveAttributes: false)
+        #expect(try ArchiveFiles.children(stage).map(\.lastPathComponent) == ["source"])
         for name in [".gitignore", "._notes", "中文.txt"] {
             #expect(try Data(contentsOf: stage.appendingPathComponent("source").appendingPathComponent(name)) == Data(name.utf8))
         }

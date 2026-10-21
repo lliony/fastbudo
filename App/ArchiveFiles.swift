@@ -107,10 +107,13 @@ enum ArchiveFiles {
             defer { close(output) }
             let reader = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
             let writer = FileHandle(fileDescriptor: output, closeOnDealloc: false)
-            while let data = try reader.read(upToCount: 1024 * 1024), !data.isEmpty {
+            // FileHandle 的桥接缓冲会进入自动释放池，必须每块释放才能保持有界内存。
+            while try autoreleasepool(invoking: {
+                guard let data = try reader.read(upToCount: 1024 * 1024), !data.isEmpty else { return false }
                 try checkCancellation()
                 try writer.write(contentsOf: data)
-            }
+                return true
+            }) { }
             if preserveAttributes {
                 guard fcopyfile(fd, output, nil, copyfile_flags_t(COPYFILE_XATTR)) == 0 else {
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
