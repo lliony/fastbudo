@@ -51,6 +51,7 @@ struct ArchiveJob: Identifiable, Sendable {
                     }
                 }.value
                 results.insert(result, at: 0)
+                if results.count > 20 { results.removeLast(results.count - 20) }
                 message = "已完成：\(result.lastPathComponent)"
 
             } catch is CancellationError { message = "已取消，原始文件保留。" }

@@ -21,6 +21,24 @@ import Testing
         #expect(model.results.first?.lastPathComponent == "menu.txt.\(format.rawValue)")
     }
 
+    @Test func resultHistoryIsBoundedWithoutDeletingOutputs() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let input = root.appendingPathComponent("input.txt")
+        try Data("history".utf8).write(to: input)
+        let model = ArchiveModel()
+        for index in 0..<21 {
+            model.enqueue(ArchiveJob(operation: .create(CreateRequest(inputs: [input], outputDirectory: root, name: "result-\(index)"))))
+        }
+        let deadline = Date().addingTimeInterval(30)
+        while model.busy && Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(!model.busy && model.failed == nil)
+        #expect(model.results.count == 20)
+        #expect(model.results.first?.lastPathComponent == "result-20.zip")
+        for index in 0..<21 { #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("result-\(index).zip").path)) }
+    }
+
     @Test func newSelectionResetsTransientOptions() {
         let model = ArchiveModel()
         model.password = "previous-secret"
