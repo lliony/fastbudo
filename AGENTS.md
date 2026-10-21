@@ -17,7 +17,7 @@
 - 不解析 7zz 人类可读列表作为路径安全边界；条目枚举与解压通过结构化桥接。
 - 密码不得进入参数、环境变量、日志或临时文件。不得覆盖输入和已有输出，不自动改变系统打开关联。
 - Vendor/7zip 源码包、许可证、来源及 SHA-256 保持一致；修改第三方源码必须记录并履行许可义务。
-- 治理文档变更后运行 `python3 ~/.codex/skills/ai-project-standards/scripts/validate-project-standards.py --root .`；退出码非零阻断交付。
+- 治理文档变更后运行 `python3 "$HOME/.codex/skills/ai-project-standards/scripts/validate-project-standards.py" --root .`；退出码非零阻断交付。
 - 用户文件不能作为破坏性测试样本；失败、取消、空间不足测试只使用专用临时数据。
 
 
@@ -47,6 +47,8 @@ xcodebuild -scheme FastBudo -configuration Release -destination 'platform=macOS,
 - 空间不足测试使用 `python3 scripts/test-low-space.py` 的独立磁盘映像，禁止填满用户主盘。
 - Finder 菜单、辅助功能权限与窗口生命周期需要真实系统交互验证；未验证必须写明。
 - 仅文档变更运行文档门禁、相对链接检查和 `git diff --check`，无需重跑应用测试。
+
+- 提交前运行 `python3 scripts/check-private-paths.py --staged`，发布前对每个解包后的安装包运行 `python3 scripts/check-private-paths.py --artifact <产物目录>`；命中用户目录信息或读取失败时阻断提交或发布。
 
 ## 文档与发布
 
