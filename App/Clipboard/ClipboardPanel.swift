@@ -57,29 +57,12 @@ struct ClipboardPanel: View {
             Divider()
             List(selection: $controller.selected) {
                 ForEach(controller.visible) { item in
-                    HStack(spacing: 14) {
-                        HStack(spacing: 12) {
-                            Image(systemName: item.kind.symbol).font(.title2).foregroundStyle(.secondary).frame(width: 32)
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(item.label.isEmpty ? "空文本" : item.label).lineLimit(2)
-                                HStack(spacing: 6) {
-                                    Text(item.source).lineLimit(1)
-                                    Text("·")
-                                    Text(item.used, style: .relative).lineLimit(1)
-                                    if item.pinned { Image(systemName: "pin.fill").accessibilityLabel("已置顶") }
-                                }.font(.caption).foregroundStyle(.secondary)
-                            }.frame(maxWidth: .infinity, alignment: .leading)
-                        }.contentShape(Rectangle())
-                            .onTapGesture { controller.selected = item.id; if controller.copyOnClick { controller.copy(item.id) } }
-                        HStack(spacing: 10) {
-                            rowButton("拷贝", symbol: "square.on.square") { controller.copy(item.id) }
-                                .disabled(controller.copying)
-                            rowButton("收藏", symbol: item.favorite ? "star.fill" : "star", highlighted: item.favorite) {
-                                controller.work { try $0.update(item.id, favorite: !item.favorite) }
-                            }.accessibilityLabel(item.favorite ? "取消收藏" : "收藏")
-                            rowButton("删除", symbol: "trash") { controller.delete([item.id]) }
-                        }
-                    }.padding(.vertical, 9).tag(item.id)
+                    ClipboardRow(item: item, copying: controller.copying,
+                        select: { controller.selected = item.id; if controller.copyOnClick { controller.copy(item.id) } },
+                        copy: { controller.copy(item.id) },
+                        favorite: { controller.work { try $0.update(item.id, favorite: !item.favorite) } },
+                        delete: { controller.delete([item.id]) })
+                        .equatable().tag(item.id)
                         .listRowSeparator(.visible)
                         .contextMenu { actions(item) }
                 }
@@ -204,15 +187,6 @@ struct ClipboardPanel: View {
             }.padding(24).frame(width: 420)
         }
     }
-    private func rowButton(_ title: String, symbol: String, highlighted: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 17))
-                Text(title).font(.caption2)
-            }.foregroundStyle(highlighted ? Color.accentColor : Color.secondary)
-                .frame(width: 32, height: 42).contentShape(Rectangle())
-        }.buttonStyle(.plain).help(title).accessibilityLabel(title)
-    }
     @ViewBuilder private func actions(_ item: ClipboardItem) -> some View {
         Button("拷贝") { controller.copy(item.id) }
         Button("查看详情…") { controller.selected = item.id; controller.showDetail = true }
@@ -232,5 +206,64 @@ struct ClipboardPanel: View {
             controller.selected = item.id
             Task { await controller.loadDetail(); guard controller.selected == item.id, let detail = controller.detail else { return }; replyText = detail.plainText; controller.clearDetail(); replyEditor = true }
         } else { replyEditor = true }
+    }
+}
+
+/// 行内容只依赖条目和拷贝状态，其他面板状态变化不重新布局整行。
+struct ClipboardRow: View, Equatable {
+    let item: ClipboardItem
+    let copying: Bool
+    let select: () -> Void
+    let copy: () -> Void
+    let favorite: () -> Void
+    let delete: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.item == rhs.item && lhs.copying == rhs.copying }
+
+    static func ageText(_ used: Date, now: Date) -> String {
+        let seconds = max(0, now.timeIntervalSince(used))
+        if seconds < 60 { return "刚刚" }
+        if seconds < 3600 { return "\(Int(seconds / 60)) 分钟前" }
+        if seconds < 86400 { return "\(Int(seconds / 3600)) 小时前" }
+        return "\(Int(seconds / 86400)) 天前"
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: item.kind.symbol).font(.title2).foregroundStyle(.secondary).frame(width: 32)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(item.label.isEmpty ? "空文本" : item.label).lineLimit(2, reservesSpace: true)
+                    HStack(spacing: 6) {
+                        Text(item.source).lineLimit(1)
+                        Text("·")
+                        // 只更新可见行的时间文字，不再逐秒触发行布局。
+                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                            Text(Self.ageText(item.used, now: context.date)).lineLimit(1)
+                        }
+                        if item.pinned { Image(systemName: "pin.fill").accessibilityLabel("已置顶") }
+                    }.font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.contentShape(Rectangle()).onTapGesture(perform: select)
+            HStack(spacing: 10) {
+                rowButton("拷贝", symbol: "square.on.square", action: copy).disabled(copying)
+                rowButton("收藏", symbol: item.favorite ? "star.fill" : "star", highlighted: item.favorite, action: favorite)
+                    .accessibilityLabel(item.favorite ? "取消收藏" : "收藏")
+                rowButton("删除", symbol: "trash", action: delete)
+            }
+        }
+        // 普通字号使用稳定行高；辅助功能大字号允许内容自然展开。
+        .frame(height: dynamicTypeSize.isAccessibilitySize ? nil : 56)
+        .padding(.vertical, 9)
+    }
+    private func rowButton(_ title: String, symbol: String, highlighted: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 17))
+                Text(title).font(.caption2)
+            }.foregroundStyle(highlighted ? Color.accentColor : Color.secondary)
+                .frame(width: 32, height: 42).contentShape(Rectangle())
+        }.buttonStyle(.plain).help(title).accessibilityLabel(title)
     }
 }

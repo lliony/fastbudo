@@ -350,6 +350,49 @@ struct ClipboardStoreTests {
 }
 
 @MainActor @Suite(.serialized) struct ClipboardInteractionTests {
+    @Test func rowAgeUsesMinuteGranularity() {
+        let now = Date(timeIntervalSince1970: 200000)
+        for (seconds, text) in [(0.0, "刚刚"), (59, "刚刚"), (60, "1 分钟前"), (3600, "1 小时前"), (86400, "1 天前"), (-60, "刚刚")] {
+            #expect(ClipboardRow.ageText(now.addingTimeInterval(-seconds), now: now) == text)
+        }
+    }
+
+    @Test func visibleListTracksFiltersAndEdits() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        let controller = ClipboardController(board: board)
+        var first = ClipboardItem(kind: .text, preview: "甲", source: "Tests")
+        first.group = "工作"; first.queued = true; first.queueOrder = 2
+        var second = ClipboardItem(kind: .image, preview: "乙", source: "Tests")
+        second.favorite = true; second.queued = true; second.queueOrder = 1
+        controller.items = [first, second]
+        #expect(controller.visible.map(\.id) == [first.id, second.id])
+        controller.section = "堆栈"
+        #expect(controller.visible.map(\.id) == [second.id, first.id])
+        controller.group = "工作"
+        #expect(controller.visible.map(\.id) == [first.id])
+        controller.kind = "image"
+        #expect(controller.visible.isEmpty)
+        controller.group = ""; controller.section = "收藏"
+        #expect(controller.visible.map(\.id) == [second.id])
+        controller.items[1].favorite = false
+        #expect(controller.visible.isEmpty)
+        controller.kind = ""; controller.section = "全部"
+        #expect(controller.visible.count == 2)
+    }
+
+    @Test func repeatedVisibleReadsBenchmark() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        let controller = ClipboardController(board: board)
+        controller.items = (0..<10000).map { ClipboardItem(kind: .text, preview: "合成记录 \($0)", source: "Tests") }
+        let start = Date()
+        var count = 0
+        for _ in 0..<100 { count += controller.visible.count }
+        print("VISIBLE_READS_100_MS=\(Date().timeIntervalSince(start) * 1000)")
+        #expect(count == 1000000)
+    }
+
     @Test func hidingReleasesDetail() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let board = NSPasteboard.withUniqueName()

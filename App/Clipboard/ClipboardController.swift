@@ -3,12 +3,12 @@ import SwiftUI
 import Carbon
 
 @MainActor @Observable final class ClipboardController: NSObject, NSWindowDelegate {
-    var items: [ClipboardItem] = []
+    var items: [ClipboardItem] = [] { didSet { rebuildVisible() } }
     var groups: [String] = []
-    var query = ""
-    var section = "全部"
-    var group = ""
-    var kind = ""
+    var query = "" { didSet { rebuildVisible() } }
+    var section = "全部" { didSet { rebuildVisible() } }
+    var group = "" { didSet { rebuildVisible() } }
+    var kind = "" { didSet { rebuildVisible() } }
     var selected: UUID?
     var detail: ClipPayload?
     var detailImage: CGImage?
@@ -18,7 +18,7 @@ import Carbon
     var hotKeyMessage = ""
     var mode = ClipMode.original
     var loading = false
-    private var matched = Set<UUID>()
+    private var matched = Set<UUID>() { didSet { rebuildVisible() } }
     private var reloadGeneration = 0
     private var db: ClipboardStore?
     private let directory: URL
@@ -59,9 +59,12 @@ import Carbon
                    bytes: min(1024, max(1, defaults.object(forKey: "clipMiB") as? Int ?? 200)) * 1024 * 1024)
     }
     var queue: [ClipboardItem] { items.filter(\.queued).sorted { $0.queueOrder < $1.queueOrder } }
-    var visible: [ClipboardItem] {
+    private(set) var visible: [ClipboardItem] = []
+    // 仅数据或筛选条件改变时计算；滚动、选中和状态文字刷新复用结果。
+    private func rebuildVisible() {
         let base = section == "堆栈" ? queue : section == "快捷回复" ? items.filter(\.reply).sorted { $0.order < $1.order } : items
-        return base.filter {
+        let query = query, group = group, kind = kind, section = section, matched = matched
+        visible = base.filter {
             (query.isEmpty || matched.contains($0.id)) && (group.isEmpty || $0.group == group) && (kind.isEmpty || $0.kind.rawValue == kind) &&
             (section != "收藏" || $0.favorite) && (section != "历史" || !$0.reply)
         }

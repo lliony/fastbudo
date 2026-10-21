@@ -91,7 +91,7 @@ struct ClipPayload: Codable, Equatable, Sendable {
     }
 }
 
-struct ClipboardItem: Identifiable, Codable, Sendable {
+struct ClipboardItem: Identifiable, Codable, Sendable, Equatable {
     var id = UUID()
     var kind: ClipKind
     var preview: String
