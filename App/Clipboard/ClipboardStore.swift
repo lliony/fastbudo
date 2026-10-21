@@ -349,7 +349,8 @@ final class ClipboardStore: @unchecked Sendable {
                                 var item = record.item
                                 try record.payload.validate()
                                 item.kind = record.payload.kind; item.preview = record.payload.preview
-                                guard item.created.timeIntervalSince1970.isFinite, item.used.timeIntervalSince1970.isFinite,
+                                guard (0...253402300799).contains(item.created.timeIntervalSince1970),
+                                      (0...253402300799).contains(item.used.timeIntervalSince1970),
                                       item.order.isFinite, item.queueOrder.isFinite,
                                       item.title.count <= 1000, item.group.count <= 80, item.source.count <= 300 else { throw ClipError.invalid }
                                 if !ids.contains(item.id) { try put(item, record.payload) }

@@ -222,7 +222,10 @@ struct ClipboardRow: View, Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.item == rhs.item && lhs.copying == rhs.copying }
 
     static func ageText(_ used: Date, now: Date) -> String {
-        let seconds = max(0, now.timeIntervalSince(used))
+        let stamp = used.timeIntervalSince1970, current = now.timeIntervalSince1970
+        guard stamp.isFinite, current.isFinite,
+              (0...253402300799).contains(stamp), (0...253402300799).contains(current) else { return "时间未知" }
+        let seconds = max(0, current - stamp)
         if seconds < 60 { return "刚刚" }
         if seconds < 3600 { return "\(Int(seconds / 60)) 分钟前" }
         if seconds < 86400 { return "\(Int(seconds / 3600)) 小时前" }
