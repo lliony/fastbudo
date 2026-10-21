@@ -34,34 +34,61 @@ enum UpdateInstaller {
         }
         var detail: String? {
             guard case let .downloading(received, total) = self else { return nil }
-            let downloaded = ByteCountFormatter.string(fromByteCount: max(0, received), countStyle: .file)
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .file
+            formatter.allowsNonnumericFormatting = false
+            let downloaded = received <= 0 ? "0 B" : formatter.string(fromByteCount: received)
             guard total > 0, let fraction else { return "已下载 \(downloaded)" }
-            return "\(downloaded) / \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file)) · \(Int(fraction * 100))%"
+            return "\(downloaded) / \(formatter.string(fromByteCount: total)) · \(Int(fraction * 100))%"
         }
     }
 
-    // URLSession 的串行 delegate 队列保护节流时间；文件继续落盘，不把安装包载入内存。
-    final class DownloadObserver: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    // completion-handler 下载不转发 download delegate 回调，直接观察任务实际字节计数。
+    final class DownloadObserver: @unchecked Sendable {
         private let maximumSize: Int64
         private let progress: @Sendable (Progress) -> Void
+        private let lock = NSLock()
         private var lastReport = -Double.infinity
+        private var task: URLSessionDownloadTask?
+        private var observation: NSKeyValueObservation?
+        private var cancelled = false
 
         init(maximumSize: Int, progress: @escaping @Sendable (Progress) -> Void) {
             self.maximumSize = Int64(maximumSize)
             self.progress = progress
         }
-        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                        didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-            guard totalBytesWritten <= maximumSize, totalBytesExpectedToWrite <= maximumSize else {
-                downloadTask.cancel()
-                return
+        func start(_ task: URLSessionDownloadTask) {
+            let observation = task.observe(\.countOfBytesReceived, options: [.initial, .new]) { [weak self] task, _ in
+                self?.report(received: task.countOfBytesReceived, total: task.countOfBytesExpectedToReceive, task: task)
             }
-            let now = ProcessInfo.processInfo.systemUptime
-            guard now - lastReport >= 0.1 || totalBytesWritten == totalBytesExpectedToWrite else { return }
-            lastReport = now
-            progress(.downloading(received: totalBytesWritten, total: totalBytesExpectedToWrite))
+            let cancelled = lock.withLock {
+                self.task = task; self.observation = observation
+                return self.cancelled
+            }
+            if cancelled { task.cancel() } else { task.resume() }
         }
-        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {}
+        func cancel() {
+            let task = lock.withLock { cancelled = true; return self.task }
+            task?.cancel()
+        }
+        func finish() {
+            let observation = lock.withLock {
+                let value = self.observation
+                self.observation = nil; task = nil
+                return value
+            }
+            observation?.invalidate()
+        }
+        func report(received: Int64, total: Int64, task: URLSessionDownloadTask) {
+            guard received <= maximumSize, total <= maximumSize else { task.cancel(); return }
+            let shouldReport = lock.withLock {
+                let now = ProcessInfo.processInfo.systemUptime
+                guard now - lastReport >= 0.1 || received == total else { return false }
+                lastReport = now
+                return true
+            }
+            if shouldReport { progress(.downloading(received: received, total: total)) }
+        }
     }
 
     struct Prepared: Sendable {
@@ -139,7 +166,25 @@ enum UpdateInstaller {
     private static func download(_ url: URL, session: URLSession, maximumSize: Int,
                                  progress: @escaping @Sendable (Progress) -> Void = { _ in }) async throws -> URL {
         let observer = DownloadObserver(maximumSize: maximumSize, progress: progress)
-        let (file, response) = try await session.download(from: url, delegate: observer)
+        let (file, response): (URL, URLResponse) = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let task = session.downloadTask(with: url) { temporary, response, error in
+                    observer.finish()
+                    do {
+                        if let error { throw error }
+                        guard let temporary, let response else { throw URLError(.badServerResponse) }
+                        let size = try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                        guard size > 0, size <= maximumSize else { throw ArchiveFailure("安装包大小超出限制。") }
+                        // 系统临时文件只在回调内有效，恢复 async 调用前先转移所有权。
+                        let file = FileManager.default.temporaryDirectory.appendingPathComponent("fastbudo-download-\(UUID().uuidString)")
+                        try FileManager.default.moveItem(at: temporary, to: file)
+                        progress(.downloading(received: Int64(size), total: Int64(size)))
+                        continuation.resume(returning: (file, response))
+                    } catch { continuation.resume(throwing: error) }
+                }
+                observer.start(task)
+            }
+        } onCancel: { observer.cancel() }
         do {
             guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.scheme == "https",

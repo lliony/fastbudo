@@ -150,6 +150,44 @@ struct PreferencesView: View {
         }
         .frame(width: 600, height: 520)
         .sheet(isPresented: $updateDialogPresented) { updateDialog }
+        .task(id: installingUpdate) {
+            guard installingUpdate, let release = availableRelease else { return }
+            let operation = UUID()
+            updateOperation = operation
+            defer {
+                if updateOperation == operation { installingUpdate = false; updateOperation = nil }
+            }
+            let destination = Bundle.main.bundleURL
+            let preparation = Task.detached {
+                try await UpdateInstaller.prepare(release: release, destination: destination) { progress in
+                    Task { @MainActor in
+                        guard updateOperation == operation, progress.order >= updateProgress.order else { return }
+                        updateProgress = progress
+                    }
+                }
+            }
+            do {
+                let update = try await withTaskCancellationHandler {
+                    try await preparation.value
+                } onCancel: {
+                    preparation.cancel()
+                }
+                do {
+                    try Task.checkCancellation()
+                } catch {
+                    try? FileManager.default.removeItem(at: update.workspace)
+                    throw error
+                }
+                updateProgress = .installing
+                updateDialogPresented = false
+                try await installUpdate(update)
+            } catch {
+                if !Task.isCancelled {
+                    updateError = "更新失败：\(error.localizedDescription)"
+                    updateDialogPresented = true
+                }
+            }
+        }
         .task(id: checkingUpdate) {
             guard checkingUpdate else { return }
             defer { checkingUpdate = false }
@@ -182,15 +220,11 @@ struct PreferencesView: View {
         VStack(spacing: 20) {
             Text("版本更新").font(.headline)
             if installingUpdate {
-                if let fraction = updateProgress.fraction {
-                    ProgressView(value: fraction).progressViewStyle(.linear)
-                } else {
-                    ProgressView()
-                }
+                ProgressView(value: updateProgress.fraction).progressViewStyle(.linear)
+                    .accessibilityLabel(updateProgress.title)
                 Text(updateProgress.title)
-                if let detail = updateProgress.detail {
-                    Text(detail).font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                }
+                Text(updateProgress.detail ?? "步骤 \(updateProgress.order + 1) / 6")
+                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
             } else if let updateError {
                 Text(updateError)
             } else if let release = availableRelease {
@@ -217,6 +251,7 @@ struct PreferencesView: View {
             HStack {
                 Spacer()
                 Button(installingUpdate ? "取消" : "关闭") {
+                    installingUpdate = false
                     updateDialogPresented = false
                 }
                 .keyboardShortcut(.cancelAction)
@@ -232,40 +267,7 @@ struct PreferencesView: View {
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
         .interactiveDismissDisabled(installingUpdate)
-        .task(id: installingUpdate) {
-            guard installingUpdate, let release = availableRelease else { return }
-            let operation = UUID()
-            updateOperation = operation
-            defer { installingUpdate = false; updateOperation = nil }
-            let destination = Bundle.main.bundleURL
-            let preparation = Task.detached {
-                try await UpdateInstaller.prepare(release: release, destination: destination) { progress in
-                    Task { @MainActor in
-                        guard updateOperation == operation, progress.order >= updateProgress.order else { return }
-                        updateProgress = progress
-                    }
-                }
-            }
-            do {
-                let update = try await withTaskCancellationHandler {
-                    try await preparation.value
-                } onCancel: {
-                    preparation.cancel()
-                }
-                do {
-                    try Task.checkCancellation()
-                } catch {
-                    try? FileManager.default.removeItem(at: update.workspace)
-                    throw error
-                }
-                updateProgress = .installing
-                try await installUpdate(update)
-            } catch {
-                if !Task.isCancelled {
-                    updateError = "更新失败：\(error.localizedDescription)"
-                }
-            }
-        }
+
 
     }
 

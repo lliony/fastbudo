@@ -12,11 +12,13 @@ struct UpdateInstallerTests {
         let observer = UpdateInstaller.DownloadObserver(maximumSize: 100) { value in
             events.withLock { $0.append(value) }
         }
-        observer.urlSession(session, downloadTask: task, didWriteData: 25, totalBytesWritten: 25, totalBytesExpectedToWrite: 100)
+        observer.report(received: 25, total: 100, task: task)
         #expect(events.withLock { $0.last?.fraction } == 0.25)
-        observer.urlSession(session, downloadTask: task, didWriteData: 75, totalBytesWritten: 100, totalBytesExpectedToWrite: 100)
+        observer.report(received: 100, total: 100, task: task)
         #expect(events.withLock { $0.last?.fraction } == 1)
         let unknown = UpdateInstaller.Progress.downloading(received: 25, total: -1)
+        #expect(UpdateInstaller.Progress.downloading(received: 0, total: -1).detail == "已下载 0 B")
+        #expect(UpdateInstaller.Progress.downloading(received: 0, total: 100).detail?.contains("0%") == true)
         #expect(unknown.fraction == nil)
         #expect(unknown.detail?.contains("已下载") == true)
         #expect(UpdateInstaller.Progress.verifying.fraction == nil)
@@ -30,8 +32,7 @@ struct UpdateInstallerTests {
         for (received, expected): (Int64, Int64) in [(1, 101), (101, -1)] {
             let task = session.downloadTask(with: URL(string: "https://example.invalid/update.zip")!)
             let observer = UpdateInstaller.DownloadObserver(maximumSize: 100) { _ in Issue.record("超限下载不应上报有效进度") }
-            observer.urlSession(session, downloadTask: task, didWriteData: received,
-                                totalBytesWritten: received, totalBytesExpectedToWrite: expected)
+            observer.report(received: received, total: expected, task: task)
             #expect(task.state == .canceling || task.state == .completed)
         }
     }
