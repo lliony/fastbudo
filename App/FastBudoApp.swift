@@ -15,6 +15,7 @@ struct FastBudoApp: App {
 
 struct PreferencesView: View {
     @Bindable var clipboard: ClipboardController
+    let installUpdate: (UpdateInstaller.Prepared) throws -> Void
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
@@ -24,6 +25,12 @@ struct PreferencesView: View {
     @State private var loginItemEnabled = false
     @State private var loginItemNeedsApproval = false
     @State private var loginItemError: String?
+    @State private var installingUpdate = false
+    @State private var checkingUpdate = false
+    @State private var updateDialogPresented = false
+    @State private var updateError: String?
+    @State private var availableRelease: UpdateChecker.Release?
+    private let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "未知"
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -57,6 +64,17 @@ struct PreferencesView: View {
                         LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
                         Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
                             .font(.callout).foregroundStyle(.secondary)
+                    }
+                    Section("版本更新") {
+                        LabeledContent("当前版本", value: currentVersion)
+                        Button(checkingUpdate ? "正在检查…" : "检查更新") {
+                            updateError = nil
+                            availableRelease = nil
+                            checkingUpdate = true
+                        }
+                        .disabled(checkingUpdate || installingUpdate)
+                        Text("手动检查 GitHub 正式版，更新完成后自动重启。")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Section("本机运行") {
                         Toggle("开机自动启动", isOn: loginItemBinding)
@@ -129,6 +147,21 @@ struct PreferencesView: View {
             .padding(.horizontal, 24).padding(.bottom, 18)
         }
         .frame(width: 600, height: 520)
+        .sheet(isPresented: $updateDialogPresented) { updateDialog }
+        .task(id: checkingUpdate) {
+            guard checkingUpdate else { return }
+            defer { checkingUpdate = false }
+            do {
+                let release = try await UpdateChecker.check(current: currentVersion)
+                availableRelease = release
+                updateDialogPresented = true
+            } catch {
+                if !Task.isCancelled {
+                    updateError = "检查失败：\(error.localizedDescription)"
+                    updateDialogPresented = true
+                }
+            }
+        }
         .onAppear(perform: refreshEnabledStates)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshEnabledStates()
@@ -141,6 +174,65 @@ struct PreferencesView: View {
         } message: {
             Text(loginItemError ?? "")
         }
+    }
+
+    private var updateDialog: some View {
+        VStack(spacing: 20) {
+            Text("版本更新").font(.headline)
+            if installingUpdate {
+                ProgressView()
+                Text("正在下载并验证新版本，完成后将自动重启…")
+            } else if let updateError {
+                Text(updateError)
+            } else if let release = availableRelease {
+                Text("发现新版本 \(release.tag)，当前版本为 \(currentVersion)。是否立即更新？")
+            } else {
+                Text("当前已是最新版本（\(currentVersion)）。")
+            }
+            HStack {
+                Spacer()
+                Button(installingUpdate ? "取消" : "关闭") {
+                    updateDialogPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+                if availableRelease != nil && updateError == nil && !installingUpdate {
+                    Button("立即更新") { installingUpdate = true }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(24)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
+        .interactiveDismissDisabled(installingUpdate)
+        .task(id: installingUpdate) {
+            guard installingUpdate, let release = availableRelease else { return }
+            defer { installingUpdate = false }
+            let destination = Bundle.main.bundleURL
+            let preparation = Task.detached {
+                try await UpdateInstaller.prepare(release: release, destination: destination)
+            }
+            do {
+                let update = try await withTaskCancellationHandler {
+                    try await preparation.value
+                } onCancel: {
+                    preparation.cancel()
+                }
+                do {
+                    try Task.checkCancellation()
+                } catch {
+                    try? FileManager.default.removeItem(at: update.workspace)
+                    throw error
+                }
+                try installUpdate(update)
+            } catch {
+                if !Task.isCancelled {
+                    updateError = "更新失败：\(error.localizedDescription)"
+                }
+            }
+        }
+
     }
 
     private var loginItemBinding: Binding<Bool> {

@@ -29,6 +29,7 @@ flowchart LR
 | 模块 | 责任与主要入口 |
 |---|---|
 | 应用生命周期 | [FastBudoApp.swift](App/FastBudoApp.swift)、[AppDelegate.swift](App/AppDelegate.swift)：菜单栏、设置、任务窗口及外部请求分发 |
+| 版本更新 | [UpdateChecker.swift](App/UpdateChecker.swift)、[UpdateInstaller.swift](App/UpdateInstaller.swift)：正式版检查、发布包校验、同卷替换与重启 |
 | 登录项 | [LoginItem.swift](App/LoginItem.swift)：通过 `SMAppService.mainApp` 管理，状态以系统为准 |
 | Finder 入口 | [FinderSync.swift](FinderExtension/FinderSync.swift)、[FinderRequest.swift](Shared/FinderRequest.swift)：菜单快照、请求传递与校验 |
 | 新建 | [NewItem.swift](App/NewItem.swift)、[FinderRename.swift](App/FinderRename.swift)、[NewItemTypes.swift](Shared/NewItemTypes.swift)：排他创建、原地重命名与常用后缀 |
@@ -79,6 +80,14 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 | 备份 | 保留 v1 JSON，流式读写；总大小 2 GiB、单值 64 MiB、最多 10,000 条记录和 1,000 个分类；日期限定 1970–9999 |
 
 导入在一个事务中完成，失败回滚；导出使用权限 0600 的临时文件并原子替换。历史及备份没有应用层加密，不应将本地存储理解为加密保险箱。不读取 iCopy 私有数据库，不上传剪贴板。
+
+## 版本更新
+
+设置页手动触发检查，`UpdateChecker` 优先访问 GitHub Releases API；403/429 时读取官网 latest 跳转，只接受本仓库 HTTPS 正式版标签。按三段数字比较版本，检查完成后才展示结果弹框；下载与安装由用户再次确认。
+
+`UpdateInstaller` 在后台下载固定命名的 arm64 ZIP 和同一发布的 SHA-256 清单，复用 `ArchiveEngine` 的安全解压及 Mac 属性恢复；随后验证应用标识、版本、架构、最低系统版本与签名完整性。校验和依赖 GitHub HTTPS 发布渠道，临时签名完整性检查不等同于开发者身份认证或公证。
+
+暂存目录位于应用旁，权限 0700；主线程确认没有正在执行的归档任务后，以同卷目录交换保留旧应用，再退出并通过辅助进程重启。取消和准备失败只清理本次暂存目录。恢复能力与备份位置见 [README](README.md)；更新不修改剪贴板数据库和用户归档输出。
 
 ## 工程与验证边界
 
