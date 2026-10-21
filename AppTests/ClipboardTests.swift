@@ -9,6 +9,34 @@ struct ClipboardStoreTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return (try ClipboardStore(directory: root), root)
     }
+    @Test func invalidBackupDatesRollBackAllRecords() throws {
+        let (db, root) = try store()
+        let (other, destination) = try store()
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: destination) }
+        let id = try db.capture(.text("日期测试"), source: "Tests", policy: .standard)
+        try db.update(id, group: "不得部分导入", favorite: true)
+        let backup = root.appendingPathComponent("backup.json")
+        try db.exportBackup(to: backup)
+        let original = try JSONSerialization.jsonObject(with: Data(contentsOf: backup)) as! [String: Any]
+        for field in ["used", "created"] {
+            for stamp in [-1e300, 1e300] {
+                var object = original
+                var records = object["records"] as! [[String: Any]]
+                var invalid = records[0]
+                var item = invalid["item"] as! [String: Any]
+                item["id"] = UUID().uuidString
+                item[field] = stamp
+                invalid["item"] = item
+                records.append(invalid)
+                object["records"] = records
+                try JSONSerialization.data(withJSONObject: object).write(to: backup)
+                #expect(throws: (any Error).self) { try other.importBackup(from: backup, policy: .standard) }
+                #expect(try other.list().isEmpty)
+                #expect(try other.groups().isEmpty)
+            }
+        }
+    }
+
     @Test func metadataEditKeepsLatestUse() throws {
         let (db, root) = try store()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -350,6 +378,15 @@ struct ClipboardStoreTests {
 }
 
 @MainActor @Suite(.serialized) struct ClipboardInteractionTests {
+    @Test func invalidRowDatesNeverOverflow() {
+        let now = Date()
+        for stamp in [-1e300, 1e300, Double.nan, Double.infinity, -Double.infinity] {
+            #expect(ClipboardRow.ageText(Date(timeIntervalSince1970: stamp), now: now) == "时间未知")
+            #expect(ClipboardRow.ageText(now, now: Date(timeIntervalSince1970: stamp)) == "时间未知")
+        }
+        #expect(ClipboardRow.ageText(Date(timeIntervalSince1970: 0), now: Date(timeIntervalSince1970: 253402300799)) == "2932896 天前")
+    }
+
     @Test func rowAgeUsesMinuteGranularity() {
         let now = Date(timeIntervalSince1970: 200000)
         for (seconds, text) in [(0.0, "刚刚"), (59, "刚刚"), (60, "1 分钟前"), (3600, "1 小时前"), (86400, "1 天前"), (-60, "刚刚")] {
