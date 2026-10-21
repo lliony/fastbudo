@@ -57,6 +57,8 @@ python3 scripts/test-low-space.py
 
 最后一条仅创建、挂载并清理独立的 64 MiB 测试磁盘映像，不填满用户主盘。测试样本来自固定的 libarchive 3.8.1 发布包，来源、许可及哈希见 Tests/Fixtures/manifest.json。
 
+提交前运行 `python3 scripts/check-private-paths.py --staged`；日常检查工作树可省略参数。发布前对每个解包后的安装包运行 `python3 scripts/check-private-paths.py --artifact <产物目录>`，同时检查主应用、扩展及内置引擎的二进制内容。Release 构建移除调试符号中的本机路径；调试产物和 dSYM 不应随安装包上传。
+
 ## 首版边界
 
 - 不浏览或编辑包内文件，不创建分卷，不创建 RAR，不递归解压。
