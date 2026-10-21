@@ -1,0 +1,466 @@
+{
+  "environment": {
+    "architecture": "arm64",
+    "macOS": "27.0.1",
+    "build": "26A434",
+    "baseline": "7fdd19a",
+    "runs": 5
+  },
+  "note": "独立合成探针；进程峰值不是主应用常驻内存或净增量。不同项目采用不同进程，不能横向相减。",
+  "measurements": {
+    "stage": {
+      "before-1000": [
+        {
+          "ms": 689.7760629653931
+        },
+        {
+          "ms": 687.4829530715942
+        },
+        {
+          "ms": 686.073899269104
+        },
+        {
+          "ms": 675.544023513794
+        },
+        {
+          "ms": 679.7199249267578
+        }
+      ],
+      "before-3000": [
+        {
+          "ms": 6178.799986839294
+        },
+        {
+          "ms": 6129.276990890503
+        },
+        {
+          "ms": 6130.897045135498
+        },
+        {
+          "ms": 6135.058045387268
+        },
+        {
+          "ms": 6150.965094566345
+        }
+      ],
+      "after-1000": [
+        {
+          "ms": 36.51297092437744
+        },
+        {
+          "ms": 26.750922203063965
+        },
+        {
+          "ms": 29.654979705810547
+        },
+        {
+          "ms": 27.17900276184082
+        },
+        {
+          "ms": 53.120970726013184
+        }
+      ],
+      "after-3000": [
+        {
+          "ms": 211.22002601623535
+        },
+        {
+          "ms": 113.08598518371582
+        },
+        {
+          "ms": 482.51497745513916
+        },
+        {
+          "ms": 293.28107833862305
+        },
+        {
+          "ms": 318.8300132751465
+        }
+      ]
+    },
+    "capture": {
+      "before": [
+        {
+          "exit_code": 0,
+          "ms": 125.37705898284912,
+          "peak_rss_bytes": 119898112
+        },
+        {
+          "exit_code": 0,
+          "ms": 121.39296531677246,
+          "peak_rss_bytes": 119898112
+        },
+        {
+          "exit_code": 0,
+          "ms": 122.01404571533203,
+          "peak_rss_bytes": 119914496
+        },
+        {
+          "exit_code": 0,
+          "ms": 121.12796306610107,
+          "peak_rss_bytes": 119996416
+        },
+        {
+          "exit_code": 0,
+          "ms": 119.32802200317383,
+          "peak_rss_bytes": 119947264
+        }
+      ],
+      "after": [
+        {
+          "exit_code": 0,
+          "ms": 54.51095104217529,
+          "peak_rss_bytes": 34635776
+        },
+        {
+          "exit_code": 0,
+          "ms": 53.750038146972656,
+          "peak_rss_bytes": 34570240
+        },
+        {
+          "exit_code": 0,
+          "ms": 53.894996643066406,
+          "peak_rss_bytes": 34635776
+        },
+        {
+          "exit_code": 0,
+          "ms": 53.33399772644043,
+          "peak_rss_bytes": 34635776
+        },
+        {
+          "exit_code": 0,
+          "ms": 54.486989974975586,
+          "peak_rss_bytes": 34668544
+        }
+      ]
+    },
+    "clone": {
+      "large-copy": [
+        {
+          "exit_code": 0,
+          "ms": 1313.641905784607,
+          "peak_rss_bytes": 708083712
+        },
+        {
+          "exit_code": 0,
+          "ms": 1204.7250270843506,
+          "peak_rss_bytes": 816955392
+        },
+        {
+          "exit_code": 0,
+          "ms": 1206.8390846252441,
+          "peak_rss_bytes": 1085456384
+        },
+        {
+          "exit_code": 0,
+          "ms": 978.9810180664062,
+          "peak_rss_bytes": 1085472768
+        },
+        {
+          "exit_code": 0,
+          "ms": 819.6210861206055,
+          "peak_rss_bytes": 1085374464
+        }
+      ],
+      "large-clone": [
+        {
+          "exit_code": 0,
+          "ms": 0.4500150680541992,
+          "peak_rss_bytes": 6193152
+        },
+        {
+          "exit_code": 0,
+          "ms": 0.7200241088867188,
+          "peak_rss_bytes": 6193152
+        },
+        {
+          "exit_code": 0,
+          "ms": 0.41306018829345703,
+          "peak_rss_bytes": 6193152
+        },
+        {
+          "exit_code": 0,
+          "ms": 0.6450414657592773,
+          "peak_rss_bytes": 6193152
+        },
+        {
+          "exit_code": 0,
+          "ms": 0.3949403762817383,
+          "peak_rss_bytes": 6193152
+        }
+      ],
+      "small-copy": [
+        {
+          "exit_code": 0,
+          "ms": 1947.9739665985107,
+          "peak_rss_bytes": 54493184
+        },
+        {
+          "exit_code": 0,
+          "ms": 1958.1869840621948,
+          "peak_rss_bytes": 54460416
+        },
+        {
+          "exit_code": 0,
+          "ms": 1957.5608968734741,
+          "peak_rss_bytes": 54493184
+        },
+        {
+          "exit_code": 0,
+          "ms": 2075.536012649536,
+          "peak_rss_bytes": 54493184
+        },
+        {
+          "exit_code": 0,
+          "ms": 2056.3310384750366,
+          "peak_rss_bytes": 54509568
+        }
+      ],
+      "small-clone": [
+        {
+          "exit_code": 0,
+          "ms": 1244.6279525756836,
+          "peak_rss_bytes": 11616256
+        },
+        {
+          "exit_code": 0,
+          "ms": 1270.480990409851,
+          "peak_rss_bytes": 11517952
+        },
+        {
+          "exit_code": 0,
+          "ms": 1290.5019521713257,
+          "peak_rss_bytes": 11517952
+        },
+        {
+          "exit_code": 0,
+          "ms": 1276.9149541854858,
+          "peak_rss_bytes": 11501568
+        },
+        {
+          "exit_code": 0,
+          "ms": 1271.9039916992188,
+          "peak_rss_bytes": 11517952
+        }
+      ]
+    },
+    "bridge": {
+      "before": [
+        {
+          "exit_code": 0,
+          "ms": 2029.9999999999998,
+          "peak_rss_bytes": 15826944,
+          "stdout_bytes": 568904
+        },
+        {
+          "exit_code": 0,
+          "ms": 1830.0,
+          "peak_rss_bytes": 16154624,
+          "stdout_bytes": 568904
+        },
+        {
+          "exit_code": 0,
+          "ms": 1770.0,
+          "peak_rss_bytes": 15679488,
+          "stdout_bytes": 568904
+        },
+        {
+          "exit_code": 0,
+          "ms": 1850.0,
+          "peak_rss_bytes": 16482304,
+          "stdout_bytes": 568904
+        },
+        {
+          "exit_code": 0,
+          "ms": 1720.0,
+          "peak_rss_bytes": 16482304,
+          "stdout_bytes": 568904
+        }
+      ],
+      "after": [
+        {
+          "exit_code": 0,
+          "ms": 1730.0,
+          "peak_rss_bytes": 15499264,
+          "stdout_bytes": 12
+        },
+        {
+          "exit_code": 0,
+          "ms": 1780.0,
+          "peak_rss_bytes": 15810560,
+          "stdout_bytes": 12
+        },
+        {
+          "exit_code": 0,
+          "ms": 1730.0,
+          "peak_rss_bytes": 15794176,
+          "stdout_bytes": 12
+        },
+        {
+          "exit_code": 0,
+          "ms": 1790.0,
+          "peak_rss_bytes": 15810560,
+          "stdout_bytes": 12
+        },
+        {
+          "exit_code": 0,
+          "ms": 1830.0,
+          "peak_rss_bytes": 15695872,
+          "stdout_bytes": 12
+        }
+      ]
+    },
+    "store-capture": {
+      "before": [
+        {
+          "exit_code": 0,
+          "ms": 207.242042,
+          "peak_rss_bytes": 132317184
+        },
+        {
+          "exit_code": 0,
+          "ms": 203.923041,
+          "peak_rss_bytes": 132251648
+        },
+        {
+          "exit_code": 0,
+          "ms": 207.16533400000003,
+          "peak_rss_bytes": 132251648
+        },
+        {
+          "exit_code": 0,
+          "ms": 211.73275000000004,
+          "peak_rss_bytes": 132251648
+        },
+        {
+          "exit_code": 0,
+          "ms": 207.58029199999996,
+          "peak_rss_bytes": 132251648
+        }
+      ],
+      "after": [
+        {
+          "exit_code": 0,
+          "ms": 2109.9951250000004,
+          "peak_rss_bytes": 132218880
+        },
+        {
+          "exit_code": 0,
+          "ms": 177.789416,
+          "peak_rss_bytes": 132218880
+        },
+        {
+          "exit_code": 0,
+          "ms": 181.52683299999995,
+          "peak_rss_bytes": 132268032
+        },
+        {
+          "exit_code": 0,
+          "ms": 198.34675000000024,
+          "peak_rss_bytes": 132251648
+        },
+        {
+          "exit_code": 0,
+          "ms": 171.67729200000002,
+          "peak_rss_bytes": 132284416
+        }
+      ]
+    },
+    "copy-fixed": {
+      "large": [
+        {
+          "exit_code": 0,
+          "ms": 1560.8071088790894,
+          "peak_rss_bytes": 9502720
+        },
+        {
+          "exit_code": 0,
+          "ms": 742.5240278244019,
+          "peak_rss_bytes": 9551872
+        },
+        {
+          "exit_code": 0,
+          "ms": 791.8009757995605,
+          "peak_rss_bytes": 9551872
+        },
+        {
+          "exit_code": 0,
+          "ms": 782.6910018920898,
+          "peak_rss_bytes": 10584064
+        },
+        {
+          "exit_code": 0,
+          "ms": 973.7520217895508,
+          "peak_rss_bytes": 10649600
+        }
+      ],
+      "small": [
+        {
+          "exit_code": 0,
+          "ms": 1840.9600257873535,
+          "peak_rss_bytes": 12861440
+        },
+        {
+          "exit_code": 0,
+          "ms": 1884.6970796585083,
+          "peak_rss_bytes": 12976128
+        },
+        {
+          "exit_code": 0,
+          "ms": 1907.9660177230835,
+          "peak_rss_bytes": 12894208
+        },
+        {
+          "exit_code": 0,
+          "ms": 2116.641044616699,
+          "peak_rss_bytes": 12943360
+        },
+        {
+          "exit_code": 0,
+          "ms": 1892.7239179611206,
+          "peak_rss_bytes": 12910592
+        }
+      ]
+    },
+    "family-before": [
+      80.99102973937988,
+      78.66299152374268,
+      78.41300964355469,
+      78.36198806762695,
+      78.32396030426025
+    ],
+    "family-after": [
+      40.345072746276855,
+      38.31911087036133,
+      37.870049476623535,
+      38.5289192199707,
+      38.54405879974365
+    ],
+    "mark-used-20": [
+      {
+        "ms": 371.80590629577637,
+        "peak_rss_bytes": 109936640
+      },
+      {
+        "ms": 564.0919208526611,
+        "peak_rss_bytes": 109756416
+      },
+      {
+        "ms": 586.4200592041016,
+        "peak_rss_bytes": 109723648
+      },
+      {
+        "ms": 716.0400152206421,
+        "peak_rss_bytes": 109871104
+      },
+      {
+        "ms": 709.0619802474976,
+        "peak_rss_bytes": 109887488
+      }
+    ]
+  },
+  "clone_safety": {
+    "isolated": true,
+    "copied_xattr": "metadata"
+  }
+}
