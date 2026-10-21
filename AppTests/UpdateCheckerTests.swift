@@ -9,6 +9,22 @@ struct UpdateCheckerTests {
         """.utf8)
     }
 
+    @Test func includesReleaseNotesForNewVersion() throws {
+        let data = Data(#"{"tag_name":"v0.2.0","draft":false,"prerelease":false,"body":"  新增更新说明\n修复检查失败  "}"#.utf8)
+        let result = try #require(try UpdateChecker.newerRelease(data: data, status: 200, current: "0.0.1"))
+        #expect(result.notes == "新增更新说明\n修复检查失败")
+    }
+
+    @Test func absentOrBlankNotesDoNotPreventUpdates() throws {
+        for body in ["null", "\"\"", "\"  \""] {
+            let data = Data("{\"tag_name\":\"v0.2.0\",\"draft\":false,\"prerelease\":false,\"body\":\(body)}".utf8)
+            let result = try #require(try UpdateChecker.newerRelease(data: data, status: 200, current: "0.0.1"))
+            #expect(result.notes == nil)
+        }
+        let result = try #require(try UpdateChecker.newerRelease(data: release("v0.2.0"), status: 200, current: "0.0.1"))
+        #expect(result.notes == nil)
+    }
+
     @Test func comparesNumericVersions() throws {
         #expect(try UpdateChecker.newerRelease(data: release("v0.0.10"), status: 200, current: "0.0.9")?.tag == "v0.0.10")
         #expect(try UpdateChecker.newerRelease(data: release("v1.0.0"), status: 200, current: "0.99.99") != nil)

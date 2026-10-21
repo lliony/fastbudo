@@ -186,6 +186,22 @@ struct PreferencesView: View {
                 Text(updateError)
             } else if let release = availableRelease {
                 Text("发现新版本 \(release.tag)，当前版本为 \(currentVersion)。是否立即更新？")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("本次更新").font(.subheadline.bold())
+                    if let notes = release.notes {
+                        ScrollView {
+                            Text(notes)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(height: 180)
+                    } else {
+                        Text("暂未获取到更新说明，可前往发布页查看。")
+                            .foregroundStyle(.secondary)
+                    }
+                    Link("查看完整更新说明", destination: release.url)
+                }
+                .multilineTextAlignment(.leading)
             } else {
                 Text("当前已是最新版本（\(currentVersion)）。")
             }

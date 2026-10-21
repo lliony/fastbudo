@@ -6,10 +6,16 @@ enum UpdateChecker {
         let tag: String
         let draft: Bool
         let prerelease: Bool
+        let body: String?
 
         enum CodingKeys: String, CodingKey {
             case tag = "tag_name"
-            case draft, prerelease
+            case draft, prerelease, body
+        }
+
+        var notes: String? {
+            guard let text = body?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            return text
         }
 
         var url: URL {
@@ -70,7 +76,7 @@ enum UpdateChecker {
               url.user == nil, url.password == nil, url.port == nil || url.port == 443,
               url.path.hasPrefix(prefix) else { throw CheckError.invalidResponse }
         let tag = String(url.path.dropFirst(prefix.count))
-        return try newerRelease(Release(tag: tag, draft: false, prerelease: false), current: current)
+        return try newerRelease(Release(tag: tag, draft: false, prerelease: false, body: nil), current: current)
     }
 
     private static func newerRelease(_ release: Release, current: String) throws -> Release? {
