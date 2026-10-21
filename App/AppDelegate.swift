@@ -56,13 +56,47 @@ import SwiftUI
             window.title = "FastBudo 设置"
             window.isReleasedWhenClosed = false
             window.delegate = self
-            window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard))
+            window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard, installUpdate: installUpdate))
             window.center()
             settingsWindow = window
         }
         settingsWindow?.deminiaturize(nil)
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate()
+    }
+
+    func installUpdate(_ update: UpdateInstaller.Prepared) throws {
+        var retainBackup = false
+        defer {
+            if !retainBackup { try? FileManager.default.removeItem(at: update.workspace) }
+        }
+        guard !model.busy else { throw ArchiveFailure("请等待当前压缩或解压任务完成后再更新。") }
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        helper.arguments = ["-c", UpdateInstaller.relaunchScript, "fastbudo-relaunch",
+                            String(ProcessInfo.processInfo.processIdentifier), update.destination.path,
+                            update.workspace.path, "/usr/bin/open", update.application.path]
+        helper.standardInput = FileHandle.nullDevice
+        helper.standardOutput = FileHandle.nullDevice
+        helper.standardError = FileHandle.nullDevice
+        try helper.run()
+        do {
+            try UpdateInstaller.swap(update.destination, update.application)
+            retainBackup = true
+        } catch {
+            helper.terminate()
+            throw error
+        }
+        NSApp.terminate(nil)
+        // terminate 返回表示系统或应用拒绝退出；恢复目录，避免留下半完成安装。
+        helper.terminate()
+        do {
+            try UpdateInstaller.swap(update.destination, update.application)
+        } catch {
+            throw ArchiveFailure("恢复原版本失败，旧应用仍保留在：\(update.application.path)")
+        }
+        retainBackup = false
+        throw ArchiveFailure("应用未能退出，已恢复原版本，请稍后重试。")
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
