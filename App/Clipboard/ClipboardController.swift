@@ -21,6 +21,8 @@ import Carbon
     private var matched = Set<UUID>() { didSet { rebuildVisible() } }
     private var reloadGeneration = 0
     private var applyingSnapshot = false
+    private var reloadTask: Task<Void, Never>?
+    private var reloadRequested = false
     private var db: ClipboardStore?
     private let directory: URL
     let defaults: UserDefaults
@@ -28,6 +30,7 @@ import Carbon
     private let sourceInfo: () -> (bundle: String, name: String)
     private var lastChange: Int
     private var timer: Timer?
+    private var started = false
     private var captureInFlight = false
     private(set) var copying = false
     private var panel: NSPanel?
@@ -78,15 +81,24 @@ import Carbon
         return store
     }
     func start() {
-        guard timer == nil else { return }
+        guard !started else { return }
+        started = true
+        configurePolling()
+        configureShortcut()
+    }
+    private func configurePolling() {
+        timer?.invalidate(); timer = nil
         lastChange = board.changeCount
+        guard started, enabled else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
         }
-        configureShortcut()
+        timer?.tolerance = 0.1
     }
     func stop() {
+        started = false
         timer?.invalidate(); timer = nil; hotKey.stop()
+        invalidateReload()
     }
     func configureShortcut() {
         hotKey.stop()
@@ -103,7 +115,7 @@ import Carbon
     }
     func setEnabled(_ value: Bool) {
         defaults.set(value, forKey: "clipEnabled")
-        lastChange = board.changeCount
+        configurePolling()
         message = value ? "正在记录新复制的内容" : "已暂停记录"
     }
     private func excluded(_ bundle: String, key: String) -> Bool {
@@ -112,9 +124,8 @@ import Carbon
         return list.split(whereSeparator: { $0 == "," || $0 == "，" || $0.isWhitespace }).contains { $0 == bundle }
     }
     func poll() {
-        guard board.changeCount != lastChange, !captureInFlight else { return }
+        guard enabled, board.changeCount != lastChange, !captureInFlight else { return }
         lastChange = board.changeCount
-        guard enabled else { return }
         let source = sourceInfo()
         guard !excluded(source.bundle, key: "clipExcluded") else { return }
         do {
@@ -131,21 +142,39 @@ import Carbon
             }
         } catch { message = error.localizedDescription }
     }
+    /// 同时只允许一个读取任务；排队请求合并为最新查询，避免占满数据库锁。
     func reload() async {
+        guard !Task.isCancelled else { return }
         reloadGeneration += 1
-        let generation = reloadGeneration
-        do {
-            let db = try database(), search = query
-            let result = try await Task.detached {
-                (try db.list(), try db.groups(), search.isEmpty ? Set<UUID>() : try db.matchingIDs(search))
-            }.value
-            guard !Task.isCancelled, generation == reloadGeneration, query == search else { return }
-            applyingSnapshot = true
-            items = result.0; groups = result.1; matched = result.2
-            applyingSnapshot = false
-            rebuildVisible()
-            if selected == nil || !visible.contains(where: { $0.id == selected }) { selected = visible.first?.id }
-        } catch { message = error.localizedDescription }
+        reloadRequested = true
+        if let reloadTask { await reloadTask.value; return }
+        let task = Task { @MainActor in
+            defer { reloadTask = nil }
+            while reloadRequested {
+                reloadRequested = false
+                let generation = reloadGeneration, search = query
+                do {
+                    let db = try database()
+                    let result = try await Task.detached {
+                        (try db.list(), try db.groups(), search.isEmpty ? Set<UUID>() : try db.matchingIDs(search))
+                    }.value
+                    guard generation == reloadGeneration, query == search else { continue }
+                    applyingSnapshot = true
+                    items = result.0; groups = result.1; matched = result.2
+                    applyingSnapshot = false
+                    rebuildVisible()
+                    if selected == nil || !visible.contains(where: { $0.id == selected }) { selected = visible.first?.id }
+                } catch {
+                    if generation == reloadGeneration { message = error.localizedDescription }
+                }
+            }
+        }
+        reloadTask = task
+        await task.value
+    }
+    private func invalidateReload() {
+        reloadGeneration += 1
+        reloadRequested = false
     }
     func clearDetail() {
         detailGeneration += 1; detail = nil; detailImage = nil
@@ -217,8 +246,8 @@ import Carbon
         panel?.makeKeyAndOrderFront(nil); NSApp.activate()
         Task { await reload() }
     }
-    func hide() { reloadGeneration += 1; showDetail = false; clearDetail(); panel?.orderOut(nil) }
-    func windowWillClose(_ notification: Notification) { reloadGeneration += 1; showDetail = false; clearDetail() }
+    func hide() { invalidateReload(); showDetail = false; clearDetail(); panel?.orderOut(nil) }
+    func windowWillClose(_ notification: Notification) { invalidateReload(); showDetail = false; clearDetail() }
     /// 所有拷贝入口共用完成逻辑；失败时不关闭面板，也不再发送粘贴按键。
     func copy(_ id: UUID) {
         guard !copying else { return }
@@ -232,6 +261,9 @@ import Carbon
                 try ClipboardCapture.write(payload, to: board)
                 lastChange = board.changeCount
                 let updated = try await Task.detached { try db.markUsed(id) }.value
+                let needsReload = reloadTask != nil || !items.contains(where: { $0.id == id })
+                // 打开面板时的旧快照不能覆盖刚提交的最近使用顺序。
+                invalidateReload()
                 if let index = items.firstIndex(where: { $0.id == id }) {
                     items.remove(at: index)
                     let destination = items.firstIndex {
@@ -239,6 +271,7 @@ import Carbon
                     } ?? items.endIndex
                     items.insert(updated, at: destination)
                 }
+                if needsReload { await reload() }
                 message = "已拷贝"
                 if closeAfterAction { hide() }
             } catch { message = error.localizedDescription }

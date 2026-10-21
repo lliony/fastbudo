@@ -454,6 +454,58 @@ struct ClipboardStoreTests {
         #expect(controller.detail == nil)
     }
 
+    @Test func rapidSearchAndReloadKeepLatestResults() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally(); try? FileManager.default.removeItem(at: root) }
+        let db = try ClipboardStore(directory: root)
+        let id = try db.capture(.text("中文 %_ 😀"), source: "Tests", policy: .standard)
+        let controller = ClipboardController(board: board, directory: root)
+        var tasks: [Task<Void, Never>] = []
+        for index in 0..<20 {
+            controller.query = "无匹配\(index)"
+            tasks.append(Task { await controller.reload() })
+        }
+        controller.query = "%_"
+        tasks.append(Task { await controller.reload() })
+        for task in tasks { await task.value }
+        #expect(controller.visible.map(\.id) == [id])
+        controller.hide()
+        controller.query = "不存在"
+        await controller.reload()
+        #expect(controller.visible.isEmpty)
+        controller.query = ""
+        await controller.reload()
+        #expect(controller.visible.map(\.id) == [id])
+    }
+
+    @Test func pausedTimerKeepsShortcutAndSkipsOldContent() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = "ClipboardTimer.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let board = NSPasteboard.withUniqueName()
+        let controller = ClipboardController(defaults: defaults, board: board, directory: root, sourceInfo: { ("probe", "Tests") })
+        defer { controller.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: root) }
+        defaults.set(false, forKey: "clipHotKeyEnabled")
+        controller.setEnabled(true)
+        controller.start(); controller.start()
+        controller.setEnabled(false)
+        let hotKeyMessage = controller.hotKeyMessage
+        board.clearContents(); board.setString("暂停内容", forType: .string)
+        try await Task.sleep(for: .milliseconds(650))
+        controller.setEnabled(true)
+        try await Task.sleep(for: .milliseconds(650))
+        await controller.reload()
+        #expect(controller.items.isEmpty)
+        #expect(controller.hotKeyMessage == hotKeyMessage)
+        board.clearContents(); board.setString("恢复后的内容", forType: .string)
+        let db = try ClipboardStore(directory: root)
+        let deadline = Date().addingTimeInterval(5)
+        while try db.list().isEmpty && Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(try db.list().count == 1)
+        #expect(try db.list().first?.preview == "恢复后的内容")
+    }
+
     @Test func cancelledReloadDoesNotReplaceVisibleItems() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let board = NSPasteboard.withUniqueName()
@@ -557,5 +609,8 @@ struct ClipboardTransformTests {
         #expect(try payload.transformed(mode: .lines).plainText == "甲  乙\t 丙\u{00a0}丁 戊 😀")
         #expect(try payload.transformed(mode: .compact).plainText == "甲乙丙丁戊😀")
         #expect(throws: (any Error).self) { try ClipPayload.text("").transformed(mode: .plain) }
+        let multiple = ClipPayload(items: ClipPayload.text("甲").items + ClipPayload.text("乙").items)
+        #expect(try multiple.transformed(mode: .lines).plainText == "甲 乙")
+        #expect(try multiple.transformed(mode: .compact).plainText == "甲乙")
     }
 }
