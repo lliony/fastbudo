@@ -164,8 +164,9 @@ final class ArchiveEngine: @unchecked Sendable {
                 value = value.replacingOccurrences(of: "(?i)\\.z[0-9]+$", with: ".zip", options: .regularExpression)
                 return value.replacingOccurrences(of: "\\.[0-9]{3,}$", with: "", options: .regularExpression)
             }
+            let targetFamily = family(filename)
             let related = try ArchiveFiles.children(input.deletingLastPathComponent()).filter {
-                $0.lastPathComponent == filename || family($0.lastPathComponent) == family(filename)
+                $0.lastPathComponent == filename || family($0.lastPathComponent) == targetFamily
             }
             try ArchiveFiles.stage(related, into: snapshot, excludeDSStore: false, preserveAttributes: false,
                                    checkCancellation: self.checkCancellation)
