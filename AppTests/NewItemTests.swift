@@ -54,7 +54,7 @@ struct FinderNewItemDestinationTests {
 
 
 @MainActor struct NewItemFinderTests {
-    @Test func createsBeforeFinderRenameWithoutPrompt() throws {
+    @Test func createsBeforeFinderRenameWithoutPrompt() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -74,7 +74,11 @@ struct FinderNewItemDestinationTests {
                 }
             }
             RunLoop.main.add(timer, forMode: .modalPanel)
+            let count = revealed.count
             delegate.createItem(in: root, type: type)
+            #expect(revealed.count == count)
+            let deadline = Date().addingTimeInterval(5)
+            while revealed.count == count && Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
             timer.invalidate()
             #expect(!prompted)
             #expect(revealed.last?.lastPathComponent == expected)

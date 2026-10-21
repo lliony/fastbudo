@@ -87,15 +87,19 @@ import SwiftUI
     func createItem(in directory: URL, type: String) {
         let folder = type == "folder"
         let name = folder ? "新建文件夹" : "未命名.\(type == "custom" ? "txt" : type)"
-        do {
-            let result = try NewItem.create(in: directory, name: name, folder: folder)
-            revealNewItem(result)
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = "无法创建"
-            alert.informativeText = "请检查文件名及目标文件夹的写入权限。\n\(error.localizedDescription)"
-            NSApp.activate()
-            alert.runModal()
+        Task {
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    try NewItem.create(in: directory, name: name, folder: folder)
+                }.value
+                revealNewItem(result)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "无法创建"
+                alert.informativeText = "请检查文件名及目标文件夹的写入权限。\n\(error.localizedDescription)"
+                NSApp.activate()
+                alert.runModal()
+            }
         }
     }
 
