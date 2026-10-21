@@ -25,14 +25,26 @@ enum ArchiveFiles {
         return true
     }
 
+    /// 保留首次选择顺序，只沿祖先链排除已经包含在所选目录中的路径。
+    static func selectedRoots(_ inputs: [URL]) -> [URL] {
+        var paths = Set<String>()
+        let unique = inputs.map(\.standardizedFileURL).filter { paths.insert($0.path).inserted }
+        return unique.filter { input in
+            var path = input.path
+            while path != "/" {
+                let parent = (path as NSString).deletingLastPathComponent
+                if parent == path || parent.isEmpty { break }
+                if paths.contains(parent) { return false }
+                path = parent
+            }
+            return true
+        }
+    }
+
     static func stage(_ inputs: [URL], into destination: URL, excludeDSStore: Bool,
                       preserveAttributes: Bool, checkCancellation: () throws -> Void = {}) throws {
         let manager = FileManager.default
-        var unique: [URL] = []
-        for input in inputs.map(\.standardizedFileURL) where !unique.contains(input) { unique.append(input) }
-        unique = unique.filter { item in
-            !unique.contains { parent in item != parent && item.path.hasPrefix(parent.path + "/") }
-        }
+        let unique = selectedRoots(inputs)
         guard !unique.isEmpty else { throw CocoaError(.fileNoSuchFile) }
         guard Set(unique.map { $0.lastPathComponent.precomposedStringWithCanonicalMapping.lowercased() }).count == unique.count else {
             throw CocoaError(.fileWriteFileExists)

@@ -4,6 +4,13 @@ import Testing
 @testable import FastBudo
 
 struct ArchiveFilesTests {
+    @Test func selectedRootsKeepOrderAndPathBoundaries() {
+        func url(_ path: String) -> URL { URL(fileURLWithPath: path) }
+        #expect(ArchiveFiles.selectedRoots([url("/tmp/ab"), url("/tmp/a"), url("/tmp/a/x"), url("/tmp/a")]).map(\.path) == ["/tmp/ab", "/tmp/a"])
+        #expect(ArchiveFiles.selectedRoots([url("/tmp/a"), url("/")]).map(\.path) == ["/"])
+        #expect(ArchiveFiles.selectedRoots([url("/tmp/中文"), url("/tmp/中文/字"), url("/tmp/A"), url("/tmp/a")]).map(\.path) == ["/tmp/中文", "/tmp/A", "/tmp/a"])
+    }
+
     @Test func stagingFiltersOnlyKnownMetadata() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
