@@ -52,9 +52,82 @@ enum UpdateChecker {
             let (_, pageResponse) = try await session.data(for: fallback)
             try Task.checkCancellation()
             guard let pageResponse = pageResponse as? HTTPURLResponse else { throw CheckError.invalidResponse }
-            return try newerRelease(pageResponse: pageResponse, current: current)
+            let release = try newerRelease(pageResponse: pageResponse, current: current)
+            return try await withFeedNotes(release, session: session)
         }
-        return try newerRelease(data: data, status: response.statusCode, current: current)
+        let release = try newerRelease(data: data, status: response.statusCode, current: current)
+        return try await withFeedNotes(release, session: session)
+    }
+
+    // 官网 Atom 正文不占 REST API 配额；按已验证的标签匹配，不能拿其他版本说明代替。
+    private static func withFeedNotes(_ release: Release?, session: URLSession) async throws -> Release? {
+        guard let release, release.notes == nil else { return release }
+        let url = URL(string: "https://github.com/lliony/fastbudo/releases.atom")!
+        do {
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+            let (data, response) = try await session.data(for: request)
+            try Task.checkCancellation()
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200,
+                  response.url == url, let notes = feedNotes(data: data, tag: release.tag) else { return release }
+            return Release(tag: release.tag, draft: release.draft, prerelease: release.prerelease, body: notes)
+        } catch {
+            try Task.checkCancellation()
+            return release
+        }
+    }
+
+    static func feedNotes(data: Data, tag: String) -> String? {
+        guard data.count <= 2 * 1024 * 1024,
+              let xml = String(data: data, encoding: .utf8), !xml.contains("<!DOCTYPE") else { return nil }
+        let delegate = FeedNotes(target: "https://github.com/lliony/fastbudo/releases/tag/" + tag)
+        let parser = XMLParser(data: data)
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = delegate
+        guard parser.parse(), let html = delegate.result else { return nil }
+        var text = html.replacingOccurrences(of: "(?is)<(script|style)\\b[^>]*>.*?</\\1>", with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?i)<li(?:\\s[^>]*)?>", with: "- ", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?i)</(?:p|h[1-6]|li|div|ul|ol)>|<br\\s*/?>", with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        let entities = ["&lt;": "<", "&gt;": ">", "&quot;": "\"", "&apos;": "'", "&nbsp;": " "]
+        for (entity, value) in entities { text = text.replacingOccurrences(of: entity, with: value) }
+        if let regex = try? NSRegularExpression(pattern: "&#(x[0-9a-fA-F]+|[0-9]+);") {
+            for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+                guard let range = Range(match.range(at: 1), in: text), let whole = Range(match.range, in: text) else { continue }
+                let value = String(text[range])
+                let number = value.hasPrefix("x") ? UInt32(value.dropFirst(), radix: 16) : UInt32(value)
+                if let number, let scalar = UnicodeScalar(number) { text.replaceSubrange(whole, with: String(scalar)) }
+            }
+        }
+        text = text.replacingOccurrences(of: "&amp;", with: "&")
+        let result = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }.joined(separator: "\n")
+        return result.isEmpty ? nil : result
+    }
+
+    private final class FeedNotes: NSObject, XMLParserDelegate {
+        let target: String
+        var result: String?
+        private var inEntry = false
+        private var inContent = false
+        private var matches = false
+        private var content = ""
+        init(target: String) { self.target = target }
+        func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String]) {
+            if elementName == "entry" { inEntry = true; matches = false; content = "" }
+            if inEntry && elementName == "link" && attributes["href"] == target { matches = true }
+            if inEntry && elementName == "content" { inContent = true }
+        }
+        func parser(_ parser: XMLParser, foundCharacters string: String) { if inContent { content += string } }
+        func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
+            if inContent, let text = String(data: CDATABlock, encoding: .utf8) { content += text }
+        }
+        func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName: String?) {
+            if elementName == "content" { inContent = false }
+            if elementName == "entry" {
+                if matches { result = content }
+                inEntry = false
+            }
+        }
     }
 
     static func newerRelease(data: Data, status: Int, current: String) throws -> Release? {

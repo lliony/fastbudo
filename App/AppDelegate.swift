@@ -74,6 +74,17 @@ import SwiftUI
             if !retainBackup { try? FileManager.default.removeItem(at: update.workspace) }
         }
         guard !model.busy else { throw ArchiveFailure("请等待当前压缩或解压任务完成后再更新。") }
+        // 禁止交互关闭的 SwiftUI sheet 会阻止 AppKit 退出，请求退出前主动结束它。
+        if let parent = settingsWindow, let sheet = parent.attachedSheet {
+            parent.endSheet(sheet)
+            sheet.orderOut(nil)
+            // endSheet 的关闭动画异步结束；附着关系仍在时 AppKit 会忽略退出请求。
+            for _ in 0..<100 where parent.attachedSheet != nil {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            guard parent.attachedSheet == nil else { throw ArchiveFailure("更新对话框尚未关闭，请稍后重试。") }
+        }
+        try Task.checkCancellation()
         let helper = Process()
         helper.executableURL = URL(fileURLWithPath: "/bin/sh")
         helper.arguments = ["-c", UpdateInstaller.relaunchScript, "fastbudo-relaunch",

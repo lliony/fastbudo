@@ -8,6 +8,7 @@ last_updated: 2026-10-21
 
 | 我想… | 看这里 |
 |---|---|
+| 查看更新退出、正文与下载进度修复验证 | [更新流程验证](validation/2026-10-21-update-lifecycle.md) |
 | 查看 0.0.4 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.4.md) |
 | 查看 0.0.3 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.3.md) |
 | 查看 0.0.2 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.2.md) |

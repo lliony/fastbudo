@@ -3,6 +3,14 @@ import Testing
 @testable import FastBudo
 
 struct UpdateCheckerTests {
+    @Test func feedNotesMatchTagAndDecodeTextWithoutExecutingHTML() {
+        let xml = #"<feed><entry><link href="https://github.com/lliony/fastbudo/releases/tag/v1.0.0"/><content>&lt;h2&gt;修复&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;A &amp;amp; B &amp;#x4E2D;&lt;/li&gt;&lt;/ul&gt;</content></entry></feed>"#
+        #expect(UpdateChecker.feedNotes(data: Data(xml.utf8), tag: "v1.0.0") == "修复\n- A & B 中")
+        #expect(UpdateChecker.feedNotes(data: Data(xml.utf8), tag: "v0.0.1") == nil)
+        #expect(UpdateChecker.feedNotes(data: Data("<feed>".utf8), tag: "v1.0.0") == nil)
+        #expect(UpdateChecker.feedNotes(data: Data("<!DOCTYPE feed><feed/>".utf8), tag: "v1.0.0") == nil)
+    }
+
     private func release(_ tag: String, draft: Bool = false, prerelease: Bool = false) -> Data {
         Data("""
         {"tag_name":"\(tag)","draft":\(draft),"prerelease":\(prerelease)}
@@ -82,7 +90,9 @@ struct UpdateCheckerTests {
         configuration.httpAdditionalHeaders = ["X-Test-Status": String(status)]
         let session = URLSession(configuration: configuration)
         defer { session.invalidateAndCancel() }
-        #expect(try await UpdateChecker.check(current: "0.0.1", session: session)?.tag == "v0.2.0")
+        let result = try await UpdateChecker.check(current: "0.0.1", session: session)
+        #expect(result?.tag == "v0.2.0")
+        #expect(result?.notes == "修复退出失败")
         #expect(try await UpdateChecker.check(current: "0.2.0", session: session) == nil)
     }
 
@@ -131,6 +141,13 @@ private final class UpdateRateLimitProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        if request.url?.path.hasSuffix("releases.atom") == true {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data(#"<feed><entry><link href="https://github.com/lliony/fastbudo/releases/tag/v0.2.0"/><content type="html">&lt;p&gt;修复退出失败&lt;/p&gt;</content></entry></feed>"#.utf8))
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
         let api = request.url?.host == "api.github.com"
         let status = api ? Int(request.value(forHTTPHeaderField: "X-Test-Status") ?? "403")! : 200
         let url = api ? request.url! : URL(string: "https://github.com/lliony/fastbudo/releases/tag/v0.2.0")!
