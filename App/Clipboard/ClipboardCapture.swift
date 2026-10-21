@@ -25,6 +25,7 @@ import AppKit
         try result.validate()
         return result
     }
+    /// 仅提交已由 transformed 在后台校验并转换的内容。
     static func write(_ payload: ClipPayload, to board: NSPasteboard) throws {
         let objects = payload.items.map { representations in
             let item = NSPasteboardItem()
