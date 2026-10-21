@@ -143,12 +143,12 @@ final class ClipboardStore: @unchecked Sendable {
             try putMetadata(keep, previousTitle: title)
         }
     }
-    private func put(_ item: ClipboardItem, _ payload: ClipPayload) throws {
-        try payload.validate()
+    private func put(_ item: ClipboardItem, _ payload: ClipPayload, encoded: (data: Data, hash: String)? = nil) throws {
+        if encoded == nil { try payload.validate() }
         guard item.title.count <= 1000, item.group.count <= 80, item.source.count <= 300 else { throw ClipError.invalid }
         if !item.group.isEmpty { try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(item.group)]) }
-        let data = try payload.encoded()
-        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let data = try encoded?.data ?? payload.encoded()
+        let hash = encoded?.hash ?? SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         let meta = try JSONEncoder().encode(item)
         let search = item.title + "\n" + payload.searchText
         try run("INSERT OR REPLACE INTO clips VALUES(?,?,?,?,?,?)", [.text(item.id.uuidString), .blob(meta), .blob(data), .text(hash), .text(search), .text(String(data.count + meta.count + search.utf8.count))])
@@ -187,7 +187,8 @@ final class ClipboardStore: @unchecked Sendable {
             try transaction {
                 try payload.validate()
                 guard source.count <= 300 else { throw ClipError.invalid }
-                let hash = SHA256.hash(data: try payload.encoded()).map { String(format: "%02x", $0) }.joined()
+                let data = try payload.encoded()
+                let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
                 let stmt = try statement("SELECT meta FROM clips WHERE hash=?", [.text(hash)])
                 defer { sqlite3_finalize(stmt) }
                 var item = ClipboardItem(kind: payload.kind, preview: payload.preview, source: source)
@@ -197,7 +198,7 @@ final class ClipboardStore: @unchecked Sendable {
                     if !old.reply { item = old; existing = true; break }
                 }
                 item.used = Date(); item.source = source
-                if existing { try putMetadata(item) } else { try put(item, payload) }
+                if existing { try putMetadata(item) } else { try put(item, payload, encoded: (data, hash)) }
                 try prune(policy, excluding: item.id)
                 return item.id
             }
