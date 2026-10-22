@@ -18,6 +18,7 @@
 		48118024BB7835B25866BF93 /* ArchiveModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14B9E9DB146AFD186D4E7962 /* ArchiveModel.swift */; };
 		4C9305357074324FDB4B3F0B /* 7z.so in Resources */ = {isa = PBXBuildFile; fileRef = 8CB3C403F734BA2DAC066B22 /* 7z.so */; };
 		4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */ = {isa = PBXBuildFile; fileRef = E1E8BEFB8D54C6F5A88F342D /* 7zz */; };
+		4F3B02647B321876E6022981 /* COPYING.txt in Resources */ = {isa = PBXBuildFile; fileRef = 56C63C9B6AE429D78AC8C801 /* COPYING.txt */; };
 		546D654AA9B1613B9EF39616 /* UpdateCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68470765A8819B89CEA4B108 /* UpdateCheckerTests.swift */; };
 		55A66CEA297E04B215494092 /* ClipboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A27E28A2E0845B62222F547C /* ClipboardTests.swift */; };
 		677985DEC3B189DABF3D37F0 /* ClipboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0072148CB646A4EDD0D6F14 /* ClipboardStore.swift */; };
@@ -38,6 +39,8 @@
 		BF7351A5A2CC7197E23F0BBA /* NewItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639BC4B4F3049C9B56581E59 /* NewItem.swift */; };
 		C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = DB83FC5BD11F79DB2650302D /* LICENSE.txt */; };
 		D56D4F2DD6A9CEA5478CD084 /* NewItemTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73169FCEC4FF5E53CCBCACC7 /* NewItemTypes.swift */; };
+		D9FACA7429D4B78F8D9BEC88 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 0B50D8B5FB63827A8F4E470F /* LICENSE */; };
+		DC25E049D418A468EDFD37EE /* THIRD-PARTY-NOTICES.md in Resources */ = {isa = PBXBuildFile; fileRef = 601D790B13BBCB347294CA56 /* THIRD-PARTY-NOTICES.md */; };
 		E439CCC73FFFF9389ED46E37 /* ArchiveQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC90F4761A6F2599EBE0F36F /* ArchiveQueueTests.swift */; };
 		E644648CF605AA9297D2F664 /* ServiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */; };
 		E6917EFBD7E1FA4A8746E8FB /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD54D0D9C980C8ED6600C81 /* LoginItem.swift */; };
@@ -81,6 +84,7 @@
 
 /* Begin PBXFileReference section */
 		09FCEE0F38C25D845EBB74C5 /* FinderRename.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRename.swift; sourceTree = "<group>"; };
+		0B50D8B5FB63827A8F4E470F /* LICENSE */ = {isa = PBXFileReference; path = LICENSE; sourceTree = "<group>"; };
 		0C2A0836547B8EDF349C3E01 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
 		0D1901F395F7A63B89A7B841 /* ServiceInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInputTests.swift; sourceTree = "<group>"; };
 		0DD54D0D9C980C8ED6600C81 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
@@ -94,8 +98,10 @@
 		46603F607AD589001AB378E3 /* UpdateInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateInstallerTests.swift; sourceTree = "<group>"; };
 		4FFD9BC750A0B0B7FC1C7C32 /* ClipboardItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardItem.swift; sourceTree = "<group>"; };
 		516279CCFA36229DE419F1AB /* ClipboardCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardCapture.swift; sourceTree = "<group>"; };
+		56C63C9B6AE429D78AC8C801 /* COPYING.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = COPYING.txt; sourceTree = "<group>"; };
 		59CE77C8A01A2FD5B8B42928 /* ArchiveFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFiles.swift; sourceTree = "<group>"; };
 		5F7E123B5BEC220C0E50BF61 /* ServicesProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesProvider.swift; sourceTree = "<group>"; };
+		601D790B13BBCB347294CA56 /* THIRD-PARTY-NOTICES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "THIRD-PARTY-NOTICES.md"; sourceTree = "<group>"; };
 		639BC4B4F3049C9B56581E59 /* NewItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItem.swift; sourceTree = "<group>"; };
 		68470765A8819B89CEA4B108 /* UpdateCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCheckerTests.swift; sourceTree = "<group>"; };
 		71FB66FA4B3428D5B470B2AC /* ServiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInput.swift; sourceTree = "<group>"; };
@@ -179,6 +185,7 @@
 		55018354948884BCD23417CA /* 7zip */ = {
 			isa = PBXGroup;
 			children = (
+				56C63C9B6AE429D78AC8C801 /* COPYING.txt */,
 				DB83FC5BD11F79DB2650302D /* LICENSE.txt */,
 			);
 			name = 7zip;
@@ -229,6 +236,8 @@
 		F1252085FE5655324721D034 = {
 			isa = PBXGroup;
 			children = (
+				0B50D8B5FB63827A8F4E470F /* LICENSE */,
+				601D790B13BBCB347294CA56 /* THIRD-PARTY-NOTICES.md */,
 				55018354948884BCD23417CA /* 7zip */,
 				19458CDBB902DFBFEDA3D497 /* App */,
 				B9F3570F4426F580FE2372F8 /* AppTests */,
@@ -338,7 +347,10 @@
 				4D7CCC76C22CF7B6A8821EF5 /* 7zz in Resources */,
 				EC5342A8CAB39DD3F888382C /* ArchiveBridge in Resources */,
 				347C464930DF8991BE7E8DE8 /* Assets.xcassets in Resources */,
+				4F3B02647B321876E6022981 /* COPYING.txt in Resources */,
+				D9FACA7429D4B78F8D9BEC88 /* LICENSE in Resources */,
 				C2C0B8B9EDDA4DF3451920CF /* LICENSE.txt in Resources */,
+				DC25E049D418A468EDFD37EE /* THIRD-PARTY-NOTICES.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
