@@ -238,12 +238,15 @@ import Carbon
             window.delegate = self
             window.isReleasedWhenClosed = false
             window.hidesOnDeactivate = false
+            // 非激活面板使用浮窗层级，否则后台时可能被其他应用的普通窗口遮住。
+            window.level = .floating
             window.minSize = NSSize(width: 480, height: 400)
             window.contentViewController = NSHostingController(rootView: ClipboardPanel(controller: self))
             window.center(); window.setFrameAutosaveName("FastBudoClipboardCompact")
             panel = window
         }
-        // 只让剪贴板获取键盘焦点，避免激活应用时把设置或任务窗口一起带到前台。
+        // accessory 后台状态下普通前置可能被延后；先显示面板再取焦点，不主动激活其他窗口。
+        panel?.orderFrontRegardless()
         panel?.makeKeyAndOrderFront(nil)
         Task { await reload() }
     }

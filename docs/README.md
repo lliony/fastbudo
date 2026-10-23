@@ -1,13 +1,15 @@
 ---
 title: 文档索引
 status: active
-last_updated: 2026-10-21
+last_updated: 2026-10-22
 ---
 
 # 文档索引
 
 | 我想… | 看这里 |
 |---|---|
+| 本机开发更新时固定签名身份 | [本机固定签名](guides/local-signing.md) |
+| 查看主界面关闭后的剪贴板唤起验证 | [后台唤起验证](validation/2026-10-22-clipboard-background.md) |
 | 查看更新退出、正文与下载进度修复验证 | [更新流程验证](validation/2026-10-21-update-lifecycle.md) |
 | 查看 0.0.4 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.4.md) |
 | 查看 0.0.3 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.3.md) |

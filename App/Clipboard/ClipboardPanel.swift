@@ -190,6 +190,16 @@ struct ClipboardPanel: View {
     @ViewBuilder private func actions(_ item: ClipboardItem) -> some View {
         Button("拷贝") { controller.copy(item.id) }
         Button("查看详情…") { controller.selected = item.id; controller.showDetail = true }
+        Menu("加入分组") {
+            Picker("分组", selection: Binding(get: { item.group }, set: { group in
+                controller.work { try $0.update(item.id, group: group) }
+            })) {
+                Text("未分组").tag("")
+                ForEach(controller.groups, id: \.self) { Text($0).tag($0) }
+            }.pickerStyle(.inline)
+            Divider()
+            Button("管理分组…") { manageGroups = true }
+        }
         Button(item.favorite ? "取消收藏" : "收藏") { controller.work { try $0.update(item.id, favorite: !item.favorite) } }
         Button(item.pinned ? "取消置顶" : "置顶") { controller.work { try $0.update(item.id, pinned: !item.pinned) } }
         Button(item.queued ? "从堆栈移除" : "加入堆栈") { controller.enqueue(item) }
@@ -239,6 +249,14 @@ struct ClipboardRow: View, Equatable {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(item.label.isEmpty ? "空文本" : item.label).lineLimit(2, reservesSpace: true)
                     HStack(spacing: 6) {
+                        if !item.group.isEmpty {
+                            Label(item.group, systemImage: "folder")
+                                .lineLimit(1).truncationMode(.tail)
+                                .foregroundStyle(Color.accentColor)
+                                .help("所属分组：\(item.group)")
+                                .accessibilityLabel("所属分组：\(item.group)")
+                            Text("·")
+                        }
                         Text(item.source).lineLimit(1)
                         Text("·")
                         // 只更新可见行的时间文字，不再逐秒触发行布局。
