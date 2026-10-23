@@ -44,6 +44,8 @@ xcodebuild -scheme FastBudo -configuration Release -derivedDataPath .build/xcode
 
 结果：`.build/xcode/Build/Products/Release/FastBudo.app`。引擎从仓库内固定版本源码构建；App 用 Xcode 标准资源复制阶段打包，不关闭构建脚本沙箱。
 
+本机自用安装前运行 `bash scripts/sign-local.sh .build/xcode/Build/Products/Release/FastBudo.app`，复用已配置的钥匙串签名身份，不再使用 ad-hoc 覆盖本机版本。首次配置、权限边界和更新注意事项见[本机固定签名](docs/guides/local-signing.md)。
+
 已提交 Xcode 工程可直接使用。修改 project.yml 时才需要本机已有的 XcodeGen，执行 `xcodegen generate` 后提交对应工程变化。首次构建前先运行引擎构建脚本，否则资源路径尚不存在。
 
 ## 验证

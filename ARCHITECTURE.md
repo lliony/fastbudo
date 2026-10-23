@@ -1,7 +1,7 @@
 ---
 title: FastBudo 架构
 status: active
-last_updated: 2026-10-21
+last_updated: 2026-10-22
 ---
 
 # FastBudo 架构
@@ -66,7 +66,7 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 
 查询最多保留一个进行中的 reload 任务，并合并最新请求；generation 丢弃过期结果，不依赖 SQLite interrupt。面板隐藏时采集只持久化，显示时再加载。列表缓存筛选结果，批量快照只重建一次；紧凑行使用 Equatable 降低刷新，时间标签按分钟更新，详情按需读取，图片预览降采样。
 
-复制流程为“后台取内容及转换 → 主线程写粘贴板 → 后台更新使用时间 → 局部调整顺序”。复制使旧快照失效，必要时重新查询，避免旧结果覆盖最近使用排序。剪贴板使用非激活 NSPanel 获取键盘焦点，显示时不激活整个应用，以免带出设置或任务窗口。默认 Control+Shift+V 唤起；操作是复制，不自动向其他应用粘贴。
+复制流程为“后台取内容及转换 → 主线程写粘贴板 → 后台更新使用时间 → 局部调整顺序”。复制使旧快照失效，必要时重新查询，避免旧结果覆盖最近使用排序。剪贴板使用带 nonactivatingPanel + floating 样式的 NSPanel；后台先用 orderFrontRegardless 显示面板，再取得键盘焦点，不调用 NSApp.activate 带出设置或任务窗口。实际窗口顺序验证见[后台唤起验证](docs/validation/2026-10-22-clipboard-background.md)。默认 Control+Shift+V 唤起；操作是复制，不自动向其他应用粘贴。
 
 ## 持久化与备份
 
