@@ -54,7 +54,7 @@ import SwiftUI
     func showSettings() {
         NSApp.setActivationPolicy(.regular)
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             window.title = "FastBudo 设置"
             window.isReleasedWhenClosed = false

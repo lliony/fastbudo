@@ -13,13 +13,75 @@ struct FastBudoApp: App {
     }
 }
 
+/// 设置页使用独立的明亮配色，不改变其他浮窗的外观。
+enum PreferencesPalette {
+    static let primary = Color(hue: 2.0 / 360, saturation: 0.835, brightness: 0.808)
+    static let background = Color(white: 1)
+    static let surface = Color(hue: 2.0 / 360, saturation: 0.02, brightness: 1)
+    static let selection = Color(hue: 2.0 / 360, saturation: 0.06, brightness: 1)
+    static let border = Color(hue: 2.0 / 360, saturation: 0.08, brightness: 0.95)
+    static let secondaryText = Color(white: 0.4)
+}
+
+/// 统一设置分组的留白与换行，长内容随外层滚动，不压缩操作控件。
+struct SettingsSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.caption).foregroundStyle(PreferencesPalette.secondaryText)
+                .padding(.horizontal, 3)
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+            .font(.callout)
+            .labeledContentStyle(SettingsValueStyle())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(PreferencesPalette.surface, in: RoundedRectangle(cornerRadius: 14))
+            .overlay { RoundedRectangle(cornerRadius: 14).stroke(PreferencesPalette.border, lineWidth: 0.5) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// 离开 Form 后仍保留设置项左右对齐的阅读顺序。
+private struct SettingsValueStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            configuration.label
+            Spacer(minLength: 12)
+            configuration.content.multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+/// 保留原生开关及其无障碍标签，并把操作位置固定在行尾。
+struct SettingsToggle: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
 struct PreferencesView: View {
     @Bindable var clipboard: ClipboardController
     let installUpdate: (UpdateInstaller.Prepared) async throws -> Void
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
-    @State private var page = "压缩与解压"
+    @State private var page = "通用"
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var finderEnabled = false
     @State private var renameEnabled = false
     @State private var loginItemEnabled = false
@@ -37,118 +99,139 @@ struct PreferencesView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable().frame(width: 48, height: 48).accessibilityHidden(true)
+                    .resizable().interpolation(.high).frame(width: 44, height: 44).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("FastBudo").font(.title2.bold())
-                    Text("让日常操作更顺手").foregroundStyle(.secondary)
+                    Text("FastBudo").font(.title2.weight(.semibold)).fontDesign(.rounded)
+                    Text("文件小事，轻松搞定。").font(.callout).foregroundStyle(PreferencesPalette.secondaryText)
                 }
                 Spacer()
-            }.padding(24)
+            }.padding(.horizontal, 20).padding(.vertical, 18)
             Picker("设置分类", selection: $page) {
                 Text("通用").tag("通用")
                 Text("压缩与解压").tag("压缩与解压")
                 Text("新建").tag("新建")
                 Text("剪贴板").tag("剪贴板")
             }
-            .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 24)
-            Form {
-                if page == "剪贴板" {
-                    ClipboardSettings(controller: clipboard)
-                } else if page == "通用" {
-                    Section("使用方式") {
-                        LabeledContent("发起操作", value: "Finder 右键 → FastBudo 压缩")
-                        if finderEnabled {
-                            Label("Finder 右键扩展 · 已启用", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                        } else {
-                            Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
+            .pickerStyle(.segmented).labelsHidden()
+                .padding(4)
+                .background(PreferencesPalette.selection, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 20).padding(.bottom, 16)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if page == "剪贴板" {
+                        ClipboardSettings(controller: clipboard)
+                    } else if page == "通用" {
+                        SettingsSection("使用方式") {
+                            LabeledContent("发起操作", value: "Finder 右键 → FastBudo 压缩")
+                            if finderEnabled {
+                                Label("Finder 右键扩展 · 已启用", systemImage: "checkmark.circle.fill")
+                                    .foregroundStyle(PreferencesPalette.primary)
+                            } else {
+                                Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
+                            }
+                            LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
+                            Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
+                                .font(.callout).foregroundStyle(.secondary)
                         }
-                        LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
-                        Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
-                    Section("版本更新") {
-                        LabeledContent("当前版本", value: currentVersion)
-                        Button(checkingUpdate ? "正在检查…" : "检查更新") {
-                            updateError = nil
-                            availableRelease = nil
-                            checkingUpdate = true
-                        }
-                        .disabled(checkingUpdate || installingUpdate)
-                        Text("手动检查 GitHub 正式版，更新完成后自动重启。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Section("本机运行") {
-                        Toggle("开机自动启动", isOn: loginItemBinding)
-                        if loginItemNeedsApproval {
-                            Button("在系统设置中允许…") { LoginItem.openSystemSettings() }
-                            Text("macOS 需要确认后才允许开机自动启动。")
+                        SettingsSection("版本更新") {
+                            HStack {
+                                LabeledContent("当前版本", value: currentVersion)
+                                Button(checkingUpdate ? "正在检查…" : "检查更新") {
+                                    updateError = nil
+                                    availableRelease = nil
+                                    checkingUpdate = true
+                                }
+                                .disabled(checkingUpdate || installingUpdate)
+                            }
+                            Text("手动检查 GitHub 正式版，更新完成后自动重启。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
-                        Text("登录 macOS 后自动驻留菜单栏，不弹出窗口。")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text("文件处理完全在本机完成。关闭任务窗口或收起浮窗，任务仍会继续。")
-                        Text("任务执行时请先取消，等待清理完成后退出应用。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                } else if page == "压缩与解压" {
-                    Section("压缩 · 默认选项") {
-                        LabeledContent("压缩格式", value: "在 Finder 右键子菜单中选择")
-                        LabeledContent("初始保存位置", value: "原文件所在文件夹")
-                        Text("选择格式后立即执行，不弹出选项窗口、不设密码。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Section("压缩 · 元数据") {
-                        Toggle("过滤 .DS_Store", isOn: $excludeDSStore)
-                        Toggle("保留 Mac 属性", isOn: $preserveAttributes)
-                        Text("仅无密码 ZIP 支持保留属性。普通隐藏文件仍会保留，源文件不会被修改。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Section("解压 · 输出规则") {
-                        LabeledContent("保存位置", value: "压缩包所在文件夹")
-                        LabeledContent("解压内容", value: "放入独立文件夹")
-                        LabeledContent("遇到重名", value: "自动编号，保留已有文件")
-                    }
-                    Section("解压 · 安全处理") {
-                        Text("大体积或无法预估的归档会在解压前请求确认。")
-                        Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                } else if page == "新建" {
-                    Section("常用文件类型") {
-                        TextField("扩展名", text: $newFileTypes)
-                            .onChange(of: newFileTypes) { NewItemTypes.broadcast() }
-                        Text("用逗号分隔，例如 txt, md, json, py。支持字母和数字，最多 12 项。保持应用运行，重新打开右键菜单后生效。")
-                            .font(.caption).foregroundStyle(.secondary)
-                        LabeledContent("菜单中显示", value: NewItemTypes.parse(newFileTypes).joined(separator: "、"))
-                    }
-                    Section("Finder 原地重命名") {
-                        if renameEnabled {
-                            Label("Finder 原地重命名 · 已启用", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                        } else {
-                            Button("允许 Finder 原地重命名…") { FinderRename.requestPermission() }
+                        SettingsSection("本机运行") {
+                            SettingsToggle(title: "开机自动启动", isOn: loginItemBinding)
+                            if loginItemNeedsApproval {
+                                Button("在系统设置中允许…") { LoginItem.openSystemSettings() }
+                                Text("macOS 需要确认后才允许开机自动启动。")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Text("登录 macOS 后自动驻留菜单栏，不弹出窗口。")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Text("文件在本机处理。收起窗口不影响任务；退出前请先取消任务，等待清理完成。")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
-                        Text("需要在系统设置 → 隐私与安全性 → 辅助功能中允许 FastBudo。未授权时会选中新项目，可手动按回车改名。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Section("创建规则") {
-                        Text("在 Finder 当前文件夹的空白处右键 → FastBudo 新建。")
-                        Text("创建后直接在 Finder 中修改名称。回车确认，Esc 保留默认名；重名自动编号。")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+                    } else if page == "压缩与解压" {
+                        SettingsSection("压缩 · 默认选项") {
+                            LabeledContent("压缩格式", value: "在 Finder 右键子菜单中选择")
+                            LabeledContent("初始保存位置", value: "原文件所在文件夹")
+                            Text("选择格式后立即执行，不弹出选项窗口、不设密码。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        SettingsSection("压缩 · 元数据") {
+                            SettingsToggle(title: "过滤 .DS_Store", isOn: $excludeDSStore)
+                            SettingsToggle(title: "保留 Mac 属性", isOn: $preserveAttributes)
+                            Text("仅无密码 ZIP 支持保留属性。普通隐藏文件仍会保留，源文件不会被修改。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        SettingsSection("解压 · 输出规则") {
+                            LabeledContent("保存位置", value: "压缩包所在文件夹")
+                            LabeledContent("解压内容", value: "放入独立文件夹")
+                            LabeledContent("遇到重名", value: "自动编号，保留已有文件")
+                        }
+                        SettingsSection("解压 · 安全处理") {
+                            Text("大体积或无法预估的归档会在解压前请求确认。")
+                            Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } else if page == "新建" {
+                        SettingsSection("常用文件类型") {
+                            LabeledContent("扩展名") {
+                                TextField("例如 txt, md", text: $newFileTypes)
+                                    .textFieldStyle(.roundedBorder).labelsHidden()
+                                .multilineTextAlignment(.leading)
+                                    .onChange(of: newFileTypes) { NewItemTypes.broadcast() }
+                            }
+                            Text("用逗号分隔，例如 txt, md, json, py。支持字母和数字，最多 12 项。保持应用运行，重新打开右键菜单后生效。")
+                                .font(.caption).foregroundStyle(.secondary)
+                            LabeledContent("菜单中显示", value: NewItemTypes.parse(newFileTypes).joined(separator: "、"))
+                        }
+                        SettingsSection("Finder 原地重命名") {
+                            if renameEnabled {
+                                Label("Finder 原地重命名 · 已启用", systemImage: "checkmark.circle.fill")
+                                    .foregroundStyle(PreferencesPalette.primary)
+                            } else {
+                                Button("允许 Finder 原地重命名…") { FinderRename.requestPermission() }
+                            }
+                            Text("需要在系统设置 → 隐私与安全性 → 辅助功能中允许 FastBudo。未授权时会选中新项目，可手动按回车改名。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        SettingsSection("创建规则") {
+                            Text("在 Finder 当前文件夹的空白处右键 → FastBudo 新建。")
+                            Text("创建后直接在 Finder 中修改名称。回车确认，Esc 保留默认名；重名自动编号。")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
 
+                    }
                 }
-            }.formStyle(.grouped)
+                .padding(.horizontal, 20).padding(.bottom, 20)
+            }
+            .id(page)
+            .transition(.opacity.combined(with: .offset(y: 4)))
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: page)
+            Divider().overlay(PreferencesPalette.border)
             HStack {
                 Label("设置自动保存", systemImage: "checkmark.circle")
                 Spacer()
-                Text("FastBudo · 本地工具")
+                Text("FastBudo · 本机处理")
             }
-            .font(.caption).foregroundStyle(.secondary)
-            .padding(.horizontal, 24).padding(.bottom, 18)
+            .font(.caption).foregroundStyle(PreferencesPalette.secondaryText)
+            .padding(.horizontal, 20).padding(.vertical, 12)
+            .background(PreferencesPalette.surface)
         }
-        .frame(width: 600, height: 520)
+        .frame(width: 560, height: 600)
+        .background(PreferencesPalette.background)
+        .tint(PreferencesPalette.primary)
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .preferredColorScheme(.light)
         .sheet(isPresented: $updateDialogPresented) { updateDialog }
         .task(id: installingUpdate) {
             guard installingUpdate, let release = availableRelease else { return }

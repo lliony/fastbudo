@@ -15,9 +15,11 @@ struct ClipboardSettings: View {
     @AppStorage("clipCopyOnClick") private var copyOnClick = true
     @AppStorage("clipCloseAfterAction") private var closeAfterAction = true
     var body: some View {
-        Section("基础设置") {
-            Toggle("记录新复制的内容", isOn: $enabled).onChange(of: enabled) { controller.setEnabled(enabled) }
+        SettingsSection("基础设置") {
+            SettingsToggle(title: "记录新复制的内容", isOn: $enabled).onChange(of: enabled) { controller.setEnabled(enabled) }
             Button("打开剪贴板…", action: controller.show)
+        }
+        SettingsSection("采集与保留") {
             ClipboardLimitField(title: "历史记录上限", value: $count, range: 100...10000, step: 100, unit: "条")
             ClipboardLimitField(title: "保存时间", value: $days, range: 1...365, step: 1, unit: "天")
             ClipboardLimitField(title: "内容容量上限", value: $mib, range: 20...1024, step: 20, unit: "MiB")
@@ -27,16 +29,16 @@ struct ClipboardSettings: View {
             Text("收藏、置顶、快捷回复和堆栈不会自动删除。容量按编码内容计算，数据库另有少量开销；单条上限 20 MiB。")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        Section("操作习惯") {
-            Toggle("单击条目即拷贝", isOn: $copyOnClick)
+        SettingsSection("操作习惯") {
+            SettingsToggle(title: "单击条目即拷贝", isOn: $copyOnClick)
             Text("关闭后，单击只选择条目；可使用每条右侧的拷贝按钮。")
                 .font(.caption).foregroundStyle(.secondary)
-            Toggle("操作完成后关闭面板", isOn: $closeAfterAction)
+            SettingsToggle(title: "操作完成后关闭面板", isOn: $closeAfterAction)
             Text("拷贝成功后收起；失败时保留提示。收藏和删除不关闭面板。")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        Section("唤起快捷键") {
-            Toggle("启用全局快捷键", isOn: $hotKeyEnabled).onChange(of: hotKeyEnabled) { controller.configureShortcut() }
+        SettingsSection("唤起快捷键") {
+            SettingsToggle(title: "启用全局快捷键", isOn: $hotKeyEnabled).onChange(of: hotKeyEnabled) { controller.configureShortcut() }
             HStack {
                 modifier("⌃", Int(controlKey)); modifier("⇧", Int(shiftKey)); modifier("⌘", Int(cmdKey)); modifier("⌥", Int(optionKey))
                 Picker("按键", selection: $key) { Text("V").tag(9); Text("C").tag(8); Text("空格").tag(49) }.frame(width: 130)
@@ -45,9 +47,17 @@ struct ClipboardSettings: View {
             Text("面板内方向键选择、回车拷贝、⌘1–9 拷贝对应条目、Escape 收起。")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        Section("隐私") {
-            TextField("不记录的应用 Bundle ID", text: $excluded)
-            TextField("禁用快捷键的应用 Bundle ID", text: $hotKeyExcluded)
+        SettingsSection("隐私") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("不记录的应用 Bundle ID")
+                TextField("多个标识用逗号分隔", text: $excluded)
+                    .textFieldStyle(.roundedBorder).accessibilityLabel("不记录的应用 Bundle ID")
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("禁用快捷键的应用 Bundle ID")
+                TextField("多个标识用逗号分隔", text: $hotKeyExcluded)
+                    .textFieldStyle(.roundedBorder).accessibilityLabel("禁用快捷键的应用 Bundle ID")
+            }
             Text("多个标识用逗号分隔。来源按采集时前台应用推断；敏感标记过滤不能识别所有密码。历史仅本地保存，未加密。")
                 .font(.caption).foregroundStyle(.secondary)
 
