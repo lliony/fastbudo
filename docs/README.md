@@ -8,7 +8,7 @@ last_updated: 2026-10-27
 
 | 我想… | 看这里 |
 |---|---|
-| 截图 ESC 关闭、直接复制与另存为（开发完成） | [设计](superpowers/specs/2026-10-27-screenshot-quick-actions-design.md) / [实施计划](superpowers/plans/2026-10-27-screenshot-quick-actions.md) |
+| 截图 ESC 关闭、直接复制与另存为（已本地整合并安装） | [设计](superpowers/specs/2026-10-27-screenshot-quick-actions-design.md) / [实施计划](superpowers/plans/2026-10-27-screenshot-quick-actions.md) |
 | 快捷键自由录入与冲突验证 | [设计](superpowers/specs/2026-10-26-unrestricted-shortcuts-design.md) / [实施计划](superpowers/plans/2026-10-26-unrestricted-shortcuts.md) |
 | 规划截图极简界面、快捷键录入与权限状态 | [设计](superpowers/specs/2026-10-26-screenshot-interaction-design.md) / [实施计划](superpowers/plans/2026-10-26-screenshot-interaction.md) |
 | 使用截图、标注与贴图 | [截图与贴图](guides/screenshot-pin.md) |

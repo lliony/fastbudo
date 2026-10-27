@@ -7,7 +7,7 @@ related_plan: ../plans/2026-10-27-screenshot-quick-actions.md
 
 # 截图 ESC 关闭与快速输出
 
-来源：用户要求支持 ESC 快速关闭截图、快速截图并复制、快速截图并下载。实施见[计划](../plans/2026-10-27-screenshot-quick-actions.md)，返回[文档索引](../../README.md)。本设计已在开发工作区实现；验证与未测范围见[使用记录](../../guides/screenshot-pin.md)。尚未安装、合并或发布。
+来源：用户要求支持 ESC 快速关闭截图、快速截图并复制、快速截图并下载。实施见[计划](../plans/2026-10-27-screenshot-quick-actions.md)，返回[文档索引](../../README.md)。本设计已在开发工作区实现；验证与未测范围见[使用记录](../../guides/screenshot-pin.md)。现已整合本地 main 并安装，尚未推送或发布。
 
 ## 用户已确认的交互
 
