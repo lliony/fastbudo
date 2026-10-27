@@ -71,6 +71,8 @@ import Carbon
                         // 通过 Carbon 事件目标走生产快捷键回调，不占用或注入用户的默认快捷键。
                         var event: EventRef?
                         CreateEvent(nil, OSType(kEventClassKeyboard), UInt32(kEventHotKeyPressed), 0, 0, &event)
+                        var hotKeyID = EventHotKeyID(signature: 0x46424350, id: 1)
+                        SetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), MemoryLayout<EventHotKeyID>.size, &hotKeyID)
                         let result = SendEventToEventTarget(event, GetApplicationEventTarget())
                         ReleaseEvent(event)
                         try await Task.sleep(for: .milliseconds(400))

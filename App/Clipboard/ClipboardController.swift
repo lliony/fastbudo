@@ -16,6 +16,7 @@ import Carbon
     private var detailGeneration = 0
     var message = "开启记录后，只收集新复制的内容。"
     var hotKeyMessage = ""
+    var pinImage: (Data) -> Void = { _ in }
     var mode = ClipMode.original
     var loading = false
     private var matched = Set<UUID>() { didSet { rebuildVisible() } }
@@ -100,9 +101,14 @@ import Carbon
         timer?.invalidate(); timer = nil; hotKey.stop()
         invalidateReload()
     }
+    private var shortcutRecordingPaused = false
+    func setShortcutRecordingPaused(_ active: Bool) {
+        shortcutRecordingPaused = active
+        if active { hotKey.stop() } else if started { configureShortcut() }
+    }
     func configureShortcut() {
-        hotKey.stop()
-        guard defaults.object(forKey: "clipHotKeyEnabled") as? Bool ?? true else { hotKeyMessage = "快捷键已关闭"; return }
+        guard !shortcutRecordingPaused else { return }
+        guard defaults.object(forKey: "clipHotKeyEnabled") as? Bool ?? true else { hotKey.stop(); hotKeyMessage = "快捷键已关闭"; return }
         let key = UInt32(clamping: defaults.object(forKey: "clipHotKeyCode") as? Int ?? 9)
         let modifiers = UInt32(clamping: defaults.object(forKey: "clipHotKeyModifiers") as? Int ?? Int(controlKey | shiftKey))
         hotKey.action = { [weak self] in
@@ -111,7 +117,7 @@ import Carbon
             guard !self.excluded(app, key: "clipHotKeyExcluded") else { return }
             self.toggle()
         }
-        hotKeyMessage = hotKey.register(key: key, modifiers: modifiers) ? "快捷键已注册" : "快捷键不可用或已被占用，请更换（需包含 Control 或 Command）。"
+        hotKeyMessage = hotKey.register(key: key, modifiers: modifiers) ? "快捷键已注册" : "快捷键不可用或已被占用，请更换。"
     }
     func setEnabled(_ value: Bool) {
         defaults.set(value, forKey: "clipEnabled")
@@ -193,6 +199,19 @@ import Carbon
             guard !Task.isCancelled, generation == detailGeneration, selected == id else { return }
             detail = result.0; detailImage = result.1
         } catch { message = error.localizedDescription }
+    }
+    /// 贴图读取原图，不通过复制动作改写剪贴板或最近使用顺序。
+    func pin(_ id: UUID) {
+        Task {
+            do {
+                let db = try database()
+                let payload = try await Task.detached { try db.payload(id) }.value
+                try payload.validate()
+                guard payload.kind == .image,
+                      let data = payload.items.lazy.compactMap({ $0["public.png"] ?? $0["public.tiff"] }).first else { throw ClipError.invalid }
+                pinImage(data)
+            } catch { message = error.localizedDescription }
+        }
     }
     func work(_ operation: @escaping @Sendable (ClipboardStore) throws -> Void, onSuccess: @escaping () -> Void = {}) {
         guard !loading else { return }

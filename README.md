@@ -1,7 +1,7 @@
 ---
 title: FastBudo
 status: active
-last_updated: 2026-10-21
+last_updated: 2026-10-26
 ---
 
 # FastBudo
@@ -21,6 +21,8 @@ last_updated: 2026-10-21
 默认过滤 .DS_Store 和已识别、有对应文件的 AppleDouble 元数据，不修改源文件，保留普通隐藏文件及普通 ._ 文件。保留 Mac 属性仅支持无密码 ZIP。解压结果写入独立目录，重名自动编号，不覆盖已有内容。
 
 菜单栏 ⌘ →“剪贴板…”支持历史、搜索、分类、收藏和快捷回复。默认关闭记录，Control+Shift+V 唤起；详见[剪贴板使用与验证](docs/guides/clipboard.md)。
+
+菜单栏 →“截图”支持区域、窗口和指定显示器全屏截图；默认 Control+Shift+S 截图，Control+Shift+P 将剪贴板图片贴到屏幕。截图后可标注、复制、保存 PNG 或贴图；历史图片右键也可“贴到屏幕”。设置 →“截图与贴图”管理快捷键与权限入口。操作和限制见[截图与贴图](docs/guides/screenshot-pin.md)。这些是未发布功能，不代表当前安装包已包含。
 
 ## 格式
 

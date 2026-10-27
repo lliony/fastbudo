@@ -189,6 +189,7 @@ struct ClipboardPanel: View {
     }
     @ViewBuilder private func actions(_ item: ClipboardItem) -> some View {
         Button("拷贝") { controller.copy(item.id) }
+        if item.kind == .image { Button("贴到屏幕") { controller.pin(item.id) } }
         Button("查看详情…") { controller.selected = item.id; controller.showDetail = true }
         Menu("加入分组") {
             Picker("分组", selection: Binding(get: { item.group }, set: { group in
