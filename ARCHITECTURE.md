@@ -1,7 +1,7 @@
 ---
 title: FastBudo 架构
 status: active
-last_updated: 2026-10-22
+last_updated: 2026-10-27
 ---
 
 # FastBudo 架构
@@ -70,6 +70,10 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 
 ## 持久化与备份
 
+截图与贴图由 [ScreenshotController](App/Screenshot/ScreenshotController.swift) 管理，按需请求屏幕录制权限。区域截图由 [ScreenshotRegionSelector](App/Screenshot/ScreenshotRegionSelector.swift) 提供箭头指针与透明选区层，使用鼠标事件坐标支持快速拖动；完成后移除遮罩，将 AppKit 点坐标换算为主屏左上原点，通过系统 `screencapture -R` 抓取。窗口与指定屏幕仍由系统选取。选区与抓取各自最多等待 120 秒，退出时取消并释放选区续体。任务独占临时目录，完成后读取并清理。图片读取在后台进行，先检查大小与像素，拒绝超过 20 MiB 或四千万像素的内容。取消不写剪贴板，区域选择松开鼠标时按住 Control 将传入 `-c` 直接复制；系统窗口选择的 Control 点击保持原有语义。
+
+[ImageEditor](App/Screenshot/ImageEditor.swift) 在原图坐标中保存标注并生成带标注的图片，复制/保存/贴图使用同一渲染结果。[PinnedImage](App/Screenshot/PinnedImage.swift) 使用非激活浮窗，关闭时断开视图和模型持有关系；最多 10 张、合计四千万原图像素，不自动持久化。菜单栏提供显示和取消穿透的恢复入口。历史贴图读取完整 payload，不改写剪贴板或最近使用排序。五个全局入口（剪贴板、普通截图、贴图、快速复制、快速下载）共享现有 Carbon 注册实现，按事件 ID 区分剪贴板、截图与贴图。编辑器使用无标题图片浮窗，工具覆盖层不参与图片导出。[ShortcutRecorder](App/Screenshot/ShortcutRecorder.swift) 仅在窗口内接收录入事件；录入时暂停全部五个入口，释放按键或修饰键后恢复，失焦/关闭取消。注册先成功再替换旧绑定，冲突不保存偏好。权限状态在设置出现、应用激活和截图前查询系统，不轮询或持久化。
+
 | 数据 | 存储及约束 |
 |---|---|
 | 应用偏好 | UserDefaults；登录项启用状态直接查询系统 |
@@ -98,3 +102,6 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 验证命令见 [AGENTS.md](AGENTS.md)。Bridge 测试覆盖原生桥接与归档边界，App 测试覆盖 Swift 业务逻辑，Performance 测试提供独立进程内存回归检查；真实 Finder 权限、视图交互和安装包仍需人工验证。
 
 两批优化结果见 [性能验证记录](docs/validation/2026-10-21-performance.md)。APFS clone、SQLite 拆表及 AX 后台迁移仍是条件方案，未接入生产流程；合成探针不能证明常驻内存、长期无泄漏或实际滚动帧率。网络卷与 Intel / macOS 26 不在本轮实测范围内。
+
+
+截图输出目标由 `CaptureAction` 随本次任务闭包传入完成回调，不存成可被后续任务覆盖的目标字段。快速复制/另存为复用 `ImageEditorModel` 的后台PNG编码和无覆盖保存；另存为确认前可取消，失败回退原图编辑器。已确认导出事务保持不可取消，停止时取消路径选择并压制后续窗口。编辑器的ESC监听仅限自身与工具子窗口，附着模态面板放行；监听随视图拆除，不占用全局ESC，也不拦截快捷键录入。两个新快捷键初始未配置、可单独清除，保持旧偏好键兼容。

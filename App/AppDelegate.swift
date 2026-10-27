@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = ArchiveModel()
     let clipboard: ClipboardController
+    let screenshot = ScreenshotController()
     private let requestTermination: @MainActor () -> Void
     private let revealNewItem: @MainActor (URL) -> Void
     override convenience init() { self.init(clipboard: ClipboardController()) }
@@ -20,6 +21,9 @@ import SwiftUI
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         clipboard.start()
+        clipboard.pinImage = { [weak self] in self?.screenshot.pinData($0) }
+        screenshot.shortcutRecordingChanged = { [weak self] in self?.clipboard.setShortcutRecordingPaused($0) }
+        screenshot.start()
         services.receive = { [weak self] files, format in
             self?.model.compress(files, as: format)
         }
@@ -54,12 +58,12 @@ import SwiftUI
     func showSettings() {
         NSApp.setActivationPolicy(.regular)
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 520),
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
                                   styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             window.title = "FastBudo 设置"
             window.isReleasedWhenClosed = false
             window.delegate = self
-            window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard, installUpdate: installUpdate))
+            window.contentViewController = NSHostingController(rootView: PreferencesView(clipboard: clipboard, screenshot: screenshot, installUpdate: installUpdate))
             window.center()
             settingsWindow = window
         }
@@ -170,7 +174,7 @@ import SwiftUI
         taskWindow?.makeKeyAndOrderFront(nil)
     }
 
-    func applicationWillTerminate(_ notification: Notification) { clipboard.stop() }
+    func applicationWillTerminate(_ notification: Notification) { clipboard.stop(); screenshot.stop() }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model.busy else { return .terminateNow }
