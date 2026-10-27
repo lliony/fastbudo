@@ -226,8 +226,12 @@ enum CaptureAction: Equatable {
         message = "截图中：拖动选择区域或点击窗口，Escape 取消。"
         captureTask = Task { [weak self] in
             guard let self else { return }
-            // 等菜单收起和快捷键松开，避免把浮窗或按下的修饰键带入系统截图。
-            do { try await Task.sleep(for: .milliseconds(350)) } catch { self.capturing = false; return }
+            switch mode {
+            case .region: break
+            case .window, .screen:
+                // 系统截图仍需等菜单收起和修饰键松开；自有区域选区无需等待。
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { self.capturing = false; return }
+            }
             guard !stopped else { capturing = false; return }
             do {
                 var arguments = mode.arguments

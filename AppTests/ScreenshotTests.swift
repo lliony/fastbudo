@@ -4,6 +4,26 @@ import Testing
 @testable import FastBudo
 
 @Suite(.serialized) struct ScreenshotTests {
+    @Test @MainActor func regionActionsShowSelectionWithoutSystemCaptureDelay() async throws {
+        for action in [CaptureAction.edit, .copy, .download] {
+            let name = "RegionStartTests." + UUID().uuidString
+            let defaults = try #require(UserDefaults(suiteName: name))
+            let board = NSPasteboard.withUniqueName()
+            let controller = ScreenshotController(defaults: defaults, screenCaptureAccess: { true }, pasteboard: board)
+            defer { controller.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: name) }
+            let started = ContinuousClock.now
+            controller.capture(.region, action: action)
+            var visible = false
+            while started.duration(to: .now) < .milliseconds(150) {
+                visible = NSApp.windows.contains { $0.isVisible && $0.title == "FastBudo 区域选取" }
+                if visible { break }
+                try await Task.sleep(for: .milliseconds(2))
+            }
+            print("region selection \(action): \(started.duration(to: .now))")
+            #expect(visible, "区域选区应跳过系统截图的350ms等待：\(action)")
+        }
+    }
+
     @Test func regionSelectionConvertsDesktopPointsWithoutScalingPixels() {
         let desktop = CGRect(x: -1280, y: -900, width: 3200, height: 1980)
         #expect(ScreenshotRegionSelector.captureRect(CGRect(x: -100, y: 100, width: 300, height: 200), desktop: desktop, primaryTop: 1080)
