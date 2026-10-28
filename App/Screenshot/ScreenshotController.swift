@@ -226,8 +226,12 @@ enum CaptureAction: Equatable {
         message = "截图中：拖动选择区域或点击窗口，Escape 取消。"
         captureTask = Task { [weak self] in
             guard let self else { return }
-            // 等菜单收起和快捷键松开，避免把浮窗或按下的修饰键带入系统截图。
-            do { try await Task.sleep(for: .milliseconds(350)) } catch { self.capturing = false; return }
+            switch mode {
+            case .region: break
+            case .window, .screen:
+                // 系统截图仍需等菜单收起和修饰键松开；自有区域选区无需等待。
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { self.capturing = false; return }
+            }
             guard !stopped else { capturing = false; return }
             do {
                 var arguments = mode.arguments
@@ -238,8 +242,7 @@ enum CaptureAction: Equatable {
                         regionSelector = selector; selector.show()
                     }
                     selectedAction = action.effective(controlHeld: regionSelector?.copyToClipboard ?? false)
-                    regionSelector = nil
-                    guard let rect, !stopped else { capturing = false; message = "截图已取消。"; return }
+                    guard let rect, !stopped else { cleanupCapture(); message = "截图已取消。"; return }
                     arguments = ["-R", "\(Int(rect.minX)),\(Int(rect.minY)),\(Int(rect.width)),\(Int(rect.height))"]
                     // 等选区遮罩从窗口合成器移除，避免把遮罩一起截入图片。
                     try await Task.sleep(for: .milliseconds(100))
@@ -292,10 +295,11 @@ enum CaptureAction: Equatable {
             guard !stopped else { return }
             let result = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
             do {
-                _ = try await deliver(result, action: action)
+                if action == .edit { editCapturedImage(result) }
+                else { _ = try await deliver(result, action: action) }
             } catch {
                 guard !stopped, !(error is CancellationError) else { return }
-                edit(result)
+                editCapturedImage(result)
                 showError("截图输出失败，图片已保留，可重试：\(error.localizedDescription)")
             }
         } catch {
@@ -304,7 +308,19 @@ enum CaptureAction: Equatable {
         }
     }
 
+    private func editCapturedImage(_ image: NSImage) {
+        if let selector = regionSelector, let frame = selector.selectedFrame,
+           let panel = selector.takeEditorPanel() {
+            edit(image, in: panel, selectionFrame: frame)
+            message = "可在原选区标注、复制、保存或贴图。"
+        } else {
+            edit(image)
+            message = "截图已打开，可标注、复制、保存或贴图。"
+        }
+    }
+
     private func cleanupCapture() {
+        regionSelector?.cancel(); regionSelector = nil
         if let root = captureDirectory { try? FileManager.default.removeItem(at: root) }
         captureDirectory = nil; process = nil; capturing = false; captureTask = nil
     }
@@ -319,19 +335,46 @@ enum CaptureAction: Equatable {
                       width: size.width, height: size.height)
     }
 
-    func edit(_ image: NSImage) {
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
-        let frame = Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
-        let window = PinnedImagePanel(contentRect: frame,
+    nonisolated static func inlineEditorFrame(selection: CGRect, visibleFrame: CGRect) -> CGRect {
+        // 工具区留在真实屏幕内，透明扩展区不改变选区图片的点尺寸。
+        let width = min(240, visibleFrame.width), height = min(120, visibleFrame.height)
+        let x = min(max(selection.maxX - width, visibleFrame.minX), visibleFrame.maxX - width)
+        let y = min(max(selection.minY, visibleFrame.minY), visibleFrame.maxY - height)
+        return selection.union(CGRect(x: x, y: y, width: width, height: height))
+    }
+
+    func edit(_ image: NSImage, in existingWindow: NSWindow? = nil, selectionFrame: CGRect? = nil) {
+        let screens = NSScreen.screens
+        let selectedScreen = selectionFrame.flatMap { selection in
+            screens.max { left, right in
+                let a = selection.intersection(left.visibleFrame), b = selection.intersection(right.visibleFrame)
+                return (a.isNull ? 0 : a.width * a.height) < (b.isNull ? 0 : b.width * b.height)
+            }
+        }
+        guard let screen = selectedScreen ?? screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
+        let toolsFrame = selectionFrame.map { Self.inlineEditorFrame(selection: $0, visibleFrame: screen.visibleFrame) }
+        let frame = selectionFrame.map { _ in existingWindow?.frame ?? screens.reduce(CGRect.null) { $0.union($1.frame) } }
+            ?? Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
+        let window = existingWindow ?? PinnedImagePanel(contentRect: frame,
                                      styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.setFrame(frame, display: false)
         window.title = "FastBudo 截图标注"
         window.isReleasedWhenClosed = false
         window.hidesOnDeactivate = false
         window.isOpaque = false
         window.backgroundColor = .clear
+        window.hasShadow = selectionFrame == nil
         window.level = .floating
         window.delegate = self
+        let canvasFrame = selectionFrame.map {
+            CGRect(x: $0.minX - frame.minX, y: frame.maxY - $0.maxY, width: $0.width, height: $0.height)
+        }
+        let visible = (toolsFrame ?? frame).intersection(screen.visibleFrame)
+        let controlsFrame = selectionFrame.map { _ in
+            CGRect(x: visible.minX - frame.minX, y: frame.maxY - visible.maxY, width: visible.width, height: visible.height)
+        }
         window.contentView = NSHostingView(rootView: ImageEditor(image: image, window: window,
+            canvasFrame: canvasFrame, controlsFrame: controlsFrame,
             onPin: { [weak self] in self?.pin($0) }, onClose: { [weak window] in window?.close() }))
         editors.append(window)
         window.orderFrontRegardless(); window.makeKey()

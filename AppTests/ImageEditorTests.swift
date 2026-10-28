@@ -4,6 +4,31 @@ import Testing
 @testable import FastBudo
 
 @Suite(.serialized) @MainActor struct ImageEditorTests {
+    @Test func inlineDragMovesSelectionWithoutMovingDesktopOrDrawing() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+        let frame = window.frame
+        var delta = CGSize.zero
+        canvas.onMove = { delta = $0 }
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, CGPoint(x: 100, y: 100)),
+                              (.leftMouseDragged, CGPoint(x: 130, y: 80)),
+                              (.leftMouseUp, CGPoint(x: 130, y: 80))] {
+            let event = try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+            if type == .leftMouseDown { canvas.mouseDown(with: event) }
+            else if type == .leftMouseDragged { canvas.mouseDragged(with: event) }
+            else { canvas.mouseUp(with: event) }
+        }
+        #expect(delta == CGSize(width: 30, height: 20))
+        #expect(window.frame == frame)
+        #expect(model.annotations.isEmpty)
+    }
+
     @Test func escapeIsScopedToEditorAndItsChildWindow() throws {
         let editor = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
                               styleMask: [.borderless], backing: .buffered, defer: false)

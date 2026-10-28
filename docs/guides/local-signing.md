@@ -1,7 +1,7 @@
 ---
 title: 本机固定身份签名
 status: active
-last_updated: 2026-10-22
+last_updated: 2026-10-28
 ---
 
 # 本机固定身份签名
@@ -20,8 +20,13 @@ bash scripts/sign-local.sh .build/xcode/Build/Products/Release/FastBudo.app
 
 首次从 ad-hoc 切换身份可能需要重新添加辅助功能授权。以后保持证书、Bundle ID 和安装路径一致，有助于系统将不同构建识别为同一应用；最终权限是否保留仍由 macOS 决定。证书过期前需维护签名身份，不应反复新建证书。
 
-当前 GitHub 发布包仍使用 ad-hoc 签名。直接使用应用内更新或覆盖公开安装包会替换本机签名；自用期间应在安装下载版本前使用此脚本重新签名。该脚本不自动修改更新器，也不上传证书或私钥。
+GitHub 历史发布包的签名以对应版本验证记录为准，不代表当前本地安装版。直接使用应用内更新或覆盖公开安装包会替换本机签名；自用期间应在安装下载版本前使用此脚本重新签名。该脚本不自动修改更新器，也不上传证书或私钥。
 
 依据：[Apple TN2206：Code Signing](https://developer.apple.com/library/archive/technotes/tn2206/_index.html) 中的 Designated Requirement 与 Self-signed Identities 说明。
 
 本机验证：修改临时副本的构建号后，使用同一证书重新签名，前后 Designated Requirement 一致；新版通过旧版身份要求及嵌套签名完整性校验。该验证证明签名身份稳定，不等同于实际跨版本辅助功能授权保留测试。
+
+
+## 当前本地安装
+
+2026-10-28 已使用固定身份签名安装 0.0.6（构建号 6），保留旧版备份，重启后屏幕录制权限及四个截图/贴图快捷键注册状态正常。安装路径、备份位置及验证边界见[本地安装验证](../validation/2026-10-28-public-update-source.md)。此结果不代表开发者公证或 GitHub 发布。

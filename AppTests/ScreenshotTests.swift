@@ -1,9 +1,94 @@
 import AppKit
 import Carbon
 import Testing
+import SwiftUI
 @testable import FastBudo
 
 @Suite(.serialized) struct ScreenshotTests {
+    @Test @MainActor func regionActionsShowSelectionWithoutSystemCaptureDelay() async throws {
+        for action in [CaptureAction.edit, .copy, .download] {
+            let name = "RegionStartTests." + UUID().uuidString
+            let defaults = try #require(UserDefaults(suiteName: name))
+            let board = NSPasteboard.withUniqueName()
+            let controller = ScreenshotController(defaults: defaults, screenCaptureAccess: { true }, pasteboard: board)
+            defer { controller.stop(); board.releaseGlobally(); defaults.removePersistentDomain(forName: name) }
+            let started = ContinuousClock.now
+            controller.capture(.region, action: action)
+            var visible = false
+            while started.duration(to: .now) < .milliseconds(150) {
+                visible = NSApp.windows.contains { $0.isVisible && $0.title == "FastBudo 区域选取" }
+                if visible { break }
+                try await Task.sleep(for: .milliseconds(2))
+            }
+            print("region selection \(action): \(started.duration(to: .now))")
+            #expect(visible, "区域选区应跳过系统截图的350ms等待：\(action)")
+        }
+    }
+
+    @Test func shadeLeavesOnlySelectionClear() {
+        let selection = CGRect(x: 200, y: 100, width: 300, height: 200)
+        let path = ScreenshotSelectionShade(selection: selection).path(in: CGRect(x: 0, y: 0, width: 1200, height: 800))
+        #expect(path.contains(CGPoint(x: 100, y: 100), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 300, y: 200), eoFill: true))
+        #expect(path.contains(CGPoint(x: 900, y: 600), eoFill: true))
+    }
+    @Test func inlineEditorKeepsSelectionPosition() {
+        let screen = CGRect(x: -1440, y: 0, width: 1440, height: 900)
+        let selected = CGRect(x: -1300, y: 200, width: 400, height: 300)
+        #expect(ScreenshotController.inlineEditorFrame(selection: selected, visibleFrame: screen) == selected)
+        let tiny = CGRect(x: -12, y: 8, width: 8, height: 6)
+        let frame = ScreenshotController.inlineEditorFrame(selection: tiny, visibleFrame: screen)
+        #expect(frame.contains(tiny))
+        #expect(frame.width >= 240 && frame.height >= 120)
+        #expect(screen.contains(frame))
+    }
+
+    @Test @MainActor func inlineEditorReusesPanelAndPreservesPixels() throws {
+        let screen = try #require(NSScreen.main)
+        let selection = CGRect(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.minY + 40, width: 400, height: 300)
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 600,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let image = NSImage(size: selection.size)
+        image.addRepresentation(bitmap)
+        let panel = PinnedImagePanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
+                                    backing: .buffered, defer: false)
+        panel.isReleasedWhenClosed = false
+        let number = panel.windowNumber
+        let windows = Set(NSApp.windows.map(\.windowNumber))
+        let controller = ScreenshotController()
+        defer { controller.stop() }
+        controller.edit(image, in: panel, selectionFrame: selection)
+        #expect(panel.windowNumber == number)
+        // 编辑继续覆盖桌面，外围灰色遮罩不能随选区一起缩小。
+        #expect(panel.frame == screen.frame)
+        #expect(!panel.hasShadow)
+        #expect(Set(NSApp.windows.map(\.windowNumber)).subtracting(windows).isEmpty)
+        #expect(ImageEditorModel(image: image).size == CGSize(width: 800, height: 600))
+        #expect(panel.level == .floating)
+        panel.close()
+        #expect(panel.contentView == nil)
+    }
+
+    @Test @MainActor func finishedSelectionCanBeCancelledWithoutTransfer() throws {
+        var calls = 0
+        let selector = ScreenshotRegionSelector { _ in calls += 1 }
+        selector.show()
+        let panel = try #require(NSApp.windows.first { $0.isVisible && $0.title == "FastBudo 区域选取" })
+        let view = try #require(panel.contentView)
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, CGPoint(x: 40, y: 40)),
+                              (.leftMouseUp, CGPoint(x: 140, y: 100))] {
+            let event = try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                windowNumber: panel.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+            if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+        }
+        #expect(selector.selectedFrame != nil)
+        selector.cancel(); selector.cancel()
+        #expect(calls == 1)
+        #expect(panel.contentView == nil)
+        #expect(selector.takeEditorPanel() == nil)
+    }
+
     @Test func regionSelectionConvertsDesktopPointsWithoutScalingPixels() {
         let desktop = CGRect(x: -1280, y: -900, width: 3200, height: 1980)
         #expect(ScreenshotRegionSelector.captureRect(CGRect(x: -100, y: 100, width: 300, height: 200), desktop: desktop, primaryTop: 1080)
@@ -31,6 +116,14 @@ import Testing
         }
         view.mouseDown(with: try event(.leftMouseDown, CGPoint(x: 20, y: 30)))
         view.mouseUp(with: try event(.leftMouseUp, CGPoint(x: 120, y: 90)))
+        let transferred = try #require(selector.takeEditorPanel())
+        #expect(transferred === window)
+        #expect(!transferred.isVisible)
+        #expect(selector.selectedFrame != nil)
+        #expect(selector.takeEditorPanel() == nil)
+        selector.cancel()
+        #expect(transferred.contentView != nil)
+        defer { transferred.contentView = nil; transferred.close() }
         #expect(selector.copyToClipboard)
         let start = window.convertPoint(toScreen: CGPoint(x: 20, y: 30))
         let top = try #require(NSScreen.screens.first).frame.maxY

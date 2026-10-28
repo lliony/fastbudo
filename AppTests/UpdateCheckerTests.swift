@@ -3,6 +3,42 @@ import Testing
 @testable import FastBudo
 
 struct UpdateCheckerTests {
+    @Test func rateLimitAndMissingWebsiteAreNotUpToDate() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UpdateRateLimitProtocol.self]
+        configuration.httpAdditionalHeaders = ["X-Test-Status": "403", "X-Test-Web-Status": "404"]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        do {
+            _ = try await UpdateChecker.check(current: "0.0.5", session: session)
+            Issue.record("源不可访问不能显示已是最新")
+        } catch {
+            guard case UpdateChecker.CheckError.noRelease = error else {
+                Issue.record("错误分类不正确"); return
+            }
+        }
+    }
+
+    @Test func releaseLinksUseCurrentRepository() {
+        #expect(ReleaseSource.apiLatest.path == "/repos/lliony/fastbudo/releases/latest")
+        #expect(ReleaseSource.releaseURL(tag: "v0.0.6").path == "/lliony/fastbudo/releases/tag/v0.0.6")
+        #expect(ReleaseSource.downloadBase(tag: "v0.0.6").appendingPathComponent("SHA256SUMS.txt").path ==
+                "/lliony/fastbudo/releases/download/v0.0.6/SHA256SUMS.txt")
+    }
+
+    @Test func website404IsUnavailable() throws {
+        let response = try #require(HTTPURLResponse(url: URL(string: "https://github.com/lliony/fastbudo/releases/latest")!,
+            statusCode: 404, httpVersion: nil, headerFields: nil))
+        do {
+            _ = try UpdateChecker.newerRelease(pageResponse: response, current: "0.0.5")
+            Issue.record("404 不能显示已是最新")
+        } catch {
+            guard case UpdateChecker.CheckError.noRelease = error else {
+                Issue.record("404 应归类为源不可访问"); return
+            }
+        }
+    }
+
     @Test func feedNotesMatchTagAndDecodeTextWithoutExecutingHTML() {
         let xml = #"<feed><entry><link href="https://github.com/lliony/fastbudo/releases/tag/v1.0.0"/><content>&lt;h2&gt;修复&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;A &amp;amp; B &amp;#x4E2D;&lt;/li&gt;&lt;/ul&gt;</content></entry></feed>"#
         #expect(UpdateChecker.feedNotes(data: Data(xml.utf8), tag: "v1.0.0") == "修复\n- A & B 中")
@@ -149,7 +185,7 @@ private final class UpdateRateLimitProtocol: URLProtocol, @unchecked Sendable {
             return
         }
         let api = request.url?.host == "api.github.com"
-        let status = api ? Int(request.value(forHTTPHeaderField: "X-Test-Status") ?? "403")! : 200
+        let status = api ? Int(request.value(forHTTPHeaderField: "X-Test-Status") ?? "403")! : Int(request.value(forHTTPHeaderField: "X-Test-Web-Status") ?? "200")!
         let url = api ? request.url! : URL(string: "https://github.com/lliony/fastbudo/releases/tag/v0.2.0")!
         let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

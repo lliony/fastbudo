@@ -1,5 +1,20 @@
 import Foundation
 
+/// 检查与下载共用发行源；客户端匿名访问，不内置仓库凭据。
+enum ReleaseSource {
+    static let repository = "lliony/fastbudo"
+    static let apiLatest = URL(string: "https://api.github.com/repos/" + repository + "/releases/latest")!
+    static let webLatest = URL(string: "https://github.com/" + repository + "/releases/latest")!
+    static let feed = URL(string: "https://github.com/" + repository + "/releases.atom")!
+    static let tagPrefix = "/" + repository + "/releases/tag/"
+    static func releaseURL(tag: String) -> URL {
+        URL(string: "https://github.com/" + repository + "/releases/tag/")!.appendingPathComponent(tag)
+    }
+    static func downloadBase(tag: String) -> URL {
+        URL(string: "https://github.com/" + repository + "/releases/download/")!.appendingPathComponent(tag)
+    }
+}
+
 /// 手动查询正式版；下载链接固定在本项目，服务端数据不能指定任意跳转地址。
 enum UpdateChecker {
     struct Release: Decodable {
@@ -19,7 +34,7 @@ enum UpdateChecker {
         }
 
         var url: URL {
-            URL(string: "https://github.com/lliony/fastbudo/releases/tag/\(tag)")!
+            ReleaseSource.releaseURL(tag: tag)
         }
     }
 
@@ -29,7 +44,7 @@ enum UpdateChecker {
         var errorDescription: String? {
             switch self {
             case .rateLimited: "GitHub 暂时限制了请求，请稍后重试。"
-            case .noRelease: "暂未找到可用的正式版本。"
+            case .noRelease: "更新源不可访问或暂无正式版本，请稍后重试。"
             case .invalidResponse: "版本信息无效，请稍后重试。"
             case .server(let status): "更新服务返回错误（\(status)），请稍后重试。"
             }
@@ -37,7 +52,7 @@ enum UpdateChecker {
     }
 
     static func check(current: String, session: URLSession = .shared) async throws -> Release? {
-        var request = URLRequest(url: URL(string: "https://api.github.com/repos/lliony/fastbudo/releases/latest")!,
+        var request = URLRequest(url: ReleaseSource.apiLatest,
                                  cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("FastBudo", forHTTPHeaderField: "User-Agent")
@@ -46,7 +61,7 @@ enum UpdateChecker {
         guard let response = response as? HTTPURLResponse else { throw CheckError.invalidResponse }
         if response.statusCode == 403 || response.statusCode == 429 {
             // 官网 latest 跳转不占 REST API 配额；只接受本仓库的正式版本标签。
-            var fallback = URLRequest(url: URL(string: "https://github.com/lliony/fastbudo/releases/latest")!,
+            var fallback = URLRequest(url: ReleaseSource.webLatest,
                                       cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
             fallback.httpMethod = "HEAD"
             let (_, pageResponse) = try await session.data(for: fallback)
@@ -62,7 +77,7 @@ enum UpdateChecker {
     // 官网 Atom 正文不占 REST API 配额；按已验证的标签匹配，不能拿其他版本说明代替。
     private static func withFeedNotes(_ release: Release?, session: URLSession) async throws -> Release? {
         guard let release, release.notes == nil else { return release }
-        let url = URL(string: "https://github.com/lliony/fastbudo/releases.atom")!
+        let url = ReleaseSource.feed
         do {
             let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
             let (data, response) = try await session.data(for: request)
@@ -79,7 +94,7 @@ enum UpdateChecker {
     static func feedNotes(data: Data, tag: String) -> String? {
         guard data.count <= 2 * 1024 * 1024,
               let xml = String(data: data, encoding: .utf8), !xml.contains("<!DOCTYPE") else { return nil }
-        let delegate = FeedNotes(target: "https://github.com/lliony/fastbudo/releases/tag/" + tag)
+        let delegate = FeedNotes(target: ReleaseSource.releaseURL(tag: tag).absoluteString)
         let parser = XMLParser(data: data)
         parser.shouldResolveExternalEntities = false
         parser.delegate = delegate
@@ -143,8 +158,9 @@ enum UpdateChecker {
     }
 
     static func newerRelease(pageResponse: HTTPURLResponse, current: String) throws -> Release? {
+        if pageResponse.statusCode == 404 { throw CheckError.noRelease }
         guard pageResponse.statusCode == 200 else { throw CheckError.server(pageResponse.statusCode) }
-        let prefix = "/lliony/fastbudo/releases/tag/"
+        let prefix = ReleaseSource.tagPrefix
         guard let url = pageResponse.url, url.scheme == "https", url.host == "github.com",
               url.user == nil, url.password == nil, url.port == nil || url.port == 443,
               url.path.hasPrefix(prefix) else { throw CheckError.invalidResponse }

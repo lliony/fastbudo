@@ -157,6 +157,16 @@ struct ImageAnnotation {
     }
 }
 
+/// 偶奇填充只压暗选区外，透明选区继续显示原图。
+struct ScreenshotSelectionShade: Shape {
+    let selection: CGRect
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect)
+        path.addRect(selection)
+        return path
+    }
+}
+
 struct ImageEditor: View {
     @State private var model: ImageEditorModel
     @State private var exporting = false
@@ -164,22 +174,46 @@ struct ImageEditor: View {
     @State private var annotating = false
     @State private var notice: String?
     @State private var error: String?
+    @State private var imageOffset = CGSize.zero
     private weak var window: NSWindow?
     private let pasteboard: NSPasteboard
+    private let canvasFrame: CGRect?
+    private let controlsFrame: CGRect?
     let onPin: (NSImage) -> Void
     let onClose: () -> Void
 
     init(image: NSImage, window: NSWindow, pasteboard: NSPasteboard = .general,
+         canvasFrame: CGRect? = nil, controlsFrame: CGRect? = nil,
          onPin: @escaping (NSImage) -> Void, onClose: @escaping () -> Void) {
         _model = State(initialValue: ImageEditorModel(image: image))
         self.window = window; self.pasteboard = pasteboard
+        self.canvasFrame = canvasFrame; self.controlsFrame = controlsFrame
         self.onPin = onPin; self.onClose = onClose
     }
 
     var body: some View {
         GeometryReader { geometry in
+            let imageRect = canvasFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
+                ?? CGRect(origin: .zero, size: geometry.size)
+            let toolsRect = controlsFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
+                ?? CGRect(origin: .zero, size: geometry.size)
             ZStack(alignment: .bottomTrailing) {
-                ImageEditorCanvas(model: model, revision: model.revision, annotating: annotating && !exporting, onClose: closeEditor)
+                if canvasFrame != nil {
+                    ScreenshotSelectionShade(selection: imageRect)
+                        .fill(.black.opacity(0.18), style: FillStyle(eoFill: true))
+                        .allowsHitTesting(false)
+                }
+                ImageEditorCanvas(model: model, revision: model.revision, annotating: annotating && !exporting,
+                    onClose: closeEditor, onMove: canvasFrame == nil ? nil : { delta in
+                        guard !exporting else { return }
+                        imageOffset.width += min(max(delta.width, -imageRect.minX), geometry.size.width - imageRect.maxX)
+                        imageOffset.height += min(max(delta.height, -imageRect.minY), geometry.size.height - imageRect.maxY)
+                    })
+                    .frame(width: imageRect.width, height: imageRect.height)
+                    .overlay {
+                        if canvasFrame != nil { Rectangle().strokeBorder(.red, lineWidth: 1).allowsHitTesting(false) }
+                    }
+                    .position(x: imageRect.midX, y: imageRect.midY)
                     .accessibilityLabel("截图标注画布")
                 VStack(alignment: .trailing, spacing: 6) {
                     if exporting {
@@ -188,8 +222,10 @@ struct ImageEditor: View {
                         Text(notice).font(.caption).padding(8)
                             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
                     }
-                    controls(compact: geometry.size.width < 340)
+                    controls(compact: toolsRect.width < 340)
                 }.padding(8)
+                    .frame(width: toolsRect.width, height: toolsRect.height, alignment: .bottomTrailing)
+                    .position(x: toolsRect.midX, y: toolsRect.midY)
             }
         }
         .frame(minWidth: 240, minHeight: 120)
@@ -371,15 +407,21 @@ private struct ImageEditorCanvas: NSViewRepresentable {
     let revision: Int
     let annotating: Bool
     let onClose: () -> Void
+    var onMove: ((CGSize) -> Void)? = nil
     func makeNSView(context: Context) -> AnnotationCanvas { AnnotationCanvas(model: model, onClose: onClose) }
-    func updateNSView(_ view: AnnotationCanvas, context: Context) { view.model = model; view.annotating = annotating; view.onClose = onClose; view.needsDisplay = true }
+    func updateNSView(_ view: AnnotationCanvas, context: Context) {
+        view.model = model; view.annotating = annotating; view.onClose = onClose
+        view.onMove = onMove; view.needsDisplay = true
+    }
 }
 
 /// 只将鼠标坐标换算到原图一次，绘制和导出共用同一标注数据。
-private final class AnnotationCanvas: NSView {
+final class AnnotationCanvas: NSView {
     var model: ImageEditorModel
     var annotating = false
     var onClose: () -> Void
+    var onMove: ((CGSize) -> Void)?
+    private var movePoint: CGPoint?
     private var pending: ImageAnnotation?
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -414,8 +456,12 @@ private final class AnnotationCanvas: NSView {
     override func mouseDown(with event: NSEvent) {
         guard imageRect.contains(convert(event.locationInWindow, from: nil)) else { return }
         window?.makeFirstResponder(self)
-        // 未选择标注时直接拖动窗口，避免一次拖动同时移动图片和绘制。
-        guard annotating else { window?.performDrag(with: event); return }
+        // 全屏编辑只移动选区，避免把外围遮罩拖离桌面。
+        guard annotating else {
+            if onMove != nil { movePoint = event.locationInWindow }
+            else { window?.performDrag(with: event) }
+            return
+        }
         let point = point(event)
         let mark = ImageAnnotation(tool: model.tool, points: [point], color: NSColor(model.color), width: model.width, text: String(model.text.prefix(2000)))
         if model.tool == .text {
@@ -426,6 +472,12 @@ private final class AnnotationCanvas: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if let previous = movePoint {
+            let current = event.locationInWindow
+            movePoint = current
+            onMove?(CGSize(width: current.x - previous.x, height: previous.y - current.y))
+            return
+        }
         guard var mark = pending else { return }
         if mark.tool == .pen {
             if mark.points.count < 10000 { mark.points.append(point(event)) }
@@ -434,6 +486,7 @@ private final class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        movePoint = nil
         guard let mark = pending else { return }
         pending = nil
         if mark.tool == .pen || mark.rect.width > 0 || mark.rect.height > 0 { model.append(mark) }
