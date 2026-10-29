@@ -7,13 +7,13 @@ struct FastBudoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
         MenuBarExtra("FastBudo", systemImage: "command") {
-            StatusPopover(model: delegate.model, showSettings: delegate.showSettings, showClipboard: delegate.clipboard.show)
+            StatusPopover(model: delegate.model, screenshot: delegate.screenshot, showSettings: delegate.showSettings, showClipboard: delegate.clipboard.show)
         }
         .menuBarExtraStyle(.window)
     }
 }
 
-/// 设置页使用独立的明亮配色，不改变其他浮窗的外观。
+/// 设置页与截图编辑器共享明亮中国红，保持操作反馈一致。
 enum PreferencesPalette {
     static let primary = Color(hue: 2.0 / 360, saturation: 0.835, brightness: 0.808)
     static let background = Color(white: 1)
@@ -76,6 +76,7 @@ struct SettingsToggle: View {
 
 struct PreferencesView: View {
     @Bindable var clipboard: ClipboardController
+    @Bindable var screenshot: ScreenshotController
     let installUpdate: (UpdateInstaller.Prepared) async throws -> Void
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
@@ -111,6 +112,7 @@ struct PreferencesView: View {
                 Text("压缩与解压").tag("压缩与解压")
                 Text("新建").tag("新建")
                 Text("剪贴板").tag("剪贴板")
+                Text("截图与贴图").tag("截图与贴图")
             }
             .pickerStyle(.segmented).labelsHidden()
                 .padding(4)
@@ -118,7 +120,9 @@ struct PreferencesView: View {
                 .padding(.horizontal, 20).padding(.bottom, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if page == "剪贴板" {
+                    if page == "截图与贴图" {
+                        ScreenshotSettings(controller: screenshot)
+                    } else if page == "剪贴板" {
                         ClipboardSettings(controller: clipboard)
                     } else if page == "通用" {
                         SettingsSection("使用方式") {
@@ -418,12 +422,30 @@ struct TaskStatusView: View {
 
 struct StatusPopover: View {
     @Bindable var model: ArchiveModel
+    @Bindable var screenshot: ScreenshotController
     let showSettings: () -> Void
     let showClipboard: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("FastBudo", systemImage: "command").font(.headline)
             Button("剪贴板…", action: showClipboard)
+            Menu("截图") {
+                Button("区域截图") { screenshot.capture(.region) }
+                Button("截图并复制") { screenshot.capture(.region, action: .copy) }
+                Button("截图并下载") { screenshot.capture(.region, action: .download) }
+                Button("窗口截图") { screenshot.capture(.window) }
+                Menu("全屏截图") {
+                    ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in
+                        Button("\(index + 1) · \(screen.localizedName)") { screenshot.capture(.screen(index + 1)) }
+                    }
+                }
+            }.disabled(screenshot.capturing)
+            Button("贴图 · 剪贴板图片", action: screenshot.paste)
+            Menu("管理贴图（\(screenshot.pins.count)）") {
+                Button("隐藏 / 显示全部", action: screenshot.togglePins)
+                Button("恢复显示并取消穿透", action: screenshot.restorePins)
+                Button("关闭全部贴图", action: screenshot.closePins)
+            }.disabled(screenshot.pins.isEmpty)
             TaskStatusView(model: model)
             Divider()
             HStack {

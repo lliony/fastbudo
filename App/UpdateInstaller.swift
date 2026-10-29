@@ -119,7 +119,7 @@ enum UpdateInstaller {
         do {
             let version = release.tag.hasPrefix("v") ? String(release.tag.dropFirst()) : release.tag
             let name = assetName(version: version)
-            let base = URL(string: "https://github.com/lliony/fastbudo/releases/download/")!.appendingPathComponent(release.tag)
+            let base = ReleaseSource.downloadBase(tag: release.tag)
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 30
             configuration.timeoutIntervalForResource = 300

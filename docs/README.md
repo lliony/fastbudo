@@ -1,22 +1,31 @@
 ---
 title: 文档索引
 status: active
-last_updated: 2026-10-26
+last_updated: 2026-10-29
 ---
 
 # 文档索引
 
 | 我想… | 看这里 |
 |---|---|
+| 查看截图功能主分支合并与验证 | [主分支整合记录](validation/2026-10-29-screenshot-main-integration.md) |
+| 查看 0.0.6 本地安装、更新源与原位截图验证 | [验证记录](validation/2026-10-28-public-update-source.md) |
+| 独立公开源历史方案（已取消，沿用当前仓库） | [设计](superpowers/specs/2026-10-28-public-updates-design.md) / [计划](superpowers/plans/2026-10-28-public-updates.md) |
+| 区域截图原位编辑（已安装，部分实机验收未完成） | [设计](superpowers/specs/2026-10-28-inline-capture-design.md) / [计划](superpowers/plans/2026-10-28-inline-capture.md) |
+| 截图 ESC 关闭、直接复制与另存为（开发完成） | [设计](superpowers/specs/2026-10-27-screenshot-quick-actions-design.md) / [实施计划](superpowers/plans/2026-10-27-screenshot-quick-actions.md) |
+| 快捷键自由录入与冲突验证 | [设计](superpowers/specs/2026-10-26-unrestricted-shortcuts-design.md) / [实施计划](superpowers/plans/2026-10-26-unrestricted-shortcuts.md) |
+| 规划截图极简界面、快捷键录入与权限状态 | [设计](superpowers/specs/2026-10-26-screenshot-interaction-design.md) / [实施计划](superpowers/plans/2026-10-26-screenshot-interaction.md) |
+| 使用截图、标注与贴图 | [截图与贴图](guides/screenshot-pin.md) |
+| 核对截图与贴图第一批范围 | [设计](superpowers/specs/2026-10-26-screenshot-pin-design.md) / [实施计划](superpowers/plans/2026-10-26-screenshot-pin.md) |
 | 查看 0.0.5 双架构发布验证 | [发布验证](validation/2026-10-26-release-0.0.5.md) |
-| 核对许可分发与公开前历史隐私修复 | [许可与隐私验证](validation/2026-10-22-license-privacy.md) |
+| 核对许可分发与历史隐私清理 | [验证记录](validation/2026-10-22-license-privacy.md) |
 | 本机开发更新时固定签名身份 | [本机固定签名](guides/local-signing.md) |
 | 查看主界面关闭后的剪贴板唤起验证 | [后台唤起验证](validation/2026-10-22-clipboard-background.md) |
 | 查看更新退出、正文与下载进度修复验证 | [更新流程验证](validation/2026-10-21-update-lifecycle.md) |
 | 查看 0.0.4 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.4.md) |
 | 查看 0.0.3 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.3.md) |
 | 查看 0.0.2 双架构发布验证 | [发布验证](validation/2026-10-21-release-0.0.2.md) |
-| 查看版本变化与 0.0.2 发布准备 | [变更日志](../CHANGELOG.md) |
+| 查看版本变化与当前发布状态 | [变更日志](../CHANGELOG.md) |
 | 理解当前模块、数据流与并发边界 | [架构文档](../ARCHITECTURE.md) |
 | 修改代码前确认约束与验证命令 | [项目规则](../AGENTS.md) |
 | 审阅首版范围、技术选型和验收标准 | [FastBudo 首版设计](superpowers/specs/2026-10-15-fastbudo-design.md) |
