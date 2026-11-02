@@ -164,6 +164,15 @@ import SwiftUI
         #expect(normal.size == CGSize(width: 400, height: 300))
     }
 
+    @Test func editorWindowEnlargesSmallCaptureWithoutDistortion() {
+        let screen = CGRect(x: -1440, y: 200, width: 1440, height: 900)
+        let wide = ScreenshotController.editorFrame(
+            imageSize: CGSize(width: 400, height: 100), visibleFrame: screen, scale: 2)
+        #expect(wide.size == CGSize(width: 480, height: 120))
+        #expect(wide.midX == screen.midX)
+        #expect(wide.midY == screen.midY)
+    }
+
     @Test func pinToolbarShowsAllActionsOnlyWhenTheyFit() {
         let layout = PinnedImageToolbarLayout.split(availableWidth: 364)
         #expect(layout.visible == PinnedImageAction.allCases)

@@ -138,6 +138,22 @@ import Testing
         #expect(!closed)
     }
 
+    @Test func layoutFitsImageInsideBounds() {
+        let bounds = CGRect(x: 10, y: 20, width: 400, height: 300)
+        #expect(EditorLayout.imageRect(in: bounds, imageSize: CGSize(width: 400, height: 200))
+            == CGRect(x: 10, y: 70, width: 400, height: 200))
+        #expect(EditorLayout.imageRect(in: bounds, imageSize: CGSize(width: 100, height: 100))
+            == CGRect(x: 60, y: 20, width: 300, height: 300))
+        #expect(EditorLayout.imageRect(in: .zero, imageSize: CGSize(width: 10, height: 10)) == .zero)
+    }
+
+    @Test func compactControlsFollowImageSize() {
+        #expect(!EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 400, height: 300)))
+        #expect(EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 240, height: 120)))
+        #expect(EditorLayout.fitsToolbar(in: CGSize(width: 200, height: 120)))
+        #expect(!EditorLayout.fitsToolbar(in: CGSize(width: 8, height: 6)))
+    }
+
     private func fixture() throws -> NSImage {
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 80, pixelsHigh: 60,
                                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

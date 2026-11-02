@@ -32,6 +32,32 @@ struct ImageAnnotation {
     }
 }
 
+/// 编辑器几何口径：SwiftUI 工具层和 AppKit 画布共用，避免两套坐标。
+enum EditorLayout {
+    static let inset: CGFloat = 8
+    static let regularSize = CGSize(width: 296, height: 72)
+    static let compactSize = CGSize(width: 152, height: 92)
+
+    /// 在给定矩形内等比完整显示图片；不做 1:1 限制，极小图会放大到可用区域。
+    static func imageRect(in bounds: CGRect, imageSize: CGSize) -> CGRect {
+        guard bounds.width > 0, bounds.height > 0,
+              imageSize.width > 0, imageSize.height > 0 else { return .zero }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+                      width: size.width, height: size.height)
+    }
+
+    static func usesCompactControls(in imageRect: CGRect) -> Bool {
+        imageRect.width < regularSize.width || imageRect.height < regularSize.height
+    }
+
+    /// 选区能否原位容纳两排工具；放不下就回退独立窗口。
+    static func fitsToolbar(in size: CGSize) -> Bool {
+        size.width >= compactSize.width && size.height >= compactSize.height
+    }
+}
+
 /// 标注保留原图像素坐标，预览缩放不改变最终导出尺寸。
 @MainActor @Observable final class ImageEditorModel {
     let source: CGImage?

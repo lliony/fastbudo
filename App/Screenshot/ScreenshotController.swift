@@ -328,11 +328,26 @@ enum CaptureAction: Equatable {
     nonisolated static func editorFrame(imageSize: CGSize, visibleFrame: CGRect, scale: CGFloat) -> CGRect {
         let available = visibleFrame.insetBy(dx: 16, dy: 16)
         let width = max(1, imageSize.width), height = max(1, imageSize.height)
-        let factor = min(1 / max(1, scale), min(available.width / width, available.height / height))
-        let size = CGSize(width: min(available.width, max(240, width * factor)),
-                          height: min(available.height, max(120, height * factor)))
-        return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
-                      width: size.width, height: size.height)
+        let limit = min(available.width / width, available.height / height)
+        let base = min(1 / max(1, scale), limit)
+        let baseSize = CGSize(width: width * base, height: height * base)
+        // 已满足最小编辑区就保持 1:1 或屏幕上限；不足时才整体等比放大，避免宽高分别钳制。
+        if baseSize.width < 240 || baseSize.height < 120 {
+            let minimum = max(240 / width, 120 / height)
+            if width * minimum <= available.width, height * minimum <= available.height {
+                let factor = min(max(base, minimum), limit)
+                let size = CGSize(width: width * factor, height: height * factor)
+                return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
+                              width: size.width, height: size.height)
+            }
+            // 极端比例无法同时满足最小编辑区和屏幕约束，保留旧的分别钳制兜底。
+            let size = CGSize(width: min(available.width, max(240, baseSize.width)),
+                              height: min(available.height, max(120, baseSize.height)))
+            return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
+                          width: size.width, height: size.height)
+        }
+        return CGRect(x: available.midX - baseSize.width / 2, y: available.midY - baseSize.height / 2,
+                      width: baseSize.width, height: baseSize.height)
     }
 
     nonisolated static func inlineEditorFrame(selection: CGRect, visibleFrame: CGRect) -> CGRect {
