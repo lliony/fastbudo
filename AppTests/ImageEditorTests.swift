@@ -202,6 +202,40 @@ import Testing
                            clickCount: 1, pressure: 1)!
     }
 
+    @Test func toolSwitchDoesNotRedrawCanvas() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.sync(model: model, revision: model.revision, annotating: false, onClose: {}, onMove: nil)
+        canvas.needsDisplay = false
+        model.select(.arrow)
+        canvas.sync(model: model, revision: model.revision, annotating: true, onClose: {}, onMove: nil)
+        #expect(!canvas.needsDisplay)
+    }
+
+    @Test func backdropRebuildsOnlyOnRevisionChange() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 400, pixelsHigh: 300,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        func render() throws {
+            let context = try #require(NSGraphicsContext(bitmapImageRep: rep))
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            canvas.draw(canvas.bounds)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        try render()
+        try render()
+        #expect(canvas.backdropBuilds == 1)
+        model.append(ImageAnnotation(tool: .rectangle,
+            points: [CGPoint(x: 10, y: 10), CGPoint(x: 20, y: 20)]))
+        canvas.sync(model: model, revision: model.revision, annotating: false, onClose: {}, onMove: nil)
+        try render()
+        #expect(canvas.backdropBuilds == 2)
+    }
+
     private func fixture() throws -> NSImage {
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 80, pixelsHigh: 60,
                                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

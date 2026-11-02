@@ -144,11 +144,11 @@ enum EditorLayout {
         guard let source else { return }
         NSImage(cgImage: source, size: size).draw(in: CGRect(origin: .zero, size: size), from: .zero,
                                                operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-        for annotation in annotations { draw(annotation) }
-        if let pending { draw(pending) }
+        for annotation in annotations { draw(annotation: annotation) }
+        if let pending { draw(annotation: pending) }
     }
 
-    private func draw(_ mark: ImageAnnotation) {
+    func draw(annotation mark: ImageAnnotation) {
         guard let first = mark.points.first, let last = mark.points.last else { return }
         mark.color.setStroke(); mark.color.setFill()
         let path = NSBezierPath(); path.lineWidth = mark.width; path.lineCapStyle = .round; path.lineJoinStyle = .round
@@ -463,8 +463,7 @@ private struct ImageEditorCanvas: NSViewRepresentable {
     var onMove: ((CGSize) -> Void)? = nil
     func makeNSView(context: Context) -> AnnotationCanvas { AnnotationCanvas(model: model, onClose: onClose) }
     func updateNSView(_ view: AnnotationCanvas, context: Context) {
-        view.model = model; view.annotating = annotating; view.onClose = onClose
-        view.onMove = onMove; view.needsDisplay = true
+        view.sync(model: model, revision: revision, annotating: annotating, onClose: onClose, onMove: onMove)
     }
 }
 
@@ -476,28 +475,65 @@ final class AnnotationCanvas: NSView {
     var onMove: ((CGSize) -> Void)?
     private var movePoint: CGPoint?
     private var pending: ImageAnnotation?
+    private var displayedRevision = -1
+    private var backdropImage: NSImage?
+    private var backdropRevision = -1
+    private(set) var backdropBuilds = 0
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     init(model: ImageEditorModel, onClose: @escaping () -> Void) { self.model = model; self.onClose = onClose; super.init(frame: .zero) }
     override func cancelOperation(_ sender: Any?) { onClose() }
     required init?(coder: NSCoder) { nil }
 
-    private var imageRect: CGRect {
-        let scale = min(max(1, bounds.width) / model.size.width, max(1, bounds.height) / model.size.height)
-        let size = CGSize(width: model.size.width * scale, height: model.size.height * scale)
-        return CGRect(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
+    private var imageRect: CGRect { EditorLayout.imageRect(in: bounds, imageSize: model.size) }
+
+    /// 已完成标注只随 revision 重建一次；绘制中的标注另画，避免每次状态变化重放全部标注。
+    private func backdrop() -> NSImage? {
+        if backdropRevision != model.revision {
+            backdropImage = try? model.rendered()
+            backdropRevision = model.revision
+            backdropBuilds += 1
+        }
+        return backdropImage
+    }
+
+    func sync(model: ImageEditorModel, revision: Int, annotating: Bool,
+              onClose: @escaping () -> Void, onMove: ((CGSize) -> Void)?) {
+        if self.model !== model {
+            self.model = model
+            backdropImage = nil
+            backdropRevision = -1
+            displayedRevision = -1
+        }
+        self.onClose = onClose
+        self.onMove = onMove
+        self.annotating = annotating
+        guard revision != displayedRevision else { return }
+        displayedRevision = revision
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.clear.setFill(); bounds.fill(using: .copy)
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
         let rect = imageRect
-        context.saveGState()
-        context.clip(to: rect)
-        context.translateBy(x: rect.minX, y: rect.minY)
-        context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
-        model.draw(pending: pending)
-        context.restoreGState()
+        guard rect.width > 0, rect.height > 0 else { return }
+        if let image = backdrop() {
+            image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
+            guard let pending, let context = NSGraphicsContext.current?.cgContext else { return }
+            context.saveGState()
+            context.clip(to: rect)
+            context.translateBy(x: rect.minX, y: rect.minY)
+            context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
+            model.draw(annotation: pending)
+            context.restoreGState()
+        } else if let context = NSGraphicsContext.current?.cgContext {
+            context.saveGState()
+            context.clip(to: rect)
+            context.translateBy(x: rect.minX, y: rect.minY)
+            context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
+            model.draw(pending: pending)
+            context.restoreGState()
+        }
     }
 
     private func point(_ event: NSEvent) -> CGPoint {
