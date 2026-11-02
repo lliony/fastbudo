@@ -246,7 +246,7 @@ struct ImageEditor: View {
                     }
                     .position(x: canvasRect.midX, y: canvasRect.midY)
                     .accessibilityLabel("截图标注画布")
-                controlsOverlay(imageRect: imageRect)
+                controlsAnchor(imageRect: imageRect)
             }
         }
         .frame(minWidth: 240, minHeight: 120)
@@ -267,11 +267,21 @@ struct ImageEditor: View {
         onClose()
     }
 
-    /// 工具层以图片显示矩形为锚点：宽度至少容纳常规工具条，右下角贴图片内边缘。
+    /// 工具层直接叠在图片显示矩形上：右下角对齐，不依赖窗口级绝对偏移。
+    private func controlsAnchor(imageRect: CGRect) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            Color.clear
+                .frame(width: imageRect.width, height: imageRect.height)
+                .allowsHitTesting(false)
+            controlsOverlay(imageRect: imageRect)
+                .padding(EditorLayout.inset)
+        }
+        .frame(width: imageRect.width, height: imageRect.height, alignment: .bottomTrailing)
+        .position(x: imageRect.midX, y: imageRect.midY)
+    }
+
     private func controlsOverlay(imageRect: CGRect) -> some View {
-        let width = max(imageRect.width, EditorLayout.regularSize.width)
-        let height = max(imageRect.height, 0)
-        return VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .trailing, spacing: 6) {
             if exporting {
                 ProgressView("正在导出…").padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             } else if let notice {
@@ -280,10 +290,6 @@ struct ImageEditor: View {
             }
             controls(compact: EditorLayout.usesCompactControls(in: imageRect))
         }
-        .frame(width: width, height: height, alignment: .bottomTrailing)
-        .padding(EditorLayout.inset)
-        .offset(x: imageRect.maxX - width - EditorLayout.inset * 2,
-                y: imageRect.maxY - height - EditorLayout.inset * 2)
     }
 
     private func controls(compact: Bool) -> some View {
@@ -308,7 +314,7 @@ struct ImageEditor: View {
                 model.isAnnotating.toggle()
                 if !model.isAnnotating { options = false }
             } label: {
-                Image(systemName: "pencil.tip.crop.circle").frame(width: 28, height: 28)
+                Image(systemName: "pencil.tip.crop.circle").frame(width: 30, height: 30).contentShape(Rectangle())
                     .background(model.isAnnotating ? PreferencesPalette.selection : .clear,
                                 in: RoundedRectangle(cornerRadius: 5))
                     .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
@@ -318,7 +324,7 @@ struct ImageEditor: View {
                 .accessibilityValue(model.isAnnotating ? "已选中：" + model.tool.rawValue : "未选中")
                 .disabled(exporting)
             Button { options.toggle() } label: {
-                Image(systemName: model.tool.symbol).frame(width: 28, height: 28)
+                Image(systemName: model.tool.symbol).frame(width: 30, height: 30).contentShape(Rectangle())
                     .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
             }
                 .help("标注工具：" + model.tool.rawValue)
@@ -326,10 +332,10 @@ struct ImageEditor: View {
                 .accessibilityValue(model.tool.rawValue)
                 .disabled(exporting)
                 .popover(isPresented: $options, arrowEdge: .bottom) { toolOptions }
-            Button(action: model.undo) { Image(systemName: "arrow.uturn.backward").frame(width: 28, height: 28) }
+            Button(action: model.undo) { Image(systemName: "arrow.uturn.backward").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("撤销").accessibilityLabel("撤销").disabled(exporting || model.annotations.isEmpty)
                 .keyboardShortcut("z", modifiers: .command)
-            Button(action: model.redo) { Image(systemName: "arrow.uturn.forward").frame(width: 28, height: 28) }
+            Button(action: model.redo) { Image(systemName: "arrow.uturn.forward").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("重做").accessibilityLabel("重做").disabled(exporting || model.undone.isEmpty)
                 .keyboardShortcut("z", modifiers: [.command, .shift])
         }
@@ -344,13 +350,13 @@ struct ImageEditor: View {
                     guard pasteboard.setData(data, forType: .png) else { throw ClipError.invalid }
                     onClose()
                 }
-            } label: { Image(systemName: "doc.on.doc").frame(width: 28, height: 28) }
+            } label: { Image(systemName: "doc.on.doc").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("复制").accessibilityLabel("复制图片").disabled(exporting).keyboardShortcut("c", modifiers: .command)
-            Button(action: save) { Image(systemName: "square.and.arrow.down").frame(width: 28, height: 28) }
+            Button(action: save) { Image(systemName: "square.and.arrow.down").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("保存 PNG").accessibilityLabel("保存图片").disabled(exporting).keyboardShortcut("s", modifiers: .command)
-            Button { perform { onPin(try model.rendered()) } } label: { Image(systemName: "pin").frame(width: 28, height: 28) }
+            Button { perform { onPin(try model.rendered()) } } label: { Image(systemName: "pin").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("贴到屏幕").accessibilityLabel("贴到屏幕").disabled(exporting)
-            Button(action: closeEditor) { Image(systemName: "xmark").frame(width: 28, height: 28) }
+            Button(action: closeEditor) { Image(systemName: "xmark").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("关闭截图").accessibilityLabel("关闭截图").keyboardShortcut(.cancelAction)
         }
     }
@@ -367,7 +373,7 @@ struct ImageEditor: View {
                             Image(systemName: tool.symbol).font(.title3)
                             Text(tool.rawValue).font(.caption)
                         }
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10).contentShape(Rectangle())
                         .foregroundStyle(model.tool == tool ? PreferencesPalette.primary : Color.primary)
                         .background(model.tool == tool ? PreferencesPalette.selection : Color.clear,
                                     in: RoundedRectangle(cornerRadius: 8))
