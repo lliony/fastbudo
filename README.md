@@ -1,7 +1,7 @@
 ---
 title: FastBudo
 status: active
-last_updated: 2026-10-29
+last_updated: 2026-11-02
 ---
 
 # FastBudo
@@ -22,7 +22,7 @@ last_updated: 2026-10-29
 
 菜单栏 ⌘ →“剪贴板…”支持历史、搜索、分类、收藏和快捷回复。默认关闭记录，Control+Shift+V 唤起；详见[剪贴板使用与验证](docs/guides/clipboard.md)。
 
-菜单栏 →“截图”支持区域、窗口和指定显示器全屏截图；默认 Control+Shift+S 截图，Control+Shift+P 将剪贴板图片贴到屏幕。截图后可标注、复制、保存 PNG 或贴图；历史图片右键也可“贴到屏幕”。设置 →“截图与贴图”管理快捷键与权限入口。操作和限制见[截图与贴图](docs/guides/screenshot-pin.md)。截图功能已整合至主分支，包含在本机安装的 0.0.6 开发构建中；0.0.6 尚未发布安装包。合并范围与验证见[主分支整合记录](docs/validation/2026-10-29-screenshot-main-integration.md)。
+菜单栏 →“截图”支持区域、窗口和指定显示器全屏截图；默认 Control+Shift+S 截图，Control+Shift+P 将剪贴板图片贴到屏幕。截图后可标注、复制、保存 PNG 或贴图；历史图片右键也可“贴到屏幕”。设置 →“截图与贴图”管理快捷键与权限入口。操作和限制见[截图与贴图](docs/guides/screenshot-pin.md)。截图功能已随 0.0.7 发布，发布范围与验证见[记录](docs/validation/2026-11-02-release-0.0.7.md)。
 
 ## 格式
 
@@ -70,7 +70,7 @@ python3 scripts/test-low-space.py
 - 展开超过 10 GiB、100,000 条目、1000 倍压缩比或大小未知时要求确认；确认不豁免路径安全。为控制内存，超过一百万条目或引擎输出超过 64 MiB 的归档仍可能被拒绝。
 - 解压使用归档快照和独立暂存目录，需要额外空间；取消或失败时清理本任务暂存内容。异常退出后可在应用查看遗留 `.fastbudo-UUID` 目录，确认没有活跃任务后自行移到废纸篓。不要删除其他目录。
 - 干净分享不是完整 Mac 备份。保留属性模式已经验证扩展属性与资源叉，但不承诺跨平台还原 Mac 专有信息。
-- 0.0.6 按用户决定继续使用当前私有仓库作为发行源，匿名更新仍可能不可访问；本机已安装 0.0.6（构建号 6），尚未发布到 GitHub。发布与验证状态见[验证记录](docs/validation/2026-10-28-public-update-source.md)。安装包目标为 [GitHub Releases](https://github.com/lliony/fastbudo/releases)。当前仅验证 Apple Silicon / macOS 27，本机安装版使用固定身份签名，未经开发者公证；系统可能拦截首次启动。在「设置 → 通用 → 版本更新」手动检查，已是最新版时显示提示，否则可点击「立即更新」下载、校验、安装并重启。更新使用同一发布的 SHA-256 清单校验安装包；无写入权限或正在处理归档时不会安装。旧应用保留在原应用旁的 `.fastbudo-update-*` 目录中；启动请求失败会尝试恢复，启动后崩溃需手动恢复旧版本。
+- 0.0.7 继续使用当前私有仓库作为发行源，匿名更新可能无法访问；双架构安装包、源码包和 SHA-256 清单见 [GitHub Releases](https://github.com/lliony/fastbudo/releases)，验证状态见[发布记录](docs/validation/2026-11-02-release-0.0.7.md)。当前仅在 Apple Silicon / macOS 27 实测，安装包未经 Developer ID 签名或 Apple 公证，系统可能拦截首次启动。在「设置 → 通用 → 版本更新」手动检查，已是最新版时显示提示，否则可点击「立即更新」下载、校验、安装并重启。更新使用同一发布的 SHA-256 清单校验安装包；无写入权限或正在处理归档时不会安装。旧应用保留在原应用旁的 `.fastbudo-update-*` 目录中；启动请求失败会尝试恢复，启动后崩溃需手动恢复旧版本。
 
 ## 文档与许可
 
