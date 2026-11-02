@@ -1,7 +1,7 @@
 ---
 title: FastBudo 架构
 status: active
-last_updated: 2026-10-29
+last_updated: 2026-11-02
 ---
 
 # FastBudo 架构
@@ -72,7 +72,7 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 
 截图与贴图由 [ScreenshotController](App/Screenshot/ScreenshotController.swift) 管理，按需请求屏幕录制权限。区域截图由 [ScreenshotRegionSelector](App/Screenshot/ScreenshotRegionSelector.swift) 提供箭头指针与透明选区层，使用鼠标事件坐标支持快速拖动；完成后隐藏但保留选区面板，将 AppKit 点坐标换算为主屏左上原点，通过系统 `screencapture -R` 抓取。抓取完成后将同一面板所有权转交给编辑器，在原选区位置显示，面板保留整个桌面范围，外围继续灰显且不显示窗口阴影；拖图只移动画布与工具，不移动桌面面板。取消或失败由控制器清理未转交面板。图片点矩形与原始像素、透明工具占位区分别处理，工具位于目标屏可见区。窗口与指定屏幕仍由系统选取。选区与抓取各自最多等待 120 秒，退出时取消并释放选区续体。任务独占临时目录，完成后读取并清理。图片读取在后台进行，先检查大小与像素，拒绝超过 20 MiB 或四千万像素的内容。取消不写剪贴板，区域选择松开鼠标时按住 Control 将传入 `-c` 直接复制；系统窗口选择的 Control 点击保持原有语义。
 
-[ImageEditor](App/Screenshot/ImageEditor.swift) 在原图坐标中保存标注并生成带标注的图片，复制/保存/贴图使用同一渲染结果。[PinnedImage](App/Screenshot/PinnedImage.swift) 使用非激活浮窗，关闭时断开视图和模型持有关系；最多 10 张、合计四千万原图像素，不自动持久化。菜单栏提供显示和取消穿透的恢复入口。历史贴图读取完整 payload，不改写剪贴板或最近使用排序。五个全局入口（剪贴板、普通截图、贴图、快速复制、快速下载）共享现有 Carbon 注册实现，按事件 ID 区分剪贴板、截图与贴图。编辑器使用无标题图片浮窗，工具覆盖层不参与图片导出。[ShortcutRecorder](App/Screenshot/ShortcutRecorder.swift) 仅在窗口内接收录入事件；录入时暂停全部五个入口，释放按键或修饰键后恢复，失焦/关闭取消。注册先成功再替换旧绑定，冲突不保存偏好。权限状态在设置出现、应用激活和截图前查询系统，不轮询或持久化。
+[ImageEditor](App/Screenshot/ImageEditor.swift) 在原图坐标中保存标注并生成带标注的图片，复制/保存/贴图使用同一渲染结果。[PinnedImage](App/Screenshot/PinnedImage.swift) 使用非激活浮窗，关闭时断开视图和模型持有关系；最多 10 张、合计四千万原图像素，不自动持久化。菜单栏提供显示和取消穿透的恢复入口。历史贴图读取完整 payload，不改写剪贴板或最近使用排序。五个全局入口（剪贴板、普通截图、贴图、快速复制、快速下载）共享现有 Carbon 注册实现，按事件 ID 区分剪贴板、截图与贴图。编辑器使用无标题图片浮窗，工具覆盖层不参与图片导出；工具条贴合图片显示区域右下角，文字在图片上就地输入，画布只在标注变化时重绘。[ShortcutRecorder](App/Screenshot/ShortcutRecorder.swift) 仅在窗口内接收录入事件；录入时暂停全部五个入口，释放按键或修饰键后恢复，失焦/关闭取消。注册先成功再替换旧绑定，冲突不保存偏好。权限状态在设置出现、应用激活和截图前查询系统，不轮询或持久化。
 
 | 数据 | 存储及约束 |
 |---|---|
