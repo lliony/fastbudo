@@ -253,15 +253,43 @@ import SwiftUI
         #expect(!pin.isActive(.close))
     }
 
-    @Test @MainActor func pinImageSurfaceAllowsNativeWindowDragging() throws {
-        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
-                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-        let pin = PinnedImage(image: try #require(context.makeImage()))
-        defer { pin.panel.contentView = nil; pin.panel.close() }
+    @Test @MainActor func pinImageSurfaceMovesWindowFromDragEvents() throws {
+        let panel = PinnedImagePanel(
+            contentRect: NSRect(x: 100, y: 120, width: 200, height: 160),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         let surface = PinnedImageDragSurface()
+        panel.contentView = surface
+        defer { panel.contentView = nil; panel.close() }
+        let mouseDown = try #require(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: CGPoint(x: 10, y: 10),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let mouseDragged = try #require(NSEvent.mouseEvent(
+            with: .leftMouseDragged,
+            location: CGPoint(x: 40, y: 35),
+            modifierFlags: [],
+            timestamp: 0.1,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 1
+        ))
 
-        #expect(pin.panel.isMovableByWindowBackground)
-        #expect(surface.mouseDownCanMoveWindow)
+        surface.mouseDown(with: mouseDown)
+        surface.mouseDragged(with: mouseDragged)
+
+        #expect(panel.frame.origin == CGPoint(x: 130, y: 145))
     }
 
     @Test @MainActor func hiddenAndClickThroughPinsCanBeRecoveredAndClosed() throws {

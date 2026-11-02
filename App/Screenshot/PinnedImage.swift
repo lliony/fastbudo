@@ -42,7 +42,24 @@ enum ScreenshotImage {
 }
 
 @MainActor final class PinnedImageDragSurface: NSView {
-    override var mouseDownCanMoveWindow: Bool { true }
+    private var dragStart: (cursor: CGPoint, windowOrigin: CGPoint)?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        dragStart = (window.convertPoint(toScreen: event.locationInWindow), window.frame.origin)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, let dragStart else { return }
+        let cursor = window.convertPoint(toScreen: event.locationInWindow)
+        window.setFrameOrigin(CGPoint(
+            x: dragStart.windowOrigin.x + cursor.x - dragStart.cursor.x,
+            y: dragStart.windowOrigin.y + cursor.y - dragStart.cursor.y
+        ))
+    }
+
+    override func mouseUp(with event: NSEvent) { dragStart = nil }
 }
 
 private struct PinnedImageDragSurfaceView: NSViewRepresentable {
