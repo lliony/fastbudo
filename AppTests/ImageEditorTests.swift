@@ -154,6 +154,54 @@ import Testing
         #expect(!EditorLayout.fitsToolbar(in: CGSize(width: 8, height: 6)))
     }
 
+    @Test func selectingToolEntersAnnotation() throws {
+        let model = ImageEditorModel(image: try fixture())
+        #expect(!model.isAnnotating)
+        model.select(.arrow)
+        #expect(model.tool == .arrow)
+        #expect(model.isAnnotating)
+    }
+
+    @Test(arguments: [AnnotationTool.rectangle, .ellipse, .arrow, .pen, .mosaic])
+    func dragCreatesAnnotationForTool(_ tool: AnnotationTool) throws {
+        let model = ImageEditorModel(image: try fixture())
+        model.select(tool)
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 100), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 140, y: 130), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 140, y: 130), window: window))
+        #expect(model.annotations.count == 1)
+        #expect(model.annotations.first?.tool == tool)
+        #expect(((model.annotations.first?.rect.width) ?? 0) > 0)
+    }
+
+    @Test func penAcceptsDragAtImageBottomRight() throws {
+        let model = ImageEditorModel(image: try fixture())
+        model.select(.pen)
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 380, y: 280), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 300, y: 200), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 300, y: 200), window: window))
+        #expect(model.annotations.count == 1)
+        #expect(((model.annotations.first?.points.count) ?? 0) >= 2)
+    }
+
+    private func mouse(_ type: NSEvent.EventType, at point: CGPoint, window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                           windowNumber: window.windowNumber, context: nil, eventNumber: 1,
+                           clickCount: 1, pressure: 1)!
+    }
+
     private func fixture() throws -> NSImage {
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 80, pixelsHigh: 60,
                                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

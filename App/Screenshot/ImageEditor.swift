@@ -65,6 +65,8 @@ enum EditorLayout {
     var color = Color.red
     var width = 4.0
     var text = ""
+    /// 标注开关与工具选择合并，避免“选工具”和“进入标注”互相等待。
+    var isAnnotating = false
     var message = "选择工具后在图片上拖动；文字工具在点击处添加文字。"
     private(set) var annotations: [ImageAnnotation] = []
     private(set) var undone: [ImageAnnotation] = []
@@ -76,6 +78,11 @@ enum EditorLayout {
     }
 
     var size: CGSize { CGSize(width: source?.width ?? 1, height: source?.height ?? 1) }
+
+    func select(_ tool: AnnotationTool) {
+        self.tool = tool
+        isAnnotating = true
+    }
 
     func append(_ annotation: ImageAnnotation) {
         guard annotations.count < 200 else { message = "标注已达 200 条，请先撤销部分内容。"; return }
@@ -197,7 +204,6 @@ struct ImageEditor: View {
     @State private var model: ImageEditorModel
     @State private var exporting = false
     @State private var options = false
-    @State private var annotating = false
     @State private var notice: String?
     @State private var error: String?
     @State private var imageOffset = CGSize.zero
@@ -229,7 +235,7 @@ struct ImageEditor: View {
                         .fill(.black.opacity(0.18), style: FillStyle(eoFill: true))
                         .allowsHitTesting(false)
                 }
-                ImageEditorCanvas(model: model, revision: model.revision, annotating: annotating && !exporting,
+                ImageEditorCanvas(model: model, revision: model.revision, annotating: model.isAnnotating && !exporting,
                     onClose: closeEditor, onMove: canvasFrame == nil ? nil : { delta in
                         guard !exporting else { return }
                         imageOffset.width += min(max(delta.width, -imageRect.minX), geometry.size.width - imageRect.maxX)
@@ -291,17 +297,25 @@ struct ImageEditor: View {
     private var annotationControls: some View {
         Group {
             Button {
-                annotating.toggle()
-                options = annotating
+                model.isAnnotating.toggle()
+                if !model.isAnnotating { options = false }
             } label: {
                 Image(systemName: "pencil.tip.crop.circle").frame(width: 28, height: 28)
-                    .background(annotating ? PreferencesPalette.selection : .clear,
+                    .background(model.isAnnotating ? PreferencesPalette.selection : .clear,
                                 in: RoundedRectangle(cornerRadius: 5))
-                    .foregroundStyle(annotating ? PreferencesPalette.primary : .primary)
+                    .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
             }
-                .help(annotating ? "标注 · " + model.tool.rawValue + "；再次点击恢复拖动图片" : "标注工具")
+                .help(model.isAnnotating ? "标注 · " + model.tool.rawValue + "；再次点击恢复拖动图片" : "标注工具")
                 .accessibilityLabel("标注工具")
-                .accessibilityValue(annotating ? "已选中：" + model.tool.rawValue : "未选中")
+                .accessibilityValue(model.isAnnotating ? "已选中：" + model.tool.rawValue : "未选中")
+                .disabled(exporting)
+            Button { options.toggle() } label: {
+                Image(systemName: model.tool.symbol).frame(width: 28, height: 28)
+                    .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
+            }
+                .help("标注工具：" + model.tool.rawValue)
+                .accessibilityLabel("标注工具选项")
+                .accessibilityValue(model.tool.rawValue)
                 .disabled(exporting)
                 .popover(isPresented: $options, arrowEdge: .bottom) { toolOptions }
             Button(action: model.undo) { Image(systemName: "arrow.uturn.backward").frame(width: 28, height: 28) }
@@ -337,7 +351,11 @@ struct ImageEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                 ForEach(AnnotationTool.allCases, id: \.self) { tool in
-                    Button { model.tool = tool } label: {
+                    Button {
+                        model.select(tool)
+                        // 文字在 Task 5 之前仍走面板输入，先保留面板；Task 5 改为统一收起。
+                        if tool != .text { options = false }
+                    } label: {
                         VStack(spacing: 5) {
                             Image(systemName: tool.symbol).font(.title3)
                             Text(tool.rawValue).font(.caption)
