@@ -64,7 +64,6 @@ enum EditorLayout {
     var tool = AnnotationTool.rectangle
     var color = Color.red
     var width = 4.0
-    var text = ""
     /// 标注开关与工具选择合并，避免“选工具”和“进入标注”互相等待。
     var isAnnotating = false
     var message = "选择工具后在图片上拖动；文字工具在点击处添加文字。"
@@ -362,8 +361,7 @@ struct ImageEditor: View {
                 ForEach(AnnotationTool.allCases, id: \.self) { tool in
                     Button {
                         model.select(tool)
-                        // 文字在 Task 5 之前仍走面板输入，先保留面板；Task 5 改为统一收起。
-                        if tool != .text { options = false }
+                        options = false
                     } label: {
                         VStack(spacing: 5) {
                             Image(systemName: tool.symbol).font(.title3)
@@ -386,9 +384,6 @@ struct ImageEditor: View {
                 Slider(value: $model.width, in: 2...20).accessibilityLabel("笔宽或字号")
                 Text("\(Int(model.width))").monospacedDigit().frame(width: 24)
             }
-            if model.tool == .text {
-                TextField("输入文字后在图片上点击", text: $model.text).textFieldStyle(.roundedBorder)
-            }
             Button("完成") { options = false }.frame(maxWidth: .infinity, alignment: .trailing)
         }.padding(16).frame(width: 280)
             .tint(PreferencesPalette.primary).preferredColorScheme(.light)
@@ -397,6 +392,7 @@ struct ImageEditor: View {
 
     private func perform(_ action: @escaping @MainActor () async throws -> Void) {
         guard !exporting else { return }
+        window?.makeFirstResponder(nil)
         options = false; exporting = true
         Task {
             defer { exporting = false }
@@ -468,13 +464,15 @@ private struct ImageEditorCanvas: NSViewRepresentable {
 }
 
 /// 只将鼠标坐标换算到原图一次，绘制和导出共用同一标注数据。
-final class AnnotationCanvas: NSView {
+final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     var model: ImageEditorModel
     var annotating = false
     var onClose: () -> Void
     var onMove: ((CGSize) -> Void)?
     private var movePoint: CGPoint?
     private var pending: ImageAnnotation?
+    private(set) var textField: NSTextField?
+    private var textEditingOrigin = CGPoint.zero
     private var displayedRevision = -1
     private var backdropImage: NSImage?
     private var backdropRevision = -1
@@ -486,6 +484,49 @@ final class AnnotationCanvas: NSView {
     required init?(coder: NSCoder) { nil }
 
     private var imageRect: CGRect { EditorLayout.imageRect(in: bounds, imageSize: model.size) }
+
+    /// 文字沿用原图像素坐标；输入框字号按当前显示比例换算，导出的字号与预览一致。
+    private func beginTextEditing(at point: CGPoint) {
+        commitTextEditing()
+        let scale = imageRect.width / max(1, model.size.width)
+        let fontSize = max(16, CGFloat(model.width) * 5) * scale
+        let field = NSTextField(frame: CGRect(x: point.x, y: point.y, width: CGFloat(model.width) * scale + 40,
+                                              height: fontSize * 2))
+        field.font = .systemFont(ofSize: fontSize)
+        field.textColor = NSColor(model.color)
+        field.stringValue = ""
+        field.isBordered = true
+        field.drawsBackground = true
+        field.backgroundColor = .white.withAlphaComponent(0.85)
+        field.placeholderString = "输入文字"
+        field.delegate = self
+        field.target = self
+        field.action = #selector(commitTextEditing)
+        textField = field
+        textEditingOrigin = point
+        addSubview(field)
+        window?.makeFirstResponder(field)
+    }
+
+    @objc func commitTextEditing() {
+        guard let field = textField else { return }
+        let string = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let origin = textEditingOrigin
+        let fontSize = field.font?.pointSize ?? 16
+        textField = nil
+        field.removeFromSuperview()
+        window?.makeFirstResponder(self)
+        guard !string.isEmpty else { return }
+        let mark = ImageAnnotation(tool: .text, points: [origin, CGPoint(x: origin.x + fontSize, y: origin.y)],
+                                   color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+        model.append(mark)
+        needsDisplay = true
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard textField != nil else { return }
+        commitTextEditing()
+    }
 
     /// 已完成标注只随 revision 重建一次；绘制中的标注另画，避免每次状态变化重放全部标注。
     private func backdrop() -> NSImage? {
@@ -500,6 +541,7 @@ final class AnnotationCanvas: NSView {
     func sync(model: ImageEditorModel, revision: Int, annotating: Bool,
               onClose: @escaping () -> Void, onMove: ((CGSize) -> Void)?) {
         if self.model !== model {
+            commitTextEditing()
             self.model = model
             backdropImage = nil
             backdropRevision = -1
@@ -509,6 +551,12 @@ final class AnnotationCanvas: NSView {
         self.onMove = onMove
         self.annotating = annotating
         guard revision != displayedRevision else { return }
+        if textField != nil {
+            commitTextEditing()
+            displayedRevision = model.revision
+            needsDisplay = true
+            return
+        }
         displayedRevision = revision
         needsDisplay = true
     }
@@ -519,14 +567,14 @@ final class AnnotationCanvas: NSView {
         guard rect.width > 0, rect.height > 0 else { return }
         if let image = backdrop() {
             image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-            guard let pending, let context = NSGraphicsContext.current?.cgContext else { return }
+            guard textField == nil, let pending, let context = NSGraphicsContext.current?.cgContext else { return }
             context.saveGState()
             context.clip(to: rect)
             context.translateBy(x: rect.minX, y: rect.minY)
             context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
             model.draw(annotation: pending)
             context.restoreGState()
-        } else if let context = NSGraphicsContext.current?.cgContext {
+        } else if textField == nil, let context = NSGraphicsContext.current?.cgContext {
             context.saveGState()
             context.clip(to: rect)
             context.translateBy(x: rect.minX, y: rect.minY)
@@ -551,12 +599,11 @@ final class AnnotationCanvas: NSView {
             else { window?.performDrag(with: event) }
             return
         }
-        let point = point(event)
-        let mark = ImageAnnotation(tool: model.tool, points: [point], color: NSColor(model.color), width: model.width, text: String(model.text.prefix(2000)))
         if model.tool == .text {
-            guard !mark.text.isEmpty else { model.message = "请先输入要标注的文字。"; return }
-            model.append(mark)
-        } else { pending = mark }
+            beginTextEditing(at: point(event))
+            return
+        }
+        pending = ImageAnnotation(tool: model.tool, points: [point(event)], color: NSColor(model.color), width: model.width)
         needsDisplay = true
     }
 

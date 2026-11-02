@@ -236,6 +236,57 @@ import Testing
         #expect(canvas.backdropBuilds == 2)
     }
 
+    @Test func textToolStartsInlineEditingAndCommitsOnReturn() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        let field = try #require(canvas.textField)
+        field.stringValue = "Strut"
+        canvas.commitTextEditing()
+
+        #expect(model.annotations.count == 1)
+        #expect(model.annotations.first?.text == "Strut")
+        #expect(canvas.textField == nil)
+    }
+
+    @Test func emptyTextCommitAddsNothing() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        let field = try #require(canvas.textField)
+        field.stringValue = "   "
+        canvas.commitTextEditing()
+
+        #expect(model.annotations.isEmpty)
+        #expect(canvas.textField == nil)
+    }
+
+    /// 文字标注的字号按显示比例换算；用 800×600 像素、400×300 点的图避免输入框高过画布。
+    private func textFixture() throws -> NSImage {
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 600,
+                                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                                  isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let image = NSImage(size: CGSize(width: 400, height: 300))
+        image.addRepresentation(bitmap)
+        return image
+    }
+
     private func fixture() throws -> NSImage {
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 80, pixelsHigh: 60,
                                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
