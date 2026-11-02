@@ -364,10 +364,11 @@ enum CaptureAction: Equatable {
         let frame: CGRect
         if selectionFrame == nil {
             // 独立浮窗为图片下方预留工具条，工具不再压在截图上。
-            let toolbar = EditorLayout.toolbarSize(compact: false)
+            let compact = EditorLayout.usesCompactControls(in: CGRect(origin: .zero, size: contentFrame.size))
+            let toolbar = EditorLayout.toolbarSize(compact: compact)
             let visible = screen.visibleFrame
-            let width = min(max(contentFrame.width, toolbar.width), visible.width)
-            let height = min(contentFrame.height + toolbar.height, visible.height)
+            let width = min(max(contentFrame.width, toolbar.width) + EditorLayout.inset * 2, visible.width)
+            let height = min(contentFrame.height + toolbar.height + EditorLayout.inset * 3, visible.height)
             frame = CGRect(x: visible.midX - width / 2, y: visible.midY - height / 2, width: width, height: height)
         } else {
             frame = contentFrame

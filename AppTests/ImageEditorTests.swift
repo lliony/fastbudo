@@ -178,6 +178,15 @@ import Testing
         #expect(origin.y + size.height <= image.maxY)
     }
 
+    @Test func detachedWindowReservesToolbarBelowImage() throws {
+        let controller = ScreenshotController()
+        controller.edit(try fixture())
+        let window = try #require(NSApp.windows.first { $0.title == "FastBudo 截图标注" })
+        let toolbar = EditorLayout.toolbarSize(compact: true)
+        #expect(window.frame.height >= 180 + toolbar.height + EditorLayout.inset * 3 - 1)
+        window.close()
+    }
+
     @Test func selectingToolEntersAnnotation() throws {
         let model = ImageEditorModel(image: try fixture())
         #expect(!model.isAnnotating)
