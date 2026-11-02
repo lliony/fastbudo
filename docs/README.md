@@ -8,6 +8,7 @@ last_updated: 2026-11-02
 
 | 我想… | 看这里 |
 |---|---|
+| 查看 0.0.7 双架构发布验证 | [发布验证](validation/2026-11-02-release-0.0.7.md) |
 | 修复截图标注工具位置、箭头画笔与就地文字 | [设计](superpowers/specs/2026-11-02-screenshot-annotation-editing-design.md) / [实施计划](superpowers/plans/2026-11-02-screenshot-annotation-editing.md) |
 | 规划贴图图片拖动与响应式功能按钮 | [设计](superpowers/specs/2026-11-02-pinned-image-toolbar-design.md) / [实施计划](superpowers/plans/2026-11-02-pinned-image-toolbar.md) |
 | 查看截图功能主分支合并与验证 | [主分支整合记录](validation/2026-10-29-screenshot-main-integration.md) |

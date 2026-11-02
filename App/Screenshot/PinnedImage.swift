@@ -76,9 +76,6 @@ enum PinnedImageAction: CaseIterable, Hashable {
     case flipVertical
     case opacity
     case copy
-    case clickThrough
-    case hide
-    case close
 
     var title: String {
         switch self {
@@ -90,9 +87,6 @@ enum PinnedImageAction: CaseIterable, Hashable {
         case .flipVertical: "垂直翻转"
         case .opacity: "透明度"
         case .copy: "复制图片"
-        case .clickThrough: "鼠标穿透（从菜单栏恢复）"
-        case .hide: "隐藏贴图（从菜单栏恢复）"
-        case .close: "关闭贴图"
         }
     }
 
@@ -106,9 +100,6 @@ enum PinnedImageAction: CaseIterable, Hashable {
         case .flipVertical: "arrow.up.and.down"
         case .opacity: "circle.lefthalf.filled"
         case .copy: "doc.on.doc"
-        case .clickThrough: "cursorarrow.rays"
-        case .hide: "eye.slash"
-        case .close: "xmark"
         }
     }
 }
@@ -123,9 +114,9 @@ struct PinnedImageToolbarLayout {
     private static let spacing: CGFloat = 4
     private static let horizontalPadding: CGFloat = 8
     private static let retentionPriority: [PinnedImageAction] = [
-        .close, .zoomOut, .zoomIn, .copy, .opacity,
+        .zoomOut, .zoomIn, .copy, .opacity,
         .rotateCounterclockwise, .rotateClockwise,
-        .flipHorizontal, .flipVertical, .clickThrough, .hide
+        .flipHorizontal, .flipVertical
     ]
 
     static func split(availableWidth: CGFloat) -> (visible: [PinnedImageAction], overflow: [PinnedImageAction]) {
@@ -220,12 +211,6 @@ struct PinnedImageToolbarLayout {
             return .showOpacity
         case .copy:
             copy()
-        case .clickThrough:
-            clickThrough = true
-        case .hide:
-            panel.orderOut(nil)
-        case .close:
-            panel.close()
         }
         return .none
     }

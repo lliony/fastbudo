@@ -163,22 +163,27 @@ import SwiftUI
     }
 
     @Test func pinToolbarShowsAllActionsOnlyWhenTheyFit() {
-        let layout = PinnedImageToolbarLayout.split(availableWidth: 364)
-        #expect(layout.visible == PinnedImageAction.allCases)
+        let expected: [PinnedImageAction] = [
+            .zoomOut, .zoomIn, .rotateCounterclockwise, .rotateClockwise,
+            .flipHorizontal, .flipVertical, .opacity, .copy
+        ]
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 268)
+        #expect(PinnedImageAction.allCases == expected)
+        #expect(layout.visible == expected)
         #expect(layout.overflow.isEmpty)
     }
 
     @Test func pinToolbarReservesMoreButtonBelowFullThreshold() {
-        let layout = PinnedImageToolbarLayout.split(availableWidth: 363)
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 267)
         #expect(!layout.overflow.isEmpty)
-        #expect(layout.visible.count == 9)
-        #expect(layout.overflow == [.clickThrough, .hide])
+        #expect(layout.visible.count == 6)
+        #expect(layout.overflow == [.flipHorizontal, .flipVertical])
     }
 
     @Test func pinToolbarHandlesMinimumAndInvalidWidths() {
         let minimum = PinnedImageToolbarLayout.split(availableWidth: 240)
-        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .opacity, .copy, .close])
-        #expect(minimum.overflow == [.rotateClockwise, .flipHorizontal, .flipVertical, .clickThrough, .hide])
+        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .rotateClockwise, .opacity, .copy])
+        #expect(minimum.overflow == [.flipHorizontal, .flipVertical])
         for width in [CGFloat.zero, -1] {
             let layout = PinnedImageToolbarLayout.split(availableWidth: width)
             #expect(layout.visible.isEmpty)
@@ -187,7 +192,7 @@ import SwiftUI
     }
 
     @Test func pinToolbarNeverDuplicatesOrDropsActions() {
-        for width in [CGFloat.zero, 120, 240, 363, 364, 800] {
+        for width in [CGFloat.zero, 120, 240, 267, 268, 800] {
             let layout = PinnedImageToolbarLayout.split(availableWidth: width)
             let combined = layout.visible + layout.overflow
             #expect(Set(combined) == Set(PinnedImageAction.allCases))
@@ -218,19 +223,6 @@ import SwiftUI
         #expect(pin.perform(.opacity) == .showOpacity)
         #expect(pin.perform(.copy) == .none)
         #expect(board.availableType(from: [.tiff, .png]) != nil)
-        #expect(pin.perform(.clickThrough) == .none)
-        #expect(pin.clickThrough && pin.panel.ignoresMouseEvents)
-
-        pin.clickThrough = false
-        pin.panel.orderFrontRegardless()
-        #expect(pin.perform(.hide) == .none)
-        #expect(!pin.panel.isVisible)
-
-        let closingPin = PinnedImage(image: image)
-        closingPin.panel.orderFrontRegardless()
-        #expect(closingPin.perform(.close) == .none)
-        #expect(!closingPin.panel.isVisible)
-        closingPin.panel.contentView = nil
     }
 
     @Test @MainActor func pinToolbarSelectionReflectsPersistentState() throws {
@@ -250,7 +242,6 @@ import SwiftUI
         #expect(pin.isActive(.opacity))
         #expect(!pin.isActive(.zoomOut))
         #expect(!pin.isActive(.copy))
-        #expect(!pin.isActive(.close))
     }
 
     @Test @MainActor func pinImageSurfaceMovesWindowFromDragEvents() throws {
