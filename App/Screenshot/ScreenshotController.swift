@@ -242,8 +242,7 @@ enum CaptureAction: Equatable {
                         regionSelector = selector; selector.show()
                     }
                     selectedAction = action.effective(controlHeld: regionSelector?.copyToClipboard ?? false)
-                    regionSelector = nil
-                    guard let rect, !stopped else { capturing = false; message = "截图已取消。"; return }
+                    guard let rect, !stopped else { cleanupCapture(); message = "截图已取消。"; return }
                     arguments = ["-R", "\(Int(rect.minX)),\(Int(rect.minY)),\(Int(rect.width)),\(Int(rect.height))"]
                     // 等选区遮罩从窗口合成器移除，避免把遮罩一起截入图片。
                     try await Task.sleep(for: .milliseconds(100))
@@ -296,10 +295,11 @@ enum CaptureAction: Equatable {
             guard !stopped else { return }
             let result = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
             do {
-                _ = try await deliver(result, action: action)
+                if action == .edit { editCapturedImage(result) }
+                else { _ = try await deliver(result, action: action) }
             } catch {
                 guard !stopped, !(error is CancellationError) else { return }
-                edit(result)
+                editCapturedImage(result)
                 showError("截图输出失败，图片已保留，可重试：\(error.localizedDescription)")
             }
         } catch {
@@ -308,7 +308,19 @@ enum CaptureAction: Equatable {
         }
     }
 
+    private func editCapturedImage(_ image: NSImage) {
+        if let selector = regionSelector, let frame = selector.selectedFrame,
+           let panel = selector.takeEditorPanel() {
+            edit(image, in: panel, selectionFrame: frame)
+            message = "可在原选区标注、复制、保存或贴图。"
+        } else {
+            edit(image)
+            message = "截图已打开，可标注、复制、保存或贴图。"
+        }
+    }
+
     private func cleanupCapture() {
+        regionSelector?.cancel(); regionSelector = nil
         if let root = captureDirectory { try? FileManager.default.removeItem(at: root) }
         captureDirectory = nil; process = nil; capturing = false; captureTask = nil
     }
@@ -316,26 +328,68 @@ enum CaptureAction: Equatable {
     nonisolated static func editorFrame(imageSize: CGSize, visibleFrame: CGRect, scale: CGFloat) -> CGRect {
         let available = visibleFrame.insetBy(dx: 16, dy: 16)
         let width = max(1, imageSize.width), height = max(1, imageSize.height)
-        let factor = min(1 / max(1, scale), min(available.width / width, available.height / height))
-        let size = CGSize(width: min(available.width, max(240, width * factor)),
-                          height: min(available.height, max(120, height * factor)))
-        return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
-                      width: size.width, height: size.height)
+        let limit = min(available.width / width, available.height / height)
+        let base = min(1 / max(1, scale), limit)
+        let baseSize = CGSize(width: width * base, height: height * base)
+        // 已满足最小编辑区就保持 1:1 或屏幕上限；不足时才整体等比放大，避免宽高分别钳制。
+        if baseSize.width < 240 || baseSize.height < 120 {
+            let minimum = max(240 / width, 120 / height)
+            if width * minimum <= available.width, height * minimum <= available.height {
+                let factor = min(max(base, minimum), limit)
+                let size = CGSize(width: width * factor, height: height * factor)
+                return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
+                              width: size.width, height: size.height)
+            }
+            // 极端比例无法同时满足最小编辑区和屏幕约束，保留旧的分别钳制兜底。
+            let size = CGSize(width: min(available.width, max(240, baseSize.width)),
+                              height: min(available.height, max(120, baseSize.height)))
+            return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2,
+                          width: size.width, height: size.height)
+        }
+        return CGRect(x: available.midX - baseSize.width / 2, y: available.midY - baseSize.height / 2,
+                      width: baseSize.width, height: baseSize.height)
     }
 
-    func edit(_ image: NSImage) {
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
-        let frame = Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
-        let window = PinnedImagePanel(contentRect: frame,
+    func edit(_ image: NSImage, in existingWindow: NSWindow? = nil, selectionFrame: CGRect? = nil) {
+        let screens = NSScreen.screens
+        let selectedScreen = selectionFrame.flatMap { selection in
+            screens.max { left, right in
+                let a = selection.intersection(left.visibleFrame), b = selection.intersection(right.visibleFrame)
+                return (a.isNull ? 0 : a.width * a.height) < (b.isNull ? 0 : b.width * b.height)
+            }
+        }
+        guard let screen = selectedScreen ?? screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
+        let contentFrame = selectionFrame.map { _ in existingWindow?.frame ?? screens.reduce(CGRect.null) { $0.union($1.frame) } }
+            ?? Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
+        let frame: CGRect
+        if selectionFrame == nil {
+            // 独立浮窗为图片下方预留工具条，工具不再压在截图上。
+            let compact = EditorLayout.usesCompactControls(in: CGRect(origin: .zero, size: contentFrame.size))
+            let toolbar = EditorLayout.toolbarSize(compact: compact)
+            let visible = screen.visibleFrame
+            let width = min(max(contentFrame.width, toolbar.width) + EditorLayout.inset * 2, visible.width)
+            let height = min(contentFrame.height + toolbar.height + EditorLayout.inset * 3, visible.height)
+            frame = CGRect(x: visible.midX - width / 2, y: visible.midY - height / 2, width: width, height: height)
+        } else {
+            frame = contentFrame
+        }
+        let window = existingWindow ?? PinnedImagePanel(contentRect: frame,
                                      styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.setFrame(frame, display: false)
         window.title = "FastBudo 截图标注"
         window.isReleasedWhenClosed = false
         window.hidesOnDeactivate = false
         window.isOpaque = false
         window.backgroundColor = .clear
+        window.hasShadow = selectionFrame == nil
         window.level = .floating
         window.delegate = self
+        let canvasFrame = selectionFrame.map {
+            CGRect(x: $0.minX - frame.minX, y: frame.maxY - $0.maxY, width: $0.width, height: $0.height)
+        } ?? CGRect(x: (frame.width - contentFrame.width) / 2, y: EditorLayout.inset,
+                     width: contentFrame.width, height: contentFrame.height)
         window.contentView = NSHostingView(rootView: ImageEditor(image: image, window: window,
+            canvasFrame: canvasFrame, inline: selectionFrame != nil,
             onPin: { [weak self] in self?.pin($0) }, onClose: { [weak window] in window?.close() }))
         editors.append(window)
         window.orderFrontRegardless(); window.makeKey()
@@ -356,7 +410,7 @@ enum CaptureAction: Equatable {
         pin.panel.delegate = self
         pins.append(pin)
         pin.panel.orderFrontRegardless()
-        message = "已贴到屏幕；拖动标题栏移动，菜单栏可恢复隐藏或穿透的贴图。"
+        message = "已贴到屏幕；拖动图片移动，菜单栏可恢复隐藏或穿透的贴图。"
     }
 
     nonisolated static func canPin(width: Int, height: Int, count: Int, existingPixels: Int) -> Bool {

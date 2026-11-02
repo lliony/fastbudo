@@ -4,6 +4,31 @@ import Testing
 @testable import FastBudo
 
 @Suite(.serialized) @MainActor struct ImageEditorTests {
+    @Test func inlineDragMovesSelectionWithoutMovingDesktopOrDrawing() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+        let frame = window.frame
+        var delta = CGSize.zero
+        canvas.onMove = { delta = $0 }
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, CGPoint(x: 100, y: 100)),
+                              (.leftMouseDragged, CGPoint(x: 130, y: 80)),
+                              (.leftMouseUp, CGPoint(x: 130, y: 80))] {
+            let event = try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+            if type == .leftMouseDown { canvas.mouseDown(with: event) }
+            else if type == .leftMouseDragged { canvas.mouseDragged(with: event) }
+            else { canvas.mouseUp(with: event) }
+        }
+        #expect(delta == CGSize(width: 30, height: 20))
+        #expect(window.frame == frame)
+        #expect(model.annotations.isEmpty)
+    }
+
     @Test func escapeIsScopedToEditorAndItsChildWindow() throws {
         let editor = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
                               styleMask: [.borderless], backing: .buffered, defer: false)
@@ -111,6 +136,190 @@ import Testing
         panel.cancel(nil)
         for _ in 0..<100 where window.attachedSheet != nil { try await Task.sleep(for: .milliseconds(10)) }
         #expect(!closed)
+    }
+
+    @Test func layoutFitsImageInsideBounds() {
+        let bounds = CGRect(x: 10, y: 20, width: 400, height: 300)
+        #expect(EditorLayout.imageRect(in: bounds, imageSize: CGSize(width: 400, height: 200))
+            == CGRect(x: 10, y: 70, width: 400, height: 200))
+        #expect(EditorLayout.imageRect(in: bounds, imageSize: CGSize(width: 100, height: 100))
+            == CGRect(x: 60, y: 20, width: 300, height: 300))
+        #expect(EditorLayout.imageRect(in: .zero, imageSize: CGSize(width: 10, height: 10)) == .zero)
+    }
+
+    @Test func compactControlsFollowImageSize() {
+        #expect(!EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 400, height: 300)))
+        #expect(EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 240, height: 120)))
+    }
+
+    @Test func toolbarSitsOutsideImageBottomRight() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = CGRect(x: 300, y: 300, width: 400, height: 300)
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y >= image.maxY)
+        #expect(origin.x + size.width == image.maxX)
+        #expect(origin.y + size.height <= bounds.maxY)
+    }
+
+    @Test func toolbarFlipsAboveWhenBottomHasNoRoom() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = CGRect(x: 300, y: 700, width: 400, height: 150)
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y + size.height <= image.minY)
+    }
+
+    @Test func toolbarFallsBackInsideFullBleedImage() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = bounds
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y + size.height <= image.maxY)
+    }
+
+    @Test func detachedWindowReservesToolbarBelowImage() throws {
+        let controller = ScreenshotController()
+        controller.edit(try fixture())
+        let window = try #require(NSApp.windows.first { $0.title == "FastBudo 截图标注" })
+        let toolbar = EditorLayout.toolbarSize(compact: true)
+        #expect(window.frame.height >= 180 + toolbar.height + EditorLayout.inset * 3 - 1)
+        window.close()
+    }
+
+    @Test func selectingToolEntersAnnotation() throws {
+        let model = ImageEditorModel(image: try fixture())
+        #expect(!model.isAnnotating)
+        model.select(.arrow)
+        #expect(model.tool == .arrow)
+        #expect(model.isAnnotating)
+    }
+
+    @Test(arguments: [AnnotationTool.rectangle, .ellipse, .arrow, .pen, .mosaic])
+    func dragCreatesAnnotationForTool(_ tool: AnnotationTool) throws {
+        let model = ImageEditorModel(image: try fixture())
+        model.select(tool)
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 100), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 140, y: 130), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 140, y: 130), window: window))
+        #expect(model.annotations.count == 1)
+        #expect(model.annotations.first?.tool == tool)
+        #expect(((model.annotations.first?.rect.width) ?? 0) > 0)
+    }
+
+    @Test func penAcceptsDragAtImageBottomRight() throws {
+        let model = ImageEditorModel(image: try fixture())
+        model.select(.pen)
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 380, y: 280), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 300, y: 200), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 300, y: 200), window: window))
+        #expect(model.annotations.count == 1)
+        #expect(((model.annotations.first?.points.count) ?? 0) >= 2)
+    }
+
+    private func mouse(_ type: NSEvent.EventType, at point: CGPoint, window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                           windowNumber: window.windowNumber, context: nil, eventNumber: 1,
+                           clickCount: 1, pressure: 1)!
+    }
+
+    @Test func toolSwitchDoesNotRedrawCanvas() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.sync(model: model, revision: model.revision, annotating: false, onClose: {}, onMove: nil)
+        canvas.needsDisplay = false
+        model.select(.arrow)
+        canvas.sync(model: model, revision: model.revision, annotating: true, onClose: {}, onMove: nil)
+        #expect(!canvas.needsDisplay)
+    }
+
+    @Test func backdropRebuildsOnlyOnRevisionChange() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 400, pixelsHigh: 300,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        func render() throws {
+            let context = try #require(NSGraphicsContext(bitmapImageRep: rep))
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            canvas.draw(canvas.bounds)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        try render()
+        try render()
+        #expect(canvas.backdropBuilds == 1)
+        model.append(ImageAnnotation(tool: .rectangle,
+            points: [CGPoint(x: 10, y: 10), CGPoint(x: 20, y: 20)]))
+        canvas.sync(model: model, revision: model.revision, annotating: false, onClose: {}, onMove: nil)
+        try render()
+        #expect(canvas.backdropBuilds == 2)
+    }
+
+    @Test func textToolStartsInlineEditingAndCommitsOnReturn() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        let field = try #require(canvas.textField)
+        let imageRect = EditorLayout.imageRect(in: canvas.bounds, imageSize: model.size)
+        #expect(imageRect.contains(CGPoint(x: field.frame.minX, y: field.frame.minY)))
+        field.stringValue = "Strut"
+        canvas.commitTextEditing()
+
+        #expect(model.annotations.count == 1)
+        #expect(model.annotations.first?.text == "Strut")
+        #expect(canvas.textField == nil)
+    }
+
+    @Test func emptyTextCommitAddsNothing() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        let field = try #require(canvas.textField)
+        field.stringValue = "   "
+        canvas.commitTextEditing()
+
+        #expect(model.annotations.isEmpty)
+        #expect(canvas.textField == nil)
+    }
+
+    /// 文字标注的字号按显示比例换算；用 800×600 像素、400×300 点的图避免输入框高过画布。
+    private func textFixture() throws -> NSImage {
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 600,
+                                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                                  isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let image = NSImage(size: CGSize(width: 400, height: 300))
+        image.addRepresentation(bitmap)
+        return image
     }
 
     private func fixture() throws -> NSImage {

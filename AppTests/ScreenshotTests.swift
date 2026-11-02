@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Testing
+import SwiftUI
 @testable import FastBudo
 
 @Suite(.serialized) struct ScreenshotTests {
@@ -22,6 +23,59 @@ import Testing
             print("region selection \(action): \(started.duration(to: .now))")
             #expect(visible, "区域选区应跳过系统截图的350ms等待：\(action)")
         }
+    }
+
+    @Test func shadeLeavesOnlySelectionClear() {
+        let selection = CGRect(x: 200, y: 100, width: 300, height: 200)
+        let path = ScreenshotSelectionShade(selection: selection).path(in: CGRect(x: 0, y: 0, width: 1200, height: 800))
+        #expect(path.contains(CGPoint(x: 100, y: 100), eoFill: true))
+        #expect(!path.contains(CGPoint(x: 300, y: 200), eoFill: true))
+        #expect(path.contains(CGPoint(x: 900, y: 600), eoFill: true))
+    }
+    @Test @MainActor func inlineEditorReusesPanelAndPreservesPixels() throws {
+        let screen = try #require(NSScreen.main)
+        let selection = CGRect(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.minY + 40, width: 400, height: 300)
+        let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 600,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let image = NSImage(size: selection.size)
+        image.addRepresentation(bitmap)
+        let panel = PinnedImagePanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
+                                    backing: .buffered, defer: false)
+        panel.isReleasedWhenClosed = false
+        let number = panel.windowNumber
+        let windows = Set(NSApp.windows.map(\.windowNumber))
+        let controller = ScreenshotController()
+        defer { controller.stop() }
+        controller.edit(image, in: panel, selectionFrame: selection)
+        #expect(panel.windowNumber == number)
+        // 编辑继续覆盖桌面，外围灰色遮罩不能随选区一起缩小。
+        #expect(panel.frame == screen.frame)
+        #expect(!panel.hasShadow)
+        #expect(Set(NSApp.windows.map(\.windowNumber)).subtracting(windows).isEmpty)
+        #expect(ImageEditorModel(image: image).size == CGSize(width: 800, height: 600))
+        #expect(panel.level == .floating)
+        panel.close()
+        #expect(panel.contentView == nil)
+    }
+
+    @Test @MainActor func finishedSelectionCanBeCancelledWithoutTransfer() throws {
+        var calls = 0
+        let selector = ScreenshotRegionSelector { _ in calls += 1 }
+        selector.show()
+        let panel = try #require(NSApp.windows.first { $0.isVisible && $0.title == "FastBudo 区域选取" })
+        let view = try #require(panel.contentView)
+        for (type, point) in [(NSEvent.EventType.leftMouseDown, CGPoint(x: 40, y: 40)),
+                              (.leftMouseUp, CGPoint(x: 140, y: 100))] {
+            let event = try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                windowNumber: panel.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+            if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+        }
+        #expect(selector.selectedFrame != nil)
+        selector.cancel(); selector.cancel()
+        #expect(calls == 1)
+        #expect(panel.contentView == nil)
+        #expect(selector.takeEditorPanel() == nil)
     }
 
     @Test func regionSelectionConvertsDesktopPointsWithoutScalingPixels() {
@@ -51,6 +105,14 @@ import Testing
         }
         view.mouseDown(with: try event(.leftMouseDown, CGPoint(x: 20, y: 30)))
         view.mouseUp(with: try event(.leftMouseUp, CGPoint(x: 120, y: 90)))
+        let transferred = try #require(selector.takeEditorPanel())
+        #expect(transferred === window)
+        #expect(!transferred.isVisible)
+        #expect(selector.selectedFrame != nil)
+        #expect(selector.takeEditorPanel() == nil)
+        selector.cancel()
+        #expect(transferred.contentView != nil)
+        defer { transferred.contentView = nil; transferred.close() }
         #expect(selector.copyToClipboard)
         let start = window.convertPoint(toScreen: CGPoint(x: 20, y: 30))
         let top = try #require(NSScreen.screens.first).frame.maxY
@@ -89,6 +151,145 @@ import Testing
         }
         let normal = ScreenshotController.editorFrame(imageSize: CGSize(width: 800, height: 600), visibleFrame: screen, scale: 2)
         #expect(normal.size == CGSize(width: 400, height: 300))
+    }
+
+    @Test func editorWindowEnlargesSmallCaptureWithoutDistortion() {
+        let screen = CGRect(x: -1440, y: 200, width: 1440, height: 900)
+        let wide = ScreenshotController.editorFrame(
+            imageSize: CGSize(width: 400, height: 100), visibleFrame: screen, scale: 2)
+        #expect(wide.size == CGSize(width: 480, height: 120))
+        #expect(wide.midX == screen.midX)
+        #expect(wide.midY == screen.midY)
+    }
+
+    @Test func pinToolbarShowsAllActionsOnlyWhenTheyFit() {
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 364)
+        #expect(layout.visible == PinnedImageAction.allCases)
+        #expect(layout.overflow.isEmpty)
+    }
+
+    @Test func pinToolbarReservesMoreButtonBelowFullThreshold() {
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 363)
+        #expect(!layout.overflow.isEmpty)
+        #expect(layout.visible.count == 9)
+        #expect(layout.overflow == [.clickThrough, .hide])
+    }
+
+    @Test func pinToolbarHandlesMinimumAndInvalidWidths() {
+        let minimum = PinnedImageToolbarLayout.split(availableWidth: 240)
+        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .opacity, .copy, .close])
+        #expect(minimum.overflow == [.rotateClockwise, .flipHorizontal, .flipVertical, .clickThrough, .hide])
+        for width in [CGFloat.zero, -1] {
+            let layout = PinnedImageToolbarLayout.split(availableWidth: width)
+            #expect(layout.visible.isEmpty)
+            #expect(layout.overflow == PinnedImageAction.allCases)
+        }
+    }
+
+    @Test func pinToolbarNeverDuplicatesOrDropsActions() {
+        for width in [CGFloat.zero, 120, 240, 363, 364, 800] {
+            let layout = PinnedImageToolbarLayout.split(availableWidth: width)
+            let combined = layout.visible + layout.overflow
+            #expect(Set(combined) == Set(PinnedImageAction.allCases))
+            #expect(combined.count == PinnedImageAction.allCases.count)
+        }
+    }
+
+    @Test @MainActor func pinToolbarActionsUseExistingModelBehavior() throws {
+        let context = try #require(CGContext(data: nil, width: 6, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let image = try #require(context.makeImage())
+        let board = NSPasteboard.withUniqueName()
+        let pin = PinnedImage(image: image, pasteboard: board)
+        defer { pin.panel.contentView = nil; pin.panel.close(); board.releaseGlobally() }
+
+        #expect(pin.perform(.zoomOut) == .none)
+        #expect(pin.zoom == 0.8)
+        #expect(pin.perform(.zoomIn) == .none)
+        #expect(pin.zoom == 1)
+        #expect(pin.perform(.rotateCounterclockwise) == .none)
+        #expect(pin.turns == 1)
+        #expect(pin.perform(.rotateClockwise) == .none)
+        #expect(pin.turns == 0)
+        #expect(pin.perform(.flipHorizontal) == .none)
+        #expect(pin.horizontal)
+        #expect(pin.perform(.flipVertical) == .none)
+        #expect(pin.vertical)
+        #expect(pin.perform(.opacity) == .showOpacity)
+        #expect(pin.perform(.copy) == .none)
+        #expect(board.availableType(from: [.tiff, .png]) != nil)
+        #expect(pin.perform(.clickThrough) == .none)
+        #expect(pin.clickThrough && pin.panel.ignoresMouseEvents)
+
+        pin.clickThrough = false
+        pin.panel.orderFrontRegardless()
+        #expect(pin.perform(.hide) == .none)
+        #expect(!pin.panel.isVisible)
+
+        let closingPin = PinnedImage(image: image)
+        closingPin.panel.orderFrontRegardless()
+        #expect(closingPin.perform(.close) == .none)
+        #expect(!closingPin.panel.isVisible)
+        closingPin.panel.contentView = nil
+    }
+
+    @Test @MainActor func pinToolbarSelectionReflectsPersistentState() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        defer { pin.panel.contentView = nil; pin.panel.close() }
+
+        for action in PinnedImageAction.allCases {
+            #expect(!pin.isActive(action))
+        }
+        _ = pin.perform(.flipHorizontal)
+        _ = pin.perform(.flipVertical)
+        pin.opacity = 0.5
+        #expect(pin.isActive(.flipHorizontal))
+        #expect(pin.isActive(.flipVertical))
+        #expect(pin.isActive(.opacity))
+        #expect(!pin.isActive(.zoomOut))
+        #expect(!pin.isActive(.copy))
+        #expect(!pin.isActive(.close))
+    }
+
+    @Test @MainActor func pinImageSurfaceMovesWindowFromDragEvents() throws {
+        let panel = PinnedImagePanel(
+            contentRect: NSRect(x: 100, y: 120, width: 200, height: 160),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        let surface = PinnedImageDragSurface()
+        panel.contentView = surface
+        defer { panel.contentView = nil; panel.close() }
+        let mouseDown = try #require(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: CGPoint(x: 10, y: 10),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let mouseDragged = try #require(NSEvent.mouseEvent(
+            with: .leftMouseDragged,
+            location: CGPoint(x: 40, y: 35),
+            modifierFlags: [],
+            timestamp: 0.1,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 1
+        ))
+
+        surface.mouseDown(with: mouseDown)
+        surface.mouseDragged(with: mouseDragged)
+
+        #expect(panel.frame.origin == CGPoint(x: 130, y: 145))
     }
 
     @Test @MainActor func hiddenAndClickThroughPinsCanBeRecoveredAndClosed() throws {

@@ -32,13 +32,52 @@ struct ImageAnnotation {
     }
 }
 
+/// 编辑器几何口径：SwiftUI 工具层和 AppKit 画布共用，避免两套坐标。
+enum EditorLayout {
+    static let inset: CGFloat = 8
+    static let regularSize = CGSize(width: 296, height: 72)
+    static let compactSize = CGSize(width: 152, height: 92)
+
+    /// 在给定矩形内等比完整显示图片；不做 1:1 限制，极小图会放大到可用区域。
+    static func imageRect(in bounds: CGRect, imageSize: CGSize) -> CGRect {
+        guard bounds.width > 0, bounds.height > 0,
+              imageSize.width > 0, imageSize.height > 0 else { return .zero }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+                      width: size.width, height: size.height)
+    }
+
+    static func usesCompactControls(in imageRect: CGRect) -> Bool {
+        imageRect.width < regularSize.width || imageRect.height < regularSize.height
+    }
+
+    /// 工具条外框尺寸，含四周留白；锚点计算与视图尺寸共用同一口径。
+    static func toolbarSize(compact: Bool) -> CGSize {
+        let size = compact ? compactSize : regularSize
+        return CGSize(width: size.width + inset * 2, height: size.height + inset * 2)
+    }
+
+    /// 工具条优先贴在图片下方外侧并右对齐；下方放不下就翻到上方，仍放不下才重叠进图片。
+    static func toolbarOrigin(imageRect: CGRect, toolbarSize: CGSize, in bounds: CGRect) -> CGPoint {
+        let x = min(max(imageRect.maxX - toolbarSize.width, bounds.minX + inset),
+                    max(bounds.minX + inset, bounds.maxX - toolbarSize.width - inset))
+        let below = CGPoint(x: x, y: imageRect.maxY + inset)
+        if below.y + toolbarSize.height <= bounds.maxY - inset { return below }
+        let above = CGPoint(x: x, y: imageRect.minY - inset - toolbarSize.height)
+        if above.y >= bounds.minY + inset { return above }
+        return CGPoint(x: x, y: imageRect.maxY - inset - toolbarSize.height)
+    }
+}
+
 /// 标注保留原图像素坐标，预览缩放不改变最终导出尺寸。
 @MainActor @Observable final class ImageEditorModel {
     let source: CGImage?
     var tool = AnnotationTool.rectangle
     var color = Color.red
     var width = 4.0
-    var text = ""
+    /// 标注开关与工具选择合并，避免“选工具”和“进入标注”互相等待。
+    var isAnnotating = false
     var message = "选择工具后在图片上拖动；文字工具在点击处添加文字。"
     private(set) var annotations: [ImageAnnotation] = []
     private(set) var undone: [ImageAnnotation] = []
@@ -50,6 +89,11 @@ struct ImageAnnotation {
     }
 
     var size: CGSize { CGSize(width: source?.width ?? 1, height: source?.height ?? 1) }
+
+    func select(_ tool: AnnotationTool) {
+        self.tool = tool
+        isAnnotating = true
+    }
 
     func append(_ annotation: ImageAnnotation) {
         guard annotations.count < 200 else { message = "标注已达 200 条，请先撤销部分内容。"; return }
@@ -111,11 +155,11 @@ struct ImageAnnotation {
         guard let source else { return }
         NSImage(cgImage: source, size: size).draw(in: CGRect(origin: .zero, size: size), from: .zero,
                                                operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-        for annotation in annotations { draw(annotation) }
-        if let pending { draw(pending) }
+        for annotation in annotations { draw(annotation: annotation) }
+        if let pending { draw(annotation: pending) }
     }
 
-    private func draw(_ mark: ImageAnnotation) {
+    func draw(annotation mark: ImageAnnotation) {
         guard let first = mark.points.first, let last = mark.points.last else { return }
         mark.color.setStroke(); mark.color.setFill()
         let path = NSBezierPath(); path.lineWidth = mark.width; path.lineCapStyle = .round; path.lineJoinStyle = .round
@@ -157,39 +201,66 @@ struct ImageAnnotation {
     }
 }
 
+/// 偶奇填充只压暗选区外，透明选区继续显示原图。
+struct ScreenshotSelectionShade: Shape {
+    let selection: CGRect
+    func path(in rect: CGRect) -> Path {
+        var path = Path(rect)
+        path.addRect(selection)
+        return path
+    }
+}
+
 struct ImageEditor: View {
     @State private var model: ImageEditorModel
     @State private var exporting = false
     @State private var options = false
-    @State private var annotating = false
     @State private var notice: String?
     @State private var error: String?
+    @State private var imageOffset = CGSize.zero
     private weak var window: NSWindow?
     private let pasteboard: NSPasteboard
+    private let canvasFrame: CGRect?
+    private let inline: Bool
     let onPin: (NSImage) -> Void
     let onClose: () -> Void
 
     init(image: NSImage, window: NSWindow, pasteboard: NSPasteboard = .general,
+         canvasFrame: CGRect? = nil, inline: Bool = false,
          onPin: @escaping (NSImage) -> Void, onClose: @escaping () -> Void) {
         _model = State(initialValue: ImageEditorModel(image: image))
         self.window = window; self.pasteboard = pasteboard
+        self.canvasFrame = canvasFrame; self.inline = inline
         self.onPin = onPin; self.onClose = onClose
     }
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottomTrailing) {
-                ImageEditorCanvas(model: model, revision: model.revision, annotating: annotating && !exporting, onClose: closeEditor)
-                    .accessibilityLabel("截图标注画布")
-                VStack(alignment: .trailing, spacing: 6) {
-                    if exporting {
-                        ProgressView("正在导出…").padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    } else if let notice {
-                        Text(notice).font(.caption).padding(8)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            let canvasRect = (canvasFrame
+                ?? EditorLayout.imageRect(in: CGRect(origin: .zero, size: geometry.size), imageSize: model.size))
+                .offsetBy(dx: imageOffset.width, dy: imageOffset.height)
+            let imageRect = canvasRect
+            ZStack(alignment: .topLeading) {
+                if inline {
+                    ScreenshotSelectionShade(selection: canvasRect)
+                        .fill(.black.opacity(0.18), style: FillStyle(eoFill: true))
+                        .allowsHitTesting(false)
+                }
+                ImageEditorCanvas(model: model, revision: model.revision,
+                    annotating: model.isAnnotating && !exporting,
+                    onClose: closeEditor,
+                    onMove: inline ? { delta in
+                        guard !exporting else { return }
+                        imageOffset.width += min(max(delta.width, -canvasRect.minX), geometry.size.width - canvasRect.maxX)
+                        imageOffset.height += min(max(delta.height, -canvasRect.minY), geometry.size.height - canvasRect.maxY)
+                    } : nil)
+                    .frame(width: canvasRect.width, height: canvasRect.height)
+                    .overlay {
+                        if inline { Rectangle().strokeBorder(.red, lineWidth: 1).allowsHitTesting(false) }
                     }
-                    controls(compact: geometry.size.width < 340)
-                }.padding(8)
+                    .position(x: canvasRect.midX, y: canvasRect.midY)
+                    .accessibilityLabel("截图标注画布")
+                controlsAnchor(imageRect: imageRect, bounds: CGRect(origin: .zero, size: geometry.size))
             }
         }
         .frame(minWidth: 240, minHeight: 120)
@@ -208,6 +279,29 @@ struct ImageEditor: View {
     private func closeEditor() {
         guard !exporting else { return }
         onClose()
+    }
+
+    /// 工具条贴在图片下方外侧并右对齐；屏幕放不下时才翻到上方或重叠进图片。
+    private func controlsAnchor(imageRect: CGRect, bounds: CGRect) -> some View {
+        let compact = EditorLayout.usesCompactControls(in: imageRect)
+        let size = EditorLayout.toolbarSize(compact: compact)
+        let origin = EditorLayout.toolbarOrigin(imageRect: imageRect, toolbarSize: size, in: bounds)
+        return controlsOverlay(imageRect: imageRect)
+            .frame(width: size.width, height: size.height, alignment: .bottomTrailing)
+            .position(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+    }
+
+    private func controlsOverlay(imageRect: CGRect) -> some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            if exporting {
+                ProgressView("正在导出…").padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            } else if let notice {
+                Text(notice).font(.caption).padding(8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            }
+            controls(compact: EditorLayout.usesCompactControls(in: imageRect))
+        }
+        .padding(EditorLayout.inset)
     }
 
     private func controls(compact: Bool) -> some View {
@@ -229,23 +323,31 @@ struct ImageEditor: View {
     private var annotationControls: some View {
         Group {
             Button {
-                annotating.toggle()
-                options = annotating
+                model.isAnnotating.toggle()
+                if !model.isAnnotating { options = false }
             } label: {
-                Image(systemName: "pencil.tip.crop.circle").frame(width: 28, height: 28)
-                    .background(annotating ? PreferencesPalette.selection : .clear,
+                Image(systemName: "pencil.tip.crop.circle").frame(width: 30, height: 30).contentShape(Rectangle())
+                    .background(model.isAnnotating ? PreferencesPalette.selection : .clear,
                                 in: RoundedRectangle(cornerRadius: 5))
-                    .foregroundStyle(annotating ? PreferencesPalette.primary : .primary)
+                    .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
             }
-                .help(annotating ? "标注 · " + model.tool.rawValue + "；再次点击恢复拖动图片" : "标注工具")
+                .help(model.isAnnotating ? "标注 · " + model.tool.rawValue + "；再次点击恢复拖动图片" : "标注工具")
                 .accessibilityLabel("标注工具")
-                .accessibilityValue(annotating ? "已选中：" + model.tool.rawValue : "未选中")
+                .accessibilityValue(model.isAnnotating ? "已选中：" + model.tool.rawValue : "未选中")
+                .disabled(exporting)
+            Button { options.toggle() } label: {
+                Image(systemName: model.tool.symbol).frame(width: 30, height: 30).contentShape(Rectangle())
+                    .foregroundStyle(model.isAnnotating ? PreferencesPalette.primary : .primary)
+            }
+                .help("标注工具：" + model.tool.rawValue)
+                .accessibilityLabel("标注工具选项")
+                .accessibilityValue(model.tool.rawValue)
                 .disabled(exporting)
                 .popover(isPresented: $options, arrowEdge: .bottom) { toolOptions }
-            Button(action: model.undo) { Image(systemName: "arrow.uturn.backward").frame(width: 28, height: 28) }
+            Button(action: model.undo) { Image(systemName: "arrow.uturn.backward").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("撤销").accessibilityLabel("撤销").disabled(exporting || model.annotations.isEmpty)
                 .keyboardShortcut("z", modifiers: .command)
-            Button(action: model.redo) { Image(systemName: "arrow.uturn.forward").frame(width: 28, height: 28) }
+            Button(action: model.redo) { Image(systemName: "arrow.uturn.forward").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("重做").accessibilityLabel("重做").disabled(exporting || model.undone.isEmpty)
                 .keyboardShortcut("z", modifiers: [.command, .shift])
         }
@@ -260,13 +362,13 @@ struct ImageEditor: View {
                     guard pasteboard.setData(data, forType: .png) else { throw ClipError.invalid }
                     onClose()
                 }
-            } label: { Image(systemName: "doc.on.doc").frame(width: 28, height: 28) }
+            } label: { Image(systemName: "doc.on.doc").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("复制").accessibilityLabel("复制图片").disabled(exporting).keyboardShortcut("c", modifiers: .command)
-            Button(action: save) { Image(systemName: "square.and.arrow.down").frame(width: 28, height: 28) }
+            Button(action: save) { Image(systemName: "square.and.arrow.down").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("保存 PNG").accessibilityLabel("保存图片").disabled(exporting).keyboardShortcut("s", modifiers: .command)
-            Button { perform { onPin(try model.rendered()) } } label: { Image(systemName: "pin").frame(width: 28, height: 28) }
+            Button { perform { onPin(try model.rendered()) } } label: { Image(systemName: "pin").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("贴到屏幕").accessibilityLabel("贴到屏幕").disabled(exporting)
-            Button(action: closeEditor) { Image(systemName: "xmark").frame(width: 28, height: 28) }
+            Button(action: closeEditor) { Image(systemName: "xmark").frame(width: 30, height: 30).contentShape(Rectangle()) }
                 .help("关闭截图").accessibilityLabel("关闭截图").keyboardShortcut(.cancelAction)
         }
     }
@@ -275,12 +377,15 @@ struct ImageEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                 ForEach(AnnotationTool.allCases, id: \.self) { tool in
-                    Button { model.tool = tool } label: {
+                    Button {
+                        model.select(tool)
+                        options = false
+                    } label: {
                         VStack(spacing: 5) {
                             Image(systemName: tool.symbol).font(.title3)
                             Text(tool.rawValue).font(.caption)
                         }
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10).contentShape(Rectangle())
                         .foregroundStyle(model.tool == tool ? PreferencesPalette.primary : Color.primary)
                         .background(model.tool == tool ? PreferencesPalette.selection : Color.clear,
                                     in: RoundedRectangle(cornerRadius: 8))
@@ -297,9 +402,6 @@ struct ImageEditor: View {
                 Slider(value: $model.width, in: 2...20).accessibilityLabel("笔宽或字号")
                 Text("\(Int(model.width))").monospacedDigit().frame(width: 24)
             }
-            if model.tool == .text {
-                TextField("输入文字后在图片上点击", text: $model.text).textFieldStyle(.roundedBorder)
-            }
             Button("完成") { options = false }.frame(maxWidth: .infinity, alignment: .trailing)
         }.padding(16).frame(width: 280)
             .tint(PreferencesPalette.primary).preferredColorScheme(.light)
@@ -308,6 +410,7 @@ struct ImageEditor: View {
 
     private func perform(_ action: @escaping @MainActor () async throws -> Void) {
         guard !exporting else { return }
+        window?.makeFirstResponder(nil)
         options = false; exporting = true
         Task {
             defer { exporting = false }
@@ -371,38 +474,149 @@ private struct ImageEditorCanvas: NSViewRepresentable {
     let revision: Int
     let annotating: Bool
     let onClose: () -> Void
+    var onMove: ((CGSize) -> Void)? = nil
     func makeNSView(context: Context) -> AnnotationCanvas { AnnotationCanvas(model: model, onClose: onClose) }
-    func updateNSView(_ view: AnnotationCanvas, context: Context) { view.model = model; view.annotating = annotating; view.onClose = onClose; view.needsDisplay = true }
+    func updateNSView(_ view: AnnotationCanvas, context: Context) {
+        view.sync(model: model, revision: revision, annotating: annotating, onClose: onClose, onMove: onMove)
+    }
 }
 
 /// 只将鼠标坐标换算到原图一次，绘制和导出共用同一标注数据。
-private final class AnnotationCanvas: NSView {
+final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     var model: ImageEditorModel
     var annotating = false
     var onClose: () -> Void
+    var onMove: ((CGSize) -> Void)?
+    private var movePoint: CGPoint?
     private var pending: ImageAnnotation?
+    private(set) var textField: NSTextField?
+    private var textEditingOrigin = CGPoint.zero
+    private var textClickMonitor: Any?
+    private var displayedRevision = -1
+    private var backdropImage: NSImage?
+    private var backdropRevision = -1
+    private(set) var backdropBuilds = 0
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     init(model: ImageEditorModel, onClose: @escaping () -> Void) { self.model = model; self.onClose = onClose; super.init(frame: .zero) }
     override func cancelOperation(_ sender: Any?) { onClose() }
     required init?(coder: NSCoder) { nil }
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil, let monitor = textClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            textClickMonitor = nil
+        }
+    }
 
-    private var imageRect: CGRect {
-        let scale = min(max(1, bounds.width) / model.size.width, max(1, bounds.height) / model.size.height)
-        let size = CGSize(width: model.size.width * scale, height: model.size.height * scale)
-        return CGRect(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
+    private var imageRect: CGRect { EditorLayout.imageRect(in: bounds, imageSize: model.size) }
+
+    /// 文字沿用原图像素坐标；输入框字号按当前显示比例换算，导出的字号与预览一致。
+    private func beginTextEditing(at point: CGPoint) {
+        commitTextEditing()
+        let scale = imageRect.width / max(1, model.size.width)
+        let fontSize = max(16, CGFloat(model.width) * 5) * scale
+        let origin = CGPoint(x: imageRect.minX + point.x * scale, y: imageRect.minY + point.y * scale)
+        let field = NSTextField(frame: CGRect(x: origin.x, y: origin.y, width: max(160, fontSize * 8),
+                                              height: fontSize * 2))
+        field.font = .systemFont(ofSize: fontSize)
+        field.textColor = NSColor(model.color)
+        field.stringValue = ""
+        field.isBordered = true
+        field.drawsBackground = true
+        field.backgroundColor = .white.withAlphaComponent(0.85)
+        field.placeholderString = "输入文字"
+        field.delegate = self
+        field.target = self
+        field.action = #selector(commitTextEditing)
+        textField = field
+        textEditingOrigin = point
+        addSubview(field)
+        window?.makeFirstResponder(field)
+        textClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, let field = self.textField else { return event }
+            if !field.bounds.contains(field.convert(event.locationInWindow, from: nil)) {
+                self.commitTextEditing()
+            }
+            return event
+        }
+    }
+
+    @objc func commitTextEditing() {
+        guard let field = textField else { return }
+        let string = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let origin = textEditingOrigin
+        let fontSize = field.font?.pointSize ?? 16
+        textField = nil
+        if let monitor = textClickMonitor { NSEvent.removeMonitor(monitor); textClickMonitor = nil }
+        field.removeFromSuperview()
+        window?.makeFirstResponder(self)
+        guard !string.isEmpty else { return }
+        let mark = ImageAnnotation(tool: .text, points: [origin, CGPoint(x: origin.x + fontSize, y: origin.y)],
+                                   color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+        model.append(mark)
+        needsDisplay = true
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard textField != nil else { return }
+        commitTextEditing()
+    }
+
+    /// 已完成标注只随 revision 重建一次；绘制中的标注另画，避免每次状态变化重放全部标注。
+    private func backdrop() -> NSImage? {
+        if backdropRevision != model.revision {
+            backdropImage = try? model.rendered()
+            backdropRevision = model.revision
+            backdropBuilds += 1
+        }
+        return backdropImage
+    }
+
+    func sync(model: ImageEditorModel, revision: Int, annotating: Bool,
+              onClose: @escaping () -> Void, onMove: ((CGSize) -> Void)?) {
+        if self.model !== model {
+            commitTextEditing()
+            self.model = model
+            backdropImage = nil
+            backdropRevision = -1
+            displayedRevision = -1
+        }
+        self.onClose = onClose
+        self.onMove = onMove
+        self.annotating = annotating
+        guard revision != displayedRevision else { return }
+        if textField != nil {
+            commitTextEditing()
+            displayedRevision = model.revision
+            needsDisplay = true
+            return
+        }
+        displayedRevision = revision
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.clear.setFill(); bounds.fill(using: .copy)
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
         let rect = imageRect
-        context.saveGState()
-        context.clip(to: rect)
-        context.translateBy(x: rect.minX, y: rect.minY)
-        context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
-        model.draw(pending: pending)
-        context.restoreGState()
+        guard rect.width > 0, rect.height > 0 else { return }
+        if let image = backdrop() {
+            image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
+            guard textField == nil, let pending, let context = NSGraphicsContext.current?.cgContext else { return }
+            context.saveGState()
+            context.clip(to: rect)
+            context.translateBy(x: rect.minX, y: rect.minY)
+            context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
+            model.draw(annotation: pending)
+            context.restoreGState()
+        } else if textField == nil, let context = NSGraphicsContext.current?.cgContext {
+            context.saveGState()
+            context.clip(to: rect)
+            context.translateBy(x: rect.minX, y: rect.minY)
+            context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
+            model.draw(pending: pending)
+            context.restoreGState()
+        }
     }
 
     private func point(_ event: NSEvent) -> CGPoint {
@@ -414,18 +628,28 @@ private final class AnnotationCanvas: NSView {
     override func mouseDown(with event: NSEvent) {
         guard imageRect.contains(convert(event.locationInWindow, from: nil)) else { return }
         window?.makeFirstResponder(self)
-        // 未选择标注时直接拖动窗口，避免一次拖动同时移动图片和绘制。
-        guard annotating else { window?.performDrag(with: event); return }
-        let point = point(event)
-        let mark = ImageAnnotation(tool: model.tool, points: [point], color: NSColor(model.color), width: model.width, text: String(model.text.prefix(2000)))
+        // 全屏编辑只移动选区，避免把外围遮罩拖离桌面。
+        guard annotating else {
+            if onMove != nil { movePoint = event.locationInWindow }
+            else { window?.performDrag(with: event) }
+            return
+        }
         if model.tool == .text {
-            guard !mark.text.isEmpty else { model.message = "请先输入要标注的文字。"; return }
-            model.append(mark)
-        } else { pending = mark }
+            beginTextEditing(at: point(event))
+            return
+        }
+        commitTextEditing()
+        pending = ImageAnnotation(tool: model.tool, points: [point(event)], color: NSColor(model.color), width: model.width)
         needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if let previous = movePoint {
+            let current = event.locationInWindow
+            movePoint = current
+            onMove?(CGSize(width: current.x - previous.x, height: previous.y - current.y))
+            return
+        }
         guard var mark = pending else { return }
         if mark.tool == .pen {
             if mark.points.count < 10000 { mark.points.append(point(event)) }
@@ -434,6 +658,7 @@ private final class AnnotationCanvas: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        movePoint = nil
         guard let mark = pending else { return }
         pending = nil
         if mark.tool == .pen || mark.rect.width > 0 || mark.rect.height > 0 { model.append(mark) }

@@ -6,6 +6,7 @@ import AppKit
     private var timeout: Task<Void, Never>?
     private var completion: ((CGRect?) -> Void)?
     private(set) var copyToClipboard = false
+    private(set) var selectedFrame: CGRect?
 
     init(completion: @escaping (CGRect?) -> Void) { self.completion = completion }
 
@@ -20,7 +21,11 @@ import AppKit
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let view = RegionSelectionView(frame: CGRect(origin: .zero, size: desktop.size)) { [weak self] selection, copy in
             self?.copyToClipboard = copy
-            self?.finish(selection.flatMap { Self.captureRect($0, desktop: desktop, primaryTop: primary.frame.maxY) })
+            let capture = selection.flatMap { Self.captureRect($0, desktop: desktop, primaryTop: primary.frame.maxY) }
+            self?.selectedFrame = capture.map {
+                CGRect(x: $0.minX, y: primary.frame.maxY - $0.maxY, width: $0.width, height: $0.height)
+            }
+            self?.finish(capture)
         }
         panel.contentView = view; window = panel
         panel.orderFrontRegardless(); panel.makeKey(); panel.makeFirstResponder(view)
@@ -31,13 +36,25 @@ import AppKit
         }
     }
 
-    func cancel() { finish(nil) }
+    func cancel() { finish(nil); closePanel() }
+
+    // 转交后清理选区任务不能再关闭编辑器持有的面板。
+    func takeEditorPanel() -> NSPanel? {
+        guard completion == nil, selectedFrame != nil else { return nil }
+        let panel = window
+        window = nil
+        return panel
+    }
+
+    private func closePanel() {
+        window?.orderOut(nil); window?.contentView = nil; window?.close(); window = nil
+    }
 
     private func finish(_ rect: CGRect?) {
         guard let completion else { return }
         self.completion = nil
         timeout?.cancel(); timeout = nil
-        window?.orderOut(nil); window?.contentView = nil; window?.close(); window = nil
+        if rect == nil { closePanel() } else { window?.orderOut(nil) }
         completion(rect)
     }
 
