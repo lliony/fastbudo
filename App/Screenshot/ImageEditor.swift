@@ -52,9 +52,21 @@ enum EditorLayout {
         imageRect.width < regularSize.width || imageRect.height < regularSize.height
     }
 
-    /// 选区能否原位容纳两排工具；放不下就回退独立窗口。
-    static func fitsToolbar(in size: CGSize) -> Bool {
-        size.width >= compactSize.width && size.height >= compactSize.height
+    /// 工具条外框尺寸，含四周留白；锚点计算与视图尺寸共用同一口径。
+    static func toolbarSize(compact: Bool) -> CGSize {
+        let size = compact ? compactSize : regularSize
+        return CGSize(width: size.width + inset * 2, height: size.height + inset * 2)
+    }
+
+    /// 工具条优先贴在图片下方外侧并右对齐；下方放不下就翻到上方，仍放不下才重叠进图片。
+    static func toolbarOrigin(imageRect: CGRect, toolbarSize: CGSize, in bounds: CGRect) -> CGPoint {
+        let x = min(max(imageRect.maxX - toolbarSize.width, bounds.minX + inset),
+                    max(bounds.minX + inset, bounds.maxX - toolbarSize.width - inset))
+        let below = CGPoint(x: x, y: imageRect.maxY + inset)
+        if below.y + toolbarSize.height <= bounds.maxY - inset { return below }
+        let above = CGPoint(x: x, y: imageRect.minY - inset - toolbarSize.height)
+        if above.y >= bounds.minY + inset { return above }
+        return CGPoint(x: x, y: imageRect.maxY - inset - toolbarSize.height)
     }
 }
 
@@ -209,25 +221,27 @@ struct ImageEditor: View {
     private weak var window: NSWindow?
     private let pasteboard: NSPasteboard
     private let canvasFrame: CGRect?
+    private let inline: Bool
     let onPin: (NSImage) -> Void
     let onClose: () -> Void
 
     init(image: NSImage, window: NSWindow, pasteboard: NSPasteboard = .general,
-         canvasFrame: CGRect? = nil,
+         canvasFrame: CGRect? = nil, inline: Bool = false,
          onPin: @escaping (NSImage) -> Void, onClose: @escaping () -> Void) {
         _model = State(initialValue: ImageEditorModel(image: image))
         self.window = window; self.pasteboard = pasteboard
-        self.canvasFrame = canvasFrame
+        self.canvasFrame = canvasFrame; self.inline = inline
         self.onPin = onPin; self.onClose = onClose
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let canvasRect = canvasFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
-                ?? CGRect(origin: .zero, size: geometry.size)
-            let imageRect = EditorLayout.imageRect(in: canvasRect, imageSize: model.size)
+            let canvasRect = (canvasFrame
+                ?? EditorLayout.imageRect(in: CGRect(origin: .zero, size: geometry.size), imageSize: model.size))
+                .offsetBy(dx: imageOffset.width, dy: imageOffset.height)
+            let imageRect = canvasRect
             ZStack(alignment: .topLeading) {
-                if canvasFrame != nil {
+                if inline {
                     ScreenshotSelectionShade(selection: canvasRect)
                         .fill(.black.opacity(0.18), style: FillStyle(eoFill: true))
                         .allowsHitTesting(false)
@@ -235,18 +249,18 @@ struct ImageEditor: View {
                 ImageEditorCanvas(model: model, revision: model.revision,
                     annotating: model.isAnnotating && !exporting,
                     onClose: closeEditor,
-                    onMove: canvasFrame == nil ? nil : { delta in
+                    onMove: inline ? { delta in
                         guard !exporting else { return }
                         imageOffset.width += min(max(delta.width, -canvasRect.minX), geometry.size.width - canvasRect.maxX)
                         imageOffset.height += min(max(delta.height, -canvasRect.minY), geometry.size.height - canvasRect.maxY)
-                    })
+                    } : nil)
                     .frame(width: canvasRect.width, height: canvasRect.height)
                     .overlay {
-                        if canvasFrame != nil { Rectangle().strokeBorder(.red, lineWidth: 1).allowsHitTesting(false) }
+                        if inline { Rectangle().strokeBorder(.red, lineWidth: 1).allowsHitTesting(false) }
                     }
                     .position(x: canvasRect.midX, y: canvasRect.midY)
                     .accessibilityLabel("截图标注画布")
-                controlsAnchor(imageRect: imageRect)
+                controlsAnchor(imageRect: imageRect, bounds: CGRect(origin: .zero, size: geometry.size))
             }
         }
         .frame(minWidth: 240, minHeight: 120)
@@ -267,17 +281,14 @@ struct ImageEditor: View {
         onClose()
     }
 
-    /// 工具层直接叠在图片显示矩形上：右下角对齐，不依赖窗口级绝对偏移。
-    private func controlsAnchor(imageRect: CGRect) -> some View {
-        ZStack(alignment: .bottomTrailing) {
-            Color.clear
-                .frame(width: imageRect.width, height: imageRect.height)
-                .allowsHitTesting(false)
-            controlsOverlay(imageRect: imageRect)
-                .padding(EditorLayout.inset)
-        }
-        .frame(width: imageRect.width, height: imageRect.height, alignment: .bottomTrailing)
-        .position(x: imageRect.midX, y: imageRect.midY)
+    /// 工具条贴在图片下方外侧并右对齐；屏幕放不下时才翻到上方或重叠进图片。
+    private func controlsAnchor(imageRect: CGRect, bounds: CGRect) -> some View {
+        let compact = EditorLayout.usesCompactControls(in: imageRect)
+        let size = EditorLayout.toolbarSize(compact: compact)
+        let origin = EditorLayout.toolbarOrigin(imageRect: imageRect, toolbarSize: size, in: bounds)
+        return controlsOverlay(imageRect: imageRect)
+            .frame(width: size.width, height: size.height, alignment: .bottomTrailing)
+            .position(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
     }
 
     private func controlsOverlay(imageRect: CGRect) -> some View {
@@ -290,6 +301,7 @@ struct ImageEditor: View {
             }
             controls(compact: EditorLayout.usesCompactControls(in: imageRect))
         }
+        .padding(EditorLayout.inset)
     }
 
     private func controls(compact: Bool) -> some View {

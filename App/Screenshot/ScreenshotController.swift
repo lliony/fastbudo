@@ -310,7 +310,6 @@ enum CaptureAction: Equatable {
 
     private func editCapturedImage(_ image: NSImage) {
         if let selector = regionSelector, let frame = selector.selectedFrame,
-           EditorLayout.fitsToolbar(in: frame.size),
            let panel = selector.takeEditorPanel() {
             edit(image, in: panel, selectionFrame: frame)
             message = "可在原选区标注、复制、保存或贴图。"
@@ -360,8 +359,19 @@ enum CaptureAction: Equatable {
             }
         }
         guard let screen = selectedScreen ?? screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
-        let frame = selectionFrame.map { _ in existingWindow?.frame ?? screens.reduce(CGRect.null) { $0.union($1.frame) } }
+        let contentFrame = selectionFrame.map { _ in existingWindow?.frame ?? screens.reduce(CGRect.null) { $0.union($1.frame) } }
             ?? Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
+        let frame: CGRect
+        if selectionFrame == nil {
+            // 独立浮窗为图片下方预留工具条，工具不再压在截图上。
+            let toolbar = EditorLayout.toolbarSize(compact: false)
+            let visible = screen.visibleFrame
+            let width = min(max(contentFrame.width, toolbar.width), visible.width)
+            let height = min(contentFrame.height + toolbar.height, visible.height)
+            frame = CGRect(x: visible.midX - width / 2, y: visible.midY - height / 2, width: width, height: height)
+        } else {
+            frame = contentFrame
+        }
         let window = existingWindow ?? PinnedImagePanel(contentRect: frame,
                                      styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.setFrame(frame, display: false)
@@ -375,9 +385,10 @@ enum CaptureAction: Equatable {
         window.delegate = self
         let canvasFrame = selectionFrame.map {
             CGRect(x: $0.minX - frame.minX, y: frame.maxY - $0.maxY, width: $0.width, height: $0.height)
-        }
+        } ?? CGRect(x: (frame.width - contentFrame.width) / 2, y: EditorLayout.inset,
+                     width: contentFrame.width, height: contentFrame.height)
         window.contentView = NSHostingView(rootView: ImageEditor(image: image, window: window,
-            canvasFrame: canvasFrame,
+            canvasFrame: canvasFrame, inline: selectionFrame != nil,
             onPin: { [weak self] in self?.pin($0) }, onClose: { [weak window] in window?.close() }))
         editors.append(window)
         window.orderFrontRegardless(); window.makeKey()

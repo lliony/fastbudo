@@ -1136,3 +1136,7 @@ cp ~/project/fastbudo/docs/superpowers/specs/2026-11-02-screenshot-annotation-ed
 cp ~/project/fastbudo/docs/superpowers/plans/2026-11-02-screenshot-annotation-editing.md \
   docs/superpowers/plans/
 ```
+
+## 交付后调整
+
+2026-11-02 用户复测后明确：工具条应放在图片外侧，而不是图片内右下角。实现改为 `EditorLayout.toolbarOrigin`：优先图片下方外侧、右对齐；下方放不下翻到上方；上下都放不下才重叠进图片。区域截图不再按选区尺寸回退独立窗口；独立窗口为工具条预留高度。

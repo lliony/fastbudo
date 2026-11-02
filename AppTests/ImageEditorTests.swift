@@ -150,8 +150,32 @@ import Testing
     @Test func compactControlsFollowImageSize() {
         #expect(!EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 400, height: 300)))
         #expect(EditorLayout.usesCompactControls(in: CGRect(x: 0, y: 0, width: 240, height: 120)))
-        #expect(EditorLayout.fitsToolbar(in: CGSize(width: 200, height: 120)))
-        #expect(!EditorLayout.fitsToolbar(in: CGSize(width: 8, height: 6)))
+    }
+
+    @Test func toolbarSitsOutsideImageBottomRight() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = CGRect(x: 300, y: 300, width: 400, height: 300)
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y >= image.maxY)
+        #expect(origin.x + size.width == image.maxX)
+        #expect(origin.y + size.height <= bounds.maxY)
+    }
+
+    @Test func toolbarFlipsAboveWhenBottomHasNoRoom() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = CGRect(x: 300, y: 700, width: 400, height: 150)
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y + size.height <= image.minY)
+    }
+
+    @Test func toolbarFallsBackInsideFullBleedImage() {
+        let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let image = bounds
+        let size = EditorLayout.toolbarSize(compact: false)
+        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(origin.y + size.height <= image.maxY)
     }
 
     @Test func selectingToolEntersAnnotation() throws {
