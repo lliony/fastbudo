@@ -164,6 +164,97 @@ import SwiftUI
         #expect(normal.size == CGSize(width: 400, height: 300))
     }
 
+    @Test func pinToolbarShowsAllActionsOnlyWhenTheyFit() {
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 364)
+        #expect(layout.visible == PinnedImageAction.allCases)
+        #expect(layout.overflow.isEmpty)
+    }
+
+    @Test func pinToolbarReservesMoreButtonBelowFullThreshold() {
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 363)
+        #expect(!layout.overflow.isEmpty)
+        #expect(layout.visible.count == 9)
+        #expect(layout.overflow == [.clickThrough, .hide])
+    }
+
+    @Test func pinToolbarHandlesMinimumAndInvalidWidths() {
+        let minimum = PinnedImageToolbarLayout.split(availableWidth: 240)
+        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .opacity, .copy, .close])
+        #expect(minimum.overflow == [.rotateClockwise, .flipHorizontal, .flipVertical, .clickThrough, .hide])
+        for width in [CGFloat.zero, -1] {
+            let layout = PinnedImageToolbarLayout.split(availableWidth: width)
+            #expect(layout.visible.isEmpty)
+            #expect(layout.overflow == PinnedImageAction.allCases)
+        }
+    }
+
+    @Test func pinToolbarNeverDuplicatesOrDropsActions() {
+        for width in [CGFloat.zero, 120, 240, 363, 364, 800] {
+            let layout = PinnedImageToolbarLayout.split(availableWidth: width)
+            let combined = layout.visible + layout.overflow
+            #expect(Set(combined) == Set(PinnedImageAction.allCases))
+            #expect(combined.count == PinnedImageAction.allCases.count)
+        }
+    }
+
+    @Test @MainActor func pinToolbarActionsUseExistingModelBehavior() throws {
+        let context = try #require(CGContext(data: nil, width: 6, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let image = try #require(context.makeImage())
+        let board = NSPasteboard.withUniqueName()
+        let pin = PinnedImage(image: image, pasteboard: board)
+        defer { pin.panel.contentView = nil; pin.panel.close(); board.releaseGlobally() }
+
+        #expect(pin.perform(.zoomOut) == .none)
+        #expect(pin.zoom == 0.8)
+        #expect(pin.perform(.zoomIn) == .none)
+        #expect(pin.zoom == 1)
+        #expect(pin.perform(.rotateCounterclockwise) == .none)
+        #expect(pin.turns == 1)
+        #expect(pin.perform(.rotateClockwise) == .none)
+        #expect(pin.turns == 0)
+        #expect(pin.perform(.flipHorizontal) == .none)
+        #expect(pin.horizontal)
+        #expect(pin.perform(.flipVertical) == .none)
+        #expect(pin.vertical)
+        #expect(pin.perform(.opacity) == .showOpacity)
+        #expect(pin.perform(.copy) == .none)
+        #expect(board.availableType(from: [.tiff, .png]) != nil)
+        #expect(pin.perform(.clickThrough) == .none)
+        #expect(pin.clickThrough && pin.panel.ignoresMouseEvents)
+
+        pin.clickThrough = false
+        pin.panel.orderFrontRegardless()
+        #expect(pin.perform(.hide) == .none)
+        #expect(!pin.panel.isVisible)
+
+        let closingPin = PinnedImage(image: image)
+        closingPin.panel.orderFrontRegardless()
+        #expect(closingPin.perform(.close) == .none)
+        #expect(!closingPin.panel.isVisible)
+        closingPin.panel.contentView = nil
+    }
+
+    @Test @MainActor func pinToolbarSelectionReflectsPersistentState() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        defer { pin.panel.contentView = nil; pin.panel.close() }
+
+        for action in PinnedImageAction.allCases {
+            #expect(!pin.isActive(action))
+        }
+        _ = pin.perform(.flipHorizontal)
+        _ = pin.perform(.flipVertical)
+        pin.opacity = 0.5
+        #expect(pin.isActive(.flipHorizontal))
+        #expect(pin.isActive(.flipVertical))
+        #expect(pin.isActive(.opacity))
+        #expect(!pin.isActive(.zoomOut))
+        #expect(!pin.isActive(.copy))
+        #expect(!pin.isActive(.close))
+    }
+
     @Test @MainActor func hiddenAndClickThroughPinsCanBeRecoveredAndClosed() throws {
         let context = try #require(CGContext(data: nil, width: 20, height: 20, bitsPerComponent: 8, bytesPerRow: 0,
                                             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
