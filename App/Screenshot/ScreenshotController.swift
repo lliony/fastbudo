@@ -310,6 +310,7 @@ enum CaptureAction: Equatable {
 
     private func editCapturedImage(_ image: NSImage) {
         if let selector = regionSelector, let frame = selector.selectedFrame,
+           EditorLayout.fitsToolbar(in: frame.size),
            let panel = selector.takeEditorPanel() {
             edit(image, in: panel, selectionFrame: frame)
             message = "可在原选区标注、复制、保存或贴图。"
@@ -350,14 +351,6 @@ enum CaptureAction: Equatable {
                       width: baseSize.width, height: baseSize.height)
     }
 
-    nonisolated static func inlineEditorFrame(selection: CGRect, visibleFrame: CGRect) -> CGRect {
-        // 工具区留在真实屏幕内，透明扩展区不改变选区图片的点尺寸。
-        let width = min(240, visibleFrame.width), height = min(120, visibleFrame.height)
-        let x = min(max(selection.maxX - width, visibleFrame.minX), visibleFrame.maxX - width)
-        let y = min(max(selection.minY, visibleFrame.minY), visibleFrame.maxY - height)
-        return selection.union(CGRect(x: x, y: y, width: width, height: height))
-    }
-
     func edit(_ image: NSImage, in existingWindow: NSWindow? = nil, selectionFrame: CGRect? = nil) {
         let screens = NSScreen.screens
         let selectedScreen = selectionFrame.flatMap { selection in
@@ -367,7 +360,6 @@ enum CaptureAction: Equatable {
             }
         }
         guard let screen = selectedScreen ?? screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main else { return }
-        let toolsFrame = selectionFrame.map { Self.inlineEditorFrame(selection: $0, visibleFrame: screen.visibleFrame) }
         let frame = selectionFrame.map { _ in existingWindow?.frame ?? screens.reduce(CGRect.null) { $0.union($1.frame) } }
             ?? Self.editorFrame(imageSize: image.size, visibleFrame: screen.visibleFrame, scale: screen.backingScaleFactor)
         let window = existingWindow ?? PinnedImagePanel(contentRect: frame,
@@ -384,12 +376,8 @@ enum CaptureAction: Equatable {
         let canvasFrame = selectionFrame.map {
             CGRect(x: $0.minX - frame.minX, y: frame.maxY - $0.maxY, width: $0.width, height: $0.height)
         }
-        let visible = (toolsFrame ?? frame).intersection(screen.visibleFrame)
-        let controlsFrame = selectionFrame.map { _ in
-            CGRect(x: visible.minX - frame.minX, y: frame.maxY - visible.maxY, width: visible.width, height: visible.height)
-        }
         window.contentView = NSHostingView(rootView: ImageEditor(image: image, window: window,
-            canvasFrame: canvasFrame, controlsFrame: controlsFrame,
+            canvasFrame: canvasFrame,
             onPin: { [weak self] in self?.pin($0) }, onClose: { [weak window] in window?.close() }))
         editors.append(window)
         window.orderFrontRegardless(); window.makeKey()

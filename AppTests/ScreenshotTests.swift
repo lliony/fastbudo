@@ -32,17 +32,6 @@ import SwiftUI
         #expect(!path.contains(CGPoint(x: 300, y: 200), eoFill: true))
         #expect(path.contains(CGPoint(x: 900, y: 600), eoFill: true))
     }
-    @Test func inlineEditorKeepsSelectionPosition() {
-        let screen = CGRect(x: -1440, y: 0, width: 1440, height: 900)
-        let selected = CGRect(x: -1300, y: 200, width: 400, height: 300)
-        #expect(ScreenshotController.inlineEditorFrame(selection: selected, visibleFrame: screen) == selected)
-        let tiny = CGRect(x: -12, y: 8, width: 8, height: 6)
-        let frame = ScreenshotController.inlineEditorFrame(selection: tiny, visibleFrame: screen)
-        #expect(frame.contains(tiny))
-        #expect(frame.width >= 240 && frame.height >= 120)
-        #expect(screen.contains(frame))
-    }
-
     @Test @MainActor func inlineEditorReusesPanelAndPreservesPixels() throws {
         let screen = try #require(NSScreen.main)
         let selection = CGRect(x: screen.visibleFrame.minX + 40, y: screen.visibleFrame.minY + 40, width: 400, height: 300)

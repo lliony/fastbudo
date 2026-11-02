@@ -210,54 +210,44 @@ struct ImageEditor: View {
     private weak var window: NSWindow?
     private let pasteboard: NSPasteboard
     private let canvasFrame: CGRect?
-    private let controlsFrame: CGRect?
     let onPin: (NSImage) -> Void
     let onClose: () -> Void
 
     init(image: NSImage, window: NSWindow, pasteboard: NSPasteboard = .general,
-         canvasFrame: CGRect? = nil, controlsFrame: CGRect? = nil,
+         canvasFrame: CGRect? = nil,
          onPin: @escaping (NSImage) -> Void, onClose: @escaping () -> Void) {
         _model = State(initialValue: ImageEditorModel(image: image))
         self.window = window; self.pasteboard = pasteboard
-        self.canvasFrame = canvasFrame; self.controlsFrame = controlsFrame
+        self.canvasFrame = canvasFrame
         self.onPin = onPin; self.onClose = onClose
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let imageRect = canvasFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
+            let canvasRect = canvasFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
                 ?? CGRect(origin: .zero, size: geometry.size)
-            let toolsRect = controlsFrame?.offsetBy(dx: imageOffset.width, dy: imageOffset.height)
-                ?? CGRect(origin: .zero, size: geometry.size)
-            ZStack(alignment: .bottomTrailing) {
+            let imageRect = EditorLayout.imageRect(in: canvasRect, imageSize: model.size)
+            ZStack(alignment: .topLeading) {
                 if canvasFrame != nil {
-                    ScreenshotSelectionShade(selection: imageRect)
+                    ScreenshotSelectionShade(selection: canvasRect)
                         .fill(.black.opacity(0.18), style: FillStyle(eoFill: true))
                         .allowsHitTesting(false)
                 }
-                ImageEditorCanvas(model: model, revision: model.revision, annotating: model.isAnnotating && !exporting,
-                    onClose: closeEditor, onMove: canvasFrame == nil ? nil : { delta in
+                ImageEditorCanvas(model: model, revision: model.revision,
+                    annotating: model.isAnnotating && !exporting,
+                    onClose: closeEditor,
+                    onMove: canvasFrame == nil ? nil : { delta in
                         guard !exporting else { return }
-                        imageOffset.width += min(max(delta.width, -imageRect.minX), geometry.size.width - imageRect.maxX)
-                        imageOffset.height += min(max(delta.height, -imageRect.minY), geometry.size.height - imageRect.maxY)
+                        imageOffset.width += min(max(delta.width, -canvasRect.minX), geometry.size.width - canvasRect.maxX)
+                        imageOffset.height += min(max(delta.height, -canvasRect.minY), geometry.size.height - canvasRect.maxY)
                     })
-                    .frame(width: imageRect.width, height: imageRect.height)
+                    .frame(width: canvasRect.width, height: canvasRect.height)
                     .overlay {
                         if canvasFrame != nil { Rectangle().strokeBorder(.red, lineWidth: 1).allowsHitTesting(false) }
                     }
-                    .position(x: imageRect.midX, y: imageRect.midY)
+                    .position(x: canvasRect.midX, y: canvasRect.midY)
                     .accessibilityLabel("截图标注画布")
-                VStack(alignment: .trailing, spacing: 6) {
-                    if exporting {
-                        ProgressView("正在导出…").padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    } else if let notice {
-                        Text(notice).font(.caption).padding(8)
-                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    controls(compact: toolsRect.width < 340)
-                }.padding(8)
-                    .frame(width: toolsRect.width, height: toolsRect.height, alignment: .bottomTrailing)
-                    .position(x: toolsRect.midX, y: toolsRect.midY)
+                controlsOverlay(imageRect: imageRect)
             }
         }
         .frame(minWidth: 240, minHeight: 120)
@@ -276,6 +266,25 @@ struct ImageEditor: View {
     private func closeEditor() {
         guard !exporting else { return }
         onClose()
+    }
+
+    /// 工具层以图片显示矩形为锚点：宽度至少容纳常规工具条，右下角贴图片内边缘。
+    private func controlsOverlay(imageRect: CGRect) -> some View {
+        let width = max(imageRect.width, EditorLayout.regularSize.width)
+        let height = max(imageRect.height, 0)
+        return VStack(alignment: .trailing, spacing: 6) {
+            if exporting {
+                ProgressView("正在导出…").padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            } else if let notice {
+                Text(notice).font(.caption).padding(8)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            }
+            controls(compact: EditorLayout.usesCompactControls(in: imageRect))
+        }
+        .frame(width: width, height: height, alignment: .bottomTrailing)
+        .padding(EditorLayout.inset)
+        .offset(x: imageRect.maxX - width - EditorLayout.inset * 2,
+                y: imageRect.maxY - height - EditorLayout.inset * 2)
     }
 
     private func controls(compact: Bool) -> some View {
