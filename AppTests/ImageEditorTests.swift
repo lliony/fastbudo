@@ -249,6 +249,8 @@ import Testing
         canvas.annotating = true
         canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
         let field = try #require(canvas.textField)
+        let imageRect = EditorLayout.imageRect(in: canvas.bounds, imageSize: model.size)
+        #expect(imageRect.contains(CGPoint(x: field.frame.minX, y: field.frame.minY)))
         field.stringValue = "Strut"
         canvas.commitTextEditing()
 

@@ -473,6 +473,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private var pending: ImageAnnotation?
     private(set) var textField: NSTextField?
     private var textEditingOrigin = CGPoint.zero
+    private var textClickMonitor: Any?
     private var displayedRevision = -1
     private var backdropImage: NSImage?
     private var backdropRevision = -1
@@ -482,6 +483,13 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     init(model: ImageEditorModel, onClose: @escaping () -> Void) { self.model = model; self.onClose = onClose; super.init(frame: .zero) }
     override func cancelOperation(_ sender: Any?) { onClose() }
     required init?(coder: NSCoder) { nil }
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil, let monitor = textClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            textClickMonitor = nil
+        }
+    }
 
     private var imageRect: CGRect { EditorLayout.imageRect(in: bounds, imageSize: model.size) }
 
@@ -490,7 +498,8 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         commitTextEditing()
         let scale = imageRect.width / max(1, model.size.width)
         let fontSize = max(16, CGFloat(model.width) * 5) * scale
-        let field = NSTextField(frame: CGRect(x: point.x, y: point.y, width: CGFloat(model.width) * scale + 40,
+        let origin = CGPoint(x: imageRect.minX + point.x * scale, y: imageRect.minY + point.y * scale)
+        let field = NSTextField(frame: CGRect(x: origin.x, y: origin.y, width: max(160, fontSize * 8),
                                               height: fontSize * 2))
         field.font = .systemFont(ofSize: fontSize)
         field.textColor = NSColor(model.color)
@@ -506,6 +515,13 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         textEditingOrigin = point
         addSubview(field)
         window?.makeFirstResponder(field)
+        textClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, let field = self.textField else { return event }
+            if !field.bounds.contains(field.convert(event.locationInWindow, from: nil)) {
+                self.commitTextEditing()
+            }
+            return event
+        }
     }
 
     @objc func commitTextEditing() {
@@ -514,6 +530,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         let origin = textEditingOrigin
         let fontSize = field.font?.pointSize ?? 16
         textField = nil
+        if let monitor = textClickMonitor { NSEvent.removeMonitor(monitor); textClickMonitor = nil }
         field.removeFromSuperview()
         window?.makeFirstResponder(self)
         guard !string.isEmpty else { return }
@@ -603,6 +620,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             beginTextEditing(at: point(event))
             return
         }
+        commitTextEditing()
         pending = ImageAnnotation(tool: model.tool, points: [point(event)], color: NSColor(model.color), width: model.width)
         needsDisplay = true
     }
