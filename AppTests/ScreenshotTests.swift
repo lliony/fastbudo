@@ -255,6 +255,17 @@ import SwiftUI
         #expect(!pin.isActive(.close))
     }
 
+    @Test @MainActor func pinImageSurfaceAllowsNativeWindowDragging() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        defer { pin.panel.contentView = nil; pin.panel.close() }
+        let surface = PinnedImageDragSurface()
+
+        #expect(pin.panel.isMovableByWindowBackground)
+        #expect(surface.mouseDownCanMoveWindow)
+    }
+
     @Test @MainActor func hiddenAndClickThroughPinsCanBeRecoveredAndClosed() throws {
         let context = try #require(CGContext(data: nil, width: 20, height: 20, bitsPerComponent: 8, bytesPerRow: 0,
                                             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))

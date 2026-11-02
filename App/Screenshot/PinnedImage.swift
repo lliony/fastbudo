@@ -41,6 +41,15 @@ enum ScreenshotImage {
     override var canBecomeMain: Bool { false }
 }
 
+@MainActor final class PinnedImageDragSurface: NSView {
+    override var mouseDownCanMoveWindow: Bool { true }
+}
+
+private struct PinnedImageDragSurfaceView: NSViewRepresentable {
+    func makeNSView(context: Context) -> PinnedImageDragSurface { PinnedImageDragSurface() }
+    func updateNSView(_ nsView: PinnedImageDragSurface, context: Context) {}
+}
+
 enum PinnedImageAction: CaseIterable, Hashable {
     case zoomOut
     case zoomIn
@@ -141,6 +150,7 @@ struct PinnedImageToolbarLayout {
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentMinSize = NSSize(width: 240, height: 160)
         panel.contentView = NSHostingView(rootView: PinnedImageView(model: self))
@@ -257,7 +267,8 @@ private struct PinnedImageView: View {
             .frame(height: 44)
             Image(decorative: model.image, scale: 1).resizable().scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("置顶图片，可拖动标题栏移动")
+                .overlay { PinnedImageDragSurfaceView() }
+                .accessibilityLabel("置顶图片，可拖动图片移动")
         }.background(Color(nsColor: .windowBackgroundColor))
             .onKeyPress(.escape) { model.panel.orderOut(nil); return .handled }
     }

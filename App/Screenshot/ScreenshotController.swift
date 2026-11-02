@@ -395,7 +395,7 @@ enum CaptureAction: Equatable {
         pin.panel.delegate = self
         pins.append(pin)
         pin.panel.orderFrontRegardless()
-        message = "已贴到屏幕；拖动标题栏移动，菜单栏可恢复隐藏或穿透的贴图。"
+        message = "已贴到屏幕；拖动图片移动，菜单栏可恢复隐藏或穿透的贴图。"
     }
 
     nonisolated static func canPin(width: Int, height: Int, count: Int, existingPixels: Int) -> Bool {
