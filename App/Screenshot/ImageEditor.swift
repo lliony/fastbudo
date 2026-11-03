@@ -308,13 +308,15 @@ struct ImageEditor: View {
         Group {
             if compact {
                 VStack(alignment: .trailing, spacing: 4) {
-                    HStack(spacing: 4) { annotationControls }
-                    HStack(spacing: 4) { outputControls }
+                    HStack(spacing: 2) { annotationControls }
+                    HStack(spacing: 2) { outputControls }
                 }
             } else {
-                HStack(spacing: 4) { annotationControls; outputControls }
+                HStack(spacing: 2) { annotationControls; outputControls }
             }
         }
+        // 图标放大填满 30pt 命中区、间距收到 2pt，避免小图标在宽按钮间显得离得太远。
+        .font(.system(size: 17))
         .buttonStyle(.borderless).padding(6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
         .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.1)) }
