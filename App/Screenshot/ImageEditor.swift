@@ -34,7 +34,10 @@ struct ImageAnnotation {
 
 /// 编辑器几何口径：SwiftUI 工具层和 AppKit 画布共用，避免两套坐标。
 enum EditorLayout {
+    /// 工具条与窗口边缘的最小距离。
     static let inset: CGFloat = 8
+    /// 工具条可见边缘与图片边缘的间距；贴角但不与图片像素粘连。
+    static let gap: CGFloat = 2
     static let regularSize = CGSize(width: 296, height: 72)
     static let compactSize = CGSize(width: 152, height: 92)
 
@@ -52,21 +55,33 @@ enum EditorLayout {
         imageRect.width < regularSize.width || imageRect.height < regularSize.height
     }
 
-    /// 工具条外框尺寸，含四周留白；锚点计算与视图尺寸共用同一口径。
+    /// 工具条外框尺寸，含四周贴边留白；锚点计算与视图尺寸共用同一口径。
     static func toolbarSize(compact: Bool) -> CGSize {
         let size = compact ? compactSize : regularSize
-        return CGSize(width: size.width + inset * 2, height: size.height + inset * 2)
+        return CGSize(width: size.width + gap * 2, height: size.height + gap * 2)
     }
 
-    /// 工具条优先贴在图片下方外侧并右对齐；下方放不下就翻到上方，仍放不下才重叠进图片。
-    static func toolbarOrigin(imageRect: CGRect, toolbarSize: CGSize, in bounds: CGRect) -> CGPoint {
-        let x = min(max(imageRect.maxX - toolbarSize.width, bounds.minX + inset),
-                    max(bounds.minX + inset, bounds.maxX - toolbarSize.width - inset))
-        let below = CGPoint(x: x, y: imageRect.maxY + inset)
-        if below.y + toolbarSize.height <= bounds.maxY - inset { return below }
-        let above = CGPoint(x: x, y: imageRect.minY - inset - toolbarSize.height)
-        if above.y >= bounds.minY + inset { return above }
-        return CGPoint(x: x, y: imageRect.maxY - inset - toolbarSize.height)
+    /// 工具条锚点与对齐：下方外侧贴图片下缘，上方/重叠时贴图片上/下缘，始终右对齐图片。
+    struct ToolbarPlacement {
+        var origin: CGPoint
+        var alignment: Alignment
+    }
+
+    /// 优先贴在图片下方外侧；下方放不下就翻到上方，仍放不下才重叠进图片右下角。
+    static func toolbarPlacement(imageRect: CGRect, toolbarSize: CGSize, in bounds: CGRect) -> ToolbarPlacement {
+        // 水平只夹到窗口边缘，让工具条能真正贴住图片右缘。
+        let x = min(max(imageRect.maxX - toolbarSize.width, bounds.minX),
+                    max(bounds.minX, bounds.maxX - toolbarSize.width))
+        let below = CGPoint(x: x, y: imageRect.maxY)
+        if below.y + toolbarSize.height <= bounds.maxY - inset {
+            return ToolbarPlacement(origin: below, alignment: .topTrailing)
+        }
+        let above = CGPoint(x: x, y: imageRect.minY - toolbarSize.height)
+        if above.y >= bounds.minY + inset {
+            return ToolbarPlacement(origin: above, alignment: .bottomTrailing)
+        }
+        return ToolbarPlacement(origin: CGPoint(x: x, y: imageRect.maxY - toolbarSize.height),
+                                alignment: .bottomTrailing)
     }
 }
 
@@ -290,10 +305,10 @@ struct ImageEditor: View {
     private func controlsAnchor(imageRect: CGRect, bounds: CGRect) -> some View {
         let compact = EditorLayout.usesCompactControls(in: imageRect)
         let size = EditorLayout.toolbarSize(compact: compact)
-        let origin = EditorLayout.toolbarOrigin(imageRect: imageRect, toolbarSize: size, in: bounds)
+        let placement = EditorLayout.toolbarPlacement(imageRect: imageRect, toolbarSize: size, in: bounds)
         return controlsOverlay(imageRect: imageRect)
-            .frame(width: size.width, height: size.height, alignment: .bottomTrailing)
-            .position(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+            .frame(width: size.width, height: size.height, alignment: placement.alignment)
+            .position(x: placement.origin.x + size.width / 2, y: placement.origin.y + size.height / 2)
     }
 
     private func controlsOverlay(imageRect: CGRect) -> some View {
@@ -306,7 +321,7 @@ struct ImageEditor: View {
             }
             controls(compact: EditorLayout.usesCompactControls(in: imageRect))
         }
-        .padding(EditorLayout.inset)
+        .padding(EditorLayout.gap)
     }
 
     private func controls(compact: Bool) -> some View {

@@ -156,26 +156,32 @@ import Testing
         let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let image = CGRect(x: 300, y: 300, width: 400, height: 300)
         let size = EditorLayout.toolbarSize(compact: false)
-        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
-        #expect(origin.y >= image.maxY)
-        #expect(origin.x + size.width == image.maxX)
-        #expect(origin.y + size.height <= bounds.maxY)
+        #expect(size.width == EditorLayout.regularSize.width + EditorLayout.gap * 2)
+        let placement = EditorLayout.toolbarPlacement(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(placement.origin.y == image.maxY)
+        #expect(placement.origin.x + size.width == image.maxX)
+        #expect(placement.origin.y + size.height <= bounds.maxY)
+        // 顶对齐让可见条子贴着图片下缘，而不是沉到预留框底部。
+        #expect(placement.alignment == .topTrailing)
     }
 
     @Test func toolbarFlipsAboveWhenBottomHasNoRoom() {
         let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let image = CGRect(x: 300, y: 700, width: 400, height: 150)
         let size = EditorLayout.toolbarSize(compact: false)
-        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
-        #expect(origin.y + size.height <= image.minY)
+        let placement = EditorLayout.toolbarPlacement(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(placement.origin.y + size.height == image.minY)
+        #expect(placement.alignment == .bottomTrailing)
     }
 
     @Test func toolbarFallsBackInsideFullBleedImage() {
         let bounds = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let image = bounds
         let size = EditorLayout.toolbarSize(compact: false)
-        let origin = EditorLayout.toolbarOrigin(imageRect: image, toolbarSize: size, in: bounds)
-        #expect(origin.y + size.height <= image.maxY)
+        let placement = EditorLayout.toolbarPlacement(imageRect: image, toolbarSize: size, in: bounds)
+        #expect(placement.origin.y + size.height == image.maxY)
+        #expect(placement.origin.x + size.width == image.maxX)
+        #expect(placement.alignment == .bottomTrailing)
     }
 
     @Test func detachedWindowReservesToolbarBelowImage() throws {
