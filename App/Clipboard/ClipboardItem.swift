@@ -125,4 +125,8 @@ struct ClipboardItem: Identifiable, Codable, Sendable, Equatable {
     var used = Date()
     var protected: Bool { favorite || pinned || reply || queued }
     var label: String { title.isEmpty ? preview : title }
+    /// 最近使用排序规则；SQL 排序与复制后的本地重排共用同一语义。
+    static func precedes(_ lhs: ClipboardItem, _ rhs: ClipboardItem) -> Bool {
+        lhs.pinned != rhs.pinned ? lhs.pinned : lhs.used > rhs.used
+    }
 }

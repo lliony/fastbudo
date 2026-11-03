@@ -7,7 +7,7 @@ final class ClipboardStore: @unchecked Sendable {
     private let lock = NSLock()
     private var db: OpaquePointer?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-    private enum Value { case text(String), blob(Data) }
+    private enum Value { case text(String), blob(Data), int(Int64), real(Double) }
     static let backupLimit = 2 * 1024 * 1024 * 1024
     private struct Record: Codable { var item: ClipboardItem; var payload: ClipPayload }
 
@@ -22,13 +22,20 @@ final class ClipboardStore: @unchecked Sendable {
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             let version = try statement("PRAGMA user_version")
             let schema = sqlite3_step(version) == SQLITE_ROW ? sqlite3_column_int(version, 0) : -1
-            let supported = schema >= 0 && schema <= 2
+            let supported = schema >= 0 && schema <= 3
             sqlite3_finalize(version)
             guard supported else { throw ClipError.storage }
             sqlite3_busy_timeout(db, 3000)
-            try exec("PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, meta BLOB NOT NULL, payload BLOB NOT NULL, hash TEXT NOT NULL, search TEXT NOT NULL, bytes INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS clip_hash ON clips(hash); CREATE TABLE IF NOT EXISTS groups (name TEXT PRIMARY KEY); ")
-            if schema < 2 {
-                try transaction { try deduplicate(); try exec("PRAGMA user_version=2") }
+            try exec("PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS clips (id TEXT PRIMARY KEY, meta BLOB NOT NULL, payload BLOB NOT NULL, hash TEXT NOT NULL, search TEXT NOT NULL, bytes INTEGER NOT NULL, used REAL NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, protected INTEGER NOT NULL DEFAULT 0, kind TEXT NOT NULL DEFAULT 'text'); CREATE INDEX IF NOT EXISTS clip_hash ON clips(hash); CREATE TABLE IF NOT EXISTS groups (name TEXT PRIMARY KEY); ")
+            try ensureColumns()
+            try exec("CREATE INDEX IF NOT EXISTS clip_order ON clips(pinned DESC, used DESC)")
+            if schema < 2 { try transaction { try deduplicate() } }
+            // schema 3 把排序与清理字段提升为列；旧库逐条回填，失败整体回滚。
+            if schema < 3 {
+                try transaction {
+                    try backfillColumns()
+                    try exec("PRAGMA user_version=3")
+                }
             }
         } catch { sqlite3_close(db); db = nil; throw error }
     }
@@ -42,6 +49,8 @@ final class ClipboardStore: @unchecked Sendable {
             switch value {
             case .text(let text): code = sqlite3_bind_text(result, Int32(index + 1), text, -1, transient)
             case .blob(let data): code = data.withUnsafeBytes { sqlite3_bind_blob(result, Int32(index + 1), $0.baseAddress, Int32(data.count), transient) }
+            case .int(let number): code = sqlite3_bind_int64(result, Int32(index + 1), number)
+            case .real(let number): code = sqlite3_bind_double(result, Int32(index + 1), number)
             }
             if code != SQLITE_OK { sqlite3_finalize(result); throw ClipError.storage }
         }
@@ -60,9 +69,55 @@ final class ClipboardStore: @unchecked Sendable {
         do { let result = try body(); try exec("COMMIT"); return result }
         catch { try? exec("ROLLBACK"); throw error }
     }
+    private func scalar(_ sql: String, _ values: [Value] = []) throws -> Int64 {
+        let stmt = try statement(sql, values); defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { throw ClipError.storage }
+        return sqlite3_column_int64(stmt, 0)
+    }
+    private func hasColumn(_ name: String) throws -> Bool {
+        let stmt = try statement("PRAGMA table_info(clips)"); defer { sqlite3_finalize(stmt) }
+        var code = sqlite3_step(stmt)
+        while code == SQLITE_ROW {
+            if let text = sqlite3_column_text(stmt, 1), String(cString: text) == name { return true }
+            code = sqlite3_step(stmt)
+        }
+        guard code == SQLITE_DONE else { throw ClipError.storage }
+        return false
+    }
+    /// 旧库的 CREATE TABLE IF NOT EXISTS 不会补列，逐列检查后追加。
+    private func ensureColumns() throws {
+        let columns = [("used", "REAL NOT NULL DEFAULT 0"), ("pinned", "INTEGER NOT NULL DEFAULT 0"),
+                       ("protected", "INTEGER NOT NULL DEFAULT 0"), ("kind", "TEXT NOT NULL DEFAULT 'text'")]
+        for (name, definition) in columns where try !hasColumn(name) {
+            try exec("ALTER TABLE clips ADD COLUMN \(name) \(definition)")
+        }
+    }
+    private func updateColumns(_ item: ClipboardItem) throws {
+        try run("UPDATE clips SET used=?, pinned=?, protected=?, kind=? WHERE id=?",
+                [.real(item.used.timeIntervalSince1970), .int(item.pinned ? 1 : 0),
+                 .int(item.protected ? 1 : 0), .text(item.kind.rawValue), .text(item.id.uuidString)])
+    }
+    private func backfillColumns() throws {
+        let stmt = try statement("SELECT id, meta FROM clips")
+        var rows: [(UUID, ClipboardItem)] = []
+        do {
+            var code = sqlite3_step(stmt)
+            while code == SQLITE_ROW {
+                let id = String(cString: sqlite3_column_text(stmt, 0))
+                guard let uuid = UUID(uuidString: id) else { throw ClipError.storage }
+                rows.append((uuid, try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 1))))
+                code = sqlite3_step(stmt)
+            }
+            guard code == SQLITE_DONE else { throw ClipError.storage }
+        } catch { sqlite3_finalize(stmt); throw error }
+        sqlite3_finalize(stmt)
+        for (_, item) in rows { try updateColumns(item) }
+    }
     private func records(_ query: String = "") throws -> [ClipboardItem] {
         // instr treats %, _ and quotes literally rather than as SQL patterns.
-        let stmt = try query.isEmpty ? statement("SELECT meta FROM clips") : statement("SELECT meta FROM clips WHERE instr(lower(search),lower(?))>0", [.text(query)])
+        let stmt = try query.isEmpty
+            ? statement("SELECT meta FROM clips ORDER BY pinned DESC, used DESC")
+            : statement("SELECT meta FROM clips WHERE instr(lower(search),lower(?))>0 ORDER BY pinned DESC, used DESC", [.text(query)])
         defer { sqlite3_finalize(stmt) }
         var items: [ClipboardItem] = []
         var code = sqlite3_step(stmt)
@@ -71,7 +126,7 @@ final class ClipboardStore: @unchecked Sendable {
             code = sqlite3_step(stmt)
         }
         guard code == SQLITE_DONE else { throw ClipError.storage }
-        return items.sorted { $0.pinned != $1.pinned ? $0.pinned : $0.used > $1.used }
+        return items
     }
     func list(query: String = "") throws -> [ClipboardItem] { try lock.withLock { try records(query) } }
     private func content(_ id: UUID) throws -> ClipPayload {
@@ -84,11 +139,13 @@ final class ClipboardStore: @unchecked Sendable {
     // 只改元数据和计费长度，不读取或重写可能达 20 MiB 的内容。
     private func putMetadata(_ item: ClipboardItem, previousTitle: String? = nil) throws {
         let meta = try JSONEncoder().encode(item)
-        try run("UPDATE clips SET bytes=bytes-length(meta)+?, meta=? WHERE id=?",
-                [.text(String(meta.count)), .blob(meta), .text(item.id.uuidString)])
+        try run("UPDATE clips SET bytes=bytes-length(meta)+?, meta=?, used=?, pinned=?, protected=?, kind=? WHERE id=?",
+                [.int(Int64(meta.count)), .blob(meta), .real(item.used.timeIntervalSince1970),
+                 .int(item.pinned ? 1 : 0), .int(item.protected ? 1 : 0), .text(item.kind.rawValue),
+                 .text(item.id.uuidString)])
         if let previousTitle, previousTitle != item.title {
             try run("UPDATE clips SET search=? || substr(search,length(?)+1), bytes=bytes+? WHERE id=?",
-                    [.text(item.title), .text(previousTitle), .text(String(item.title.utf8.count - previousTitle.utf8.count)), .text(item.id.uuidString)])
+                    [.text(item.title), .text(previousTitle), .int(Int64(item.title.utf8.count - previousTitle.utf8.count)), .text(item.id.uuidString)])
         }
     }
     /// 成功拷贝后持久化最近使用时间，返回更新后的单条元数据。
@@ -151,44 +208,46 @@ final class ClipboardStore: @unchecked Sendable {
         let hash = encoded?.hash ?? SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         let meta = try JSONEncoder().encode(item)
         let search = item.title + "\n" + payload.searchText
-        try run("INSERT OR REPLACE INTO clips VALUES(?,?,?,?,?,?)", [.text(item.id.uuidString), .blob(meta), .blob(data), .text(hash), .text(search), .text(String(data.count + meta.count + search.utf8.count))])
+        try run("INSERT OR REPLACE INTO clips (id, meta, payload, hash, search, bytes, used, pinned, protected, kind) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                [.text(item.id.uuidString), .blob(meta), .blob(data), .text(hash), .text(search),
+                 .int(Int64(data.count + meta.count + search.utf8.count)), .real(item.used.timeIntervalSince1970),
+                 .int(item.pinned ? 1 : 0), .int(item.protected ? 1 : 0), .text(item.kind.rawValue)])
     }
     private func prune(_ policy: ClipPolicy, excluding id: UUID? = nil) throws {
         guard policy.count > 0, policy.days > 0, policy.bytes > 0 else { throw ClipError.invalid }
-        let stmt = try statement("SELECT meta, bytes FROM clips")
-        var candidates: [(item: ClipboardItem, bytes: Int)] = []
-        var total = 0, count = 0, ordinaryCount = 0
+        var total = Int(try scalar("SELECT ifnull(sum(bytes),0) FROM clips"))
+        var count = Int(try scalar("SELECT count(*) FROM clips"))
+        var ordinaryCount = Int(try scalar("SELECT count(*) FROM clips WHERE protected=0"))
+        let stmt = try id.map {
+            try statement("SELECT id, bytes, used FROM clips WHERE protected=0 AND id<>? ORDER BY used ASC", [.text($0.uuidString)])
+        } ?? statement("SELECT id, bytes, used FROM clips WHERE protected=0 ORDER BY used ASC")
+        var candidates: [(id: String, bytes: Int, used: Double)] = []
         do {
             var code = sqlite3_step(stmt)
             while code == SQLITE_ROW {
-                let item = try JSONDecoder().decode(ClipboardItem.self, from: blob(stmt, 0))
-                let bytes = Int(sqlite3_column_int64(stmt, 1))
-                total += bytes; count += 1
-                if !item.protected {
-                    ordinaryCount += 1
-                    if item.id != id { candidates.append((item, bytes)) }
-                }
+                candidates.append((String(cString: sqlite3_column_text(stmt, 0)),
+                                   Int(sqlite3_column_int64(stmt, 1)), sqlite3_column_double(stmt, 2)))
                 code = sqlite3_step(stmt)
             }
             guard code == SQLITE_DONE else { throw ClipError.storage }
         } catch { sqlite3_finalize(stmt); throw error }
         sqlite3_finalize(stmt)
-        candidates.sort { $0.item.used < $1.item.used }
-        let cutoff = Date().addingTimeInterval(-Double(policy.days) * 86400)
+        let cutoff = Date().addingTimeInterval(-Double(policy.days) * 86400).timeIntervalSince1970
         // 一次扫描计费，删除时扣减；避免每淘汰一条都重新扫描整个数据库。
-        for candidate in candidates where candidate.item.used < cutoff || ordinaryCount > policy.count || total > policy.bytes {
-            try run("DELETE FROM clips WHERE id=?", [.text(candidate.item.id.uuidString)])
+        for candidate in candidates where candidate.used < cutoff || ordinaryCount > policy.count || total > policy.bytes {
+            try run("DELETE FROM clips WHERE id=?", [.text(candidate.id)])
             total -= candidate.bytes; count -= 1; ordinaryCount -= 1
         }
         if total > policy.bytes || count > 10000 { throw ClipError.full }
     }
     func capture(_ payload: ClipPayload, source: String, policy: ClipPolicy) throws -> UUID {
-        try lock.withLock {
+        // 负载校验、编码和哈希可能耗时数十毫秒，放在锁外，避免阻塞列表查询。
+        try payload.validate()
+        guard source.count <= 300 else { throw ClipError.invalid }
+        let data = try payload.encoded()
+        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return try lock.withLock {
             try transaction {
-                try payload.validate()
-                guard source.count <= 300 else { throw ClipError.invalid }
-                let data = try payload.encoded()
-                let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
                 let stmt = try statement("SELECT meta FROM clips WHERE hash=?", [.text(hash)])
                 defer { sqlite3_finalize(stmt) }
                 var item = ClipboardItem(kind: payload.kind, preview: payload.preview, source: source)

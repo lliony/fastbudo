@@ -30,6 +30,7 @@ enum CaptureAction: Equatable {
     private var captureTask: Task<Void, Never>?
     private var process: Process?
     private var regionSelector: ScreenshotRegionSelector?
+    private var pendingEditorPanel: NSPanel?
     private var captureDirectory: URL?
     private var timedOut = false
     private var stopped = false
@@ -236,13 +237,15 @@ enum CaptureAction: Equatable {
             do {
                 var arguments = mode.arguments
                 var selectedAction = action
+                var region: RegionSelection?
                 if case .region = mode {
-                    let rect: CGRect? = await withCheckedContinuation { continuation in
+                    region = await withCheckedContinuation { continuation in
                         let selector = ScreenshotRegionSelector { continuation.resume(returning: $0) }
                         regionSelector = selector; selector.show()
                     }
-                    selectedAction = action.effective(controlHeld: regionSelector?.copyToClipboard ?? false)
-                    guard let rect, !stopped else { cleanupCapture(); message = "截图已取消。"; return }
+                    pendingEditorPanel = regionSelector?.takeTransferredPanel()
+                    selectedAction = action.effective(controlHeld: region?.copyToClipboard ?? false)
+                    guard let rect = region?.captureRect, !stopped else { cleanupCapture(); message = "截图已取消。"; return }
                     arguments = ["-R", "\(Int(rect.minX)),\(Int(rect.minY)),\(Int(rect.width)),\(Int(rect.height))"]
                     // 等选区遮罩从窗口合成器移除，避免把遮罩一起截入图片。
                     try await Task.sleep(for: .milliseconds(100))
@@ -259,9 +262,12 @@ enum CaptureAction: Equatable {
                 child.standardOutput = FileHandle.nullDevice
                 child.standardError = FileHandle.nullDevice
                 let outputAction = selectedAction
+                let outputRegion = region
                 child.terminationHandler = { [weak self] process in
                     let status = process.terminationStatus
-                    Task { @MainActor [weak self] in await self?.captureEnded(output: output, status: status, action: outputAction) }
+                    Task { @MainActor [weak self] in
+                        await self?.captureEnded(output: output, status: status, action: outputAction, region: outputRegion)
+                    }
                 }
                 process = child
                 try child.run()
@@ -275,7 +281,7 @@ enum CaptureAction: Equatable {
         }
     }
 
-    private func captureEnded(output: URL, status: Int32, action: CaptureAction) async {
+    private func captureEnded(output: URL, status: Int32, action: CaptureAction, region: RegionSelection?) async {
         captureTask?.cancel()
         defer { cleanupCapture() }
         guard !stopped else { return }
@@ -295,11 +301,11 @@ enum CaptureAction: Equatable {
             guard !stopped else { return }
             let result = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
             do {
-                if action == .edit { editCapturedImage(result) }
+                if action == .edit { editCapturedImage(result, region: region) }
                 else { _ = try await deliver(result, action: action) }
             } catch {
                 guard !stopped, !(error is CancellationError) else { return }
-                editCapturedImage(result)
+                editCapturedImage(result, region: region)
                 showError("截图输出失败，图片已保留，可重试：\(error.localizedDescription)")
             }
         } catch {
@@ -308,10 +314,10 @@ enum CaptureAction: Equatable {
         }
     }
 
-    private func editCapturedImage(_ image: NSImage) {
-        if let selector = regionSelector, let frame = selector.selectedFrame,
-           let panel = selector.takeEditorPanel() {
-            edit(image, in: panel, selectionFrame: frame)
+    private func editCapturedImage(_ image: NSImage, region: RegionSelection?) {
+        if let region, let panel = pendingEditorPanel {
+            pendingEditorPanel = nil
+            edit(image, in: panel, selectionFrame: region.screenFrame)
             message = "可在原选区标注、复制、保存或贴图。"
         } else {
             edit(image)
@@ -321,6 +327,9 @@ enum CaptureAction: Equatable {
 
     private func cleanupCapture() {
         regionSelector?.cancel(); regionSelector = nil
+        // 已转交但未用于编辑的面板需要在这里释放，避免隐藏面板继续持有视图。
+        if let panel = pendingEditorPanel { panel.contentView = nil; panel.close() }
+        pendingEditorPanel = nil
         if let root = captureDirectory { try? FileManager.default.removeItem(at: root) }
         captureDirectory = nil; process = nil; capturing = false; captureTask = nil
     }
@@ -385,7 +394,7 @@ enum CaptureAction: Equatable {
         window.level = .floating
         window.delegate = self
         let canvasFrame = selectionFrame.map {
-            CGRect(x: $0.minX - frame.minX, y: frame.maxY - $0.maxY, width: $0.width, height: $0.height)
+            CaptureGeometry.flippedLocal($0, in: frame)
         } ?? CGRect(x: (frame.width - contentFrame.width) / 2, y: EditorLayout.inset,
                      width: contentFrame.width, height: contentFrame.height)
         window.contentView = NSHostingView(rootView: ImageEditor(image: image, window: window,
@@ -407,7 +416,10 @@ enum CaptureAction: Equatable {
             showError("贴图已达到上限（10 张或合计四千万像素），请先关闭部分贴图。"); return
         }
         let pin = PinnedImage(image: image)
-        pin.panel.delegate = self
+        pin.onClosed = { [weak self, weak pin] in
+            guard let self, let pin else { return }
+            pins.removeAll { $0 === pin }
+        }
         pins.append(pin)
         pin.panel.orderFrontRegardless()
         message = "已贴到屏幕；拖动图片移动，菜单栏可恢复隐藏或穿透的贴图。"
@@ -459,9 +471,8 @@ enum CaptureAction: Equatable {
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
-        // HostingView 持有模型，关闭时断开模型→面板→视图的循环。
+        // 贴图面板在 PinnedImage 内自行断环；这里只处理编辑器窗口。
         window.contentView = nil
-        pins.removeAll { $0.panel === window }
         editors.removeAll { $0 === window }
     }
 

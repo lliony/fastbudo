@@ -1,7 +1,7 @@
 ---
 title: FastBudo 架构
 status: active
-last_updated: 2026-11-02
+last_updated: 2026-11-03
 ---
 
 # FastBudo 架构
@@ -56,29 +56,29 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 4. 桥接验证条目类型、路径与资源预算，再写入暂存目录。人类可读的 `7zz` 列表不能充当路径安全边界；list 返回结构化条目，extract 成功仅返回 `{"ok":true}`。
 5. 完成元数据与 quarantine 处理后，通过排他重命名提交输出；不覆盖输入或已有输出。失败、取消清理本任务工作目录，遗留路径记录到偏好设置供后续处理。
 
-密码只经标准输入管道传递。子进程输出上限为 64 MiB，取消会终止子进程。展开大小、数量与压缩比超过阈值时要求确认，但确认不能绕过路径校验。结果 URL 历史最多保留 20 项，不影响磁盘文件。具体限制见 [README](README.md)。
+密码只经标准输入管道传递。引擎初始化时忽略 `SIGPIPE`；子进程在读 stdin 前退出导致写入失败时继续读取其结构化错误，按任务失败处理，不终止主应用。子进程输出上限为 64 MiB，取消会终止子进程。展开大小、数量与压缩比超过阈值时要求确认，但确认不能绕过路径校验。结果 URL 历史最多保留 20 项，不影响磁盘文件。具体限制见 [README](README.md)。
 
 ## 剪贴板数据流与并发
 
 `ClipboardController` 是主线程协调者。记录默认关闭；开启后每 0.5 秒检查 changeCount，timer 容差 0.1 秒。暂停时销毁 timer，恢复时跳过暂停期间的旧内容，快捷键保持独立。AppKit 粘贴板操作留在主线程，纯文本转换和数据库工作在后台执行。
 
-采集过滤不支持的类型与敏感标记，并识别应用自身写入。允许文本、RTF、HTML、PNG、TIFF 和文件 URL，单条负载上限 20 MiB。新增内容复用编码及 SHA-256 哈希，以内容去重；历史按最近使用排序，手动顺序独立保存。
+采集过滤不支持的类型与敏感标记，并识别应用自身写入。允许文本、RTF、HTML、PNG、TIFF 和文件 URL，单条负载上限 20 MiB。负载校验、编码与 SHA-256 哈希在锁外完成，事务只处理数据库读写。新增内容以内容去重；最近使用时间、置顶与保护状态提升为数据库列，历史排序和清理聚合下推 SQL，不再逐行解码元数据；手动顺序独立保存。
 
 查询最多保留一个进行中的 reload 任务，并合并最新请求；generation 丢弃过期结果，不依赖 SQLite interrupt。面板隐藏时采集只持久化，显示时再加载。列表缓存筛选结果，批量快照只重建一次；紧凑行使用 Equatable 降低刷新，时间标签按分钟更新，详情按需读取，图片预览降采样。
 
-复制流程为“后台取内容及转换 → 主线程写粘贴板 → 后台更新使用时间 → 局部调整顺序”。复制使旧快照失效，必要时重新查询，避免旧结果覆盖最近使用排序。剪贴板使用带 nonactivatingPanel + floating 样式的 NSPanel；后台先用 orderFrontRegardless 显示面板，再取得键盘焦点，不调用 NSApp.activate 带出设置或任务窗口。实际窗口顺序验证见[后台唤起验证](docs/validation/2026-10-22-clipboard-background.md)。默认 Control+Shift+V 唤起；操作是复制，不自动向其他应用粘贴。
+复制流程为“后台取内容及转换 → 主线程写粘贴板 → 后台更新使用时间 → 局部调整顺序”。复制使旧快照失效，必要时重新查询，避免旧结果覆盖最近使用排序；本地重排与数据库排序共用 `ClipboardItem.precedes` 单一规则。剪贴板使用带 nonactivatingPanel + floating 样式的 NSPanel；后台先用 orderFrontRegardless 显示面板，再取得键盘焦点，不调用 NSApp.activate 带出设置或任务窗口。实际窗口顺序验证见[后台唤起验证](docs/validation/2026-10-22-clipboard-background.md)。默认 Control+Shift+V 唤起；操作是复制，不自动向其他应用粘贴。
 
 ## 持久化与备份
 
-截图与贴图由 [ScreenshotController](App/Screenshot/ScreenshotController.swift) 管理，按需请求屏幕录制权限。区域截图由 [ScreenshotRegionSelector](App/Screenshot/ScreenshotRegionSelector.swift) 提供箭头指针与透明选区层，使用鼠标事件坐标支持快速拖动；完成后隐藏但保留选区面板，将 AppKit 点坐标换算为主屏左上原点，通过系统 `screencapture -R` 抓取。抓取完成后将同一面板所有权转交给编辑器，在原选区位置显示，面板保留整个桌面范围，外围继续灰显且不显示窗口阴影；拖图只移动画布与工具，不移动桌面面板。取消或失败由控制器清理未转交面板。图片点矩形与原始像素、透明工具占位区分别处理，工具条位于图片下方外侧并右对齐，目标屏空间不足时回退上方或图片内。窗口与指定屏幕仍由系统选取。选区与抓取各自最多等待 120 秒，退出时取消并释放选区续体。任务独占临时目录，完成后读取并清理。图片读取在后台进行，先检查大小与像素，拒绝超过 20 MiB 或四千万像素的内容。取消不写剪贴板，区域选择松开鼠标时按住 Control 将传入 `-c` 直接复制；系统窗口选择的 Control 点击保持原有语义。
+截图与贴图由 [ScreenshotController](App/Screenshot/ScreenshotController.swift) 管理，按需请求屏幕录制权限。区域截图由 [ScreenshotRegionSelector](App/Screenshot/ScreenshotRegionSelector.swift) 提供箭头指针与透明选区层，使用鼠标事件坐标支持快速拖动；完成后隐藏并返回 `RegionSelection`（抓取矩形、屏幕矩形与是否直接复制），面板经 `takeTransferredPanel()` 显式转交，屏幕与截图坐标的三处换算统一由 `CaptureGeometry` 实现，再通过系统 `screencapture -R` 抓取。抓取完成后将同一面板所有权转交给编辑器，在原选区位置显示，面板保留整个桌面范围，外围继续灰显且不显示窗口阴影；拖图只移动画布与工具，不移动桌面面板。取消或失败由控制器清理未转交面板，已转交但未用于编辑的面板在清理阶段关闭。图片点矩形与原始像素、透明工具占位区分别处理，工具条位于图片下方外侧并右对齐，目标屏空间不足时回退上方或图片内。窗口与指定屏幕仍由系统选取。选区与抓取各自最多等待 120 秒，退出时取消并释放选区续体。任务独占临时目录，完成后读取并清理。图片读取在后台进行，先检查大小与像素，拒绝超过 20 MiB 或四千万像素的内容。取消不写剪贴板，区域选择松开鼠标时按住 Control 将传入 `-c` 直接复制；系统窗口选择的 Control 点击保持原有语义。
 
-[ImageEditor](App/Screenshot/ImageEditor.swift) 在原图坐标中保存标注并生成带标注的图片，复制/保存/贴图使用同一渲染结果。[PinnedImage](App/Screenshot/PinnedImage.swift) 使用非激活浮窗，关闭时断开视图和模型持有关系；图片区域的 AppKit 命中层按鼠标屏幕坐标增量移动所属面板，不修改图片模型。工具动作共用同一执行入口，纯宽度布局策略将动作切分为直显按钮与溢出菜单，只有放不下的动作进入“更多”。最多 10 张、合计四千万原图像素，不自动持久化。菜单栏提供显示和取消穿透的恢复入口。历史贴图读取完整 payload，不改写剪贴板或最近使用排序。五个全局入口（剪贴板、普通截图、贴图、快速复制、快速下载）共享现有 Carbon 注册实现，按事件 ID 区分剪贴板、截图与贴图。编辑器使用无标题图片浮窗，工具覆盖层不参与图片导出；工具条位于图片下方外侧并右对齐，文字在图片上就地输入，画布只在标注变化时重绘。[ShortcutRecorder](App/Screenshot/ShortcutRecorder.swift) 仅在窗口内接收录入事件；录入时暂停全部五个入口，释放按键或修饰键后恢复，失焦/关闭取消。注册先成功再替换旧绑定，冲突不保存偏好。权限状态在设置出现、应用激活和截图前查询系统，不轮询或持久化。
+[ImageEditor](App/Screenshot/ImageEditor.swift) 在原图坐标中保存标注并生成带标注的图片；同一 revision 的全分辨率结果只渲染一次，复制/保存/贴图共用缓存，画布另存显示分辨率副本并在标注或显示尺寸变化超过四分之一时重建。[PinnedImage](App/Screenshot/PinnedImage.swift) 使用非激活浮窗，自身作为面板 delegate，关闭时断开视图和模型持有环并通知持有者，标题栏、ESC 与批量关闭语义一致；图片区域的 AppKit 命中层按鼠标屏幕坐标增量移动所属面板，不修改图片模型。工具动作共用同一执行入口，纯宽度布局策略将动作切分为直显按钮与溢出菜单，只有放不下的动作进入“更多”。最多 10 张、合计四千万原图像素，不自动持久化。菜单栏提供显示和取消穿透的恢复入口。历史贴图读取完整 payload，不改写剪贴板或最近使用排序。五个全局入口（剪贴板、普通截图、贴图、快速复制、快速下载）共享现有 Carbon 注册实现，按事件 ID 区分剪贴板、截图与贴图。编辑器使用无标题图片浮窗，工具覆盖层不参与图片导出；工具条位于图片下方外侧并右对齐，文字在图片上就地输入，画布只在标注变化时重绘。[ShortcutRecorder](App/Screenshot/ShortcutRecorder.swift) 仅在窗口内接收录入事件；录入时暂停全部五个入口，释放按键或修饰键后恢复，失焦/关闭取消。注册先成功再替换旧绑定，冲突不保存偏好。权限状态在设置出现、应用激活和截图前查询系统，不轮询或持久化。
 
 | 数据 | 存储及约束 |
 |---|---|
 | 应用偏好 | UserDefaults；登录项启用状态直接查询系统 |
 | 剪贴板历史 | `~/Library/Application Support/FastBudo/Clipboard/clipboard.sqlite`，NSLock 串行保护一个 SQLite FULLMUTEX 连接 |
-| SQLite schema 2 | `clips(id, meta, payload, hash, search, bytes)` 与 `groups(name)`；元数据和负载仍在同一表 |
+| SQLite schema 3 | `clips(id, meta, payload, hash, search, bytes, used, pinned, protected, kind)` 与 `groups(name)`；元数据和负载仍在同一表，排序列建索引；schema 2 及更旧库在事务内补列并逐条回填，失败回滚 |
 | 搜索 | `instr(lower(search), lower(?))` 子串匹配，保留中文及 `%`、`_` 的字面语义；未使用 FTS |
 | 删除 | 开启 SQLite `secure_delete`；单条删除不执行 VACUUM，空间整理留到手动清理。此设置不等于底层磁盘或系统备份的取证擦除 |
 | 备份 | 保留 v1 JSON，流式读写；总大小 2 GiB、单值 64 MiB、最多 10,000 条记录和 1,000 个分类；日期限定 1970–9999 |

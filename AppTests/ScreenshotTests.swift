@@ -59,9 +59,10 @@ import SwiftUI
         #expect(panel.contentView == nil)
     }
 
-    @Test @MainActor func finishedSelectionCanBeCancelledWithoutTransfer() throws {
+    @Test @MainActor func finishedSelectionTransfersPanelExactlyOnce() throws {
         var calls = 0
-        let selector = ScreenshotRegionSelector { _ in calls += 1 }
+        var received: RegionSelection?
+        let selector = ScreenshotRegionSelector { received = $0; calls += 1 }
         selector.show()
         let panel = try #require(NSApp.windows.first { $0.isVisible && $0.title == "FastBudo 区域选取" })
         let view = try #require(panel.contentView)
@@ -71,28 +72,44 @@ import SwiftUI
                 windowNumber: panel.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
             if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
         }
-        #expect(selector.selectedFrame != nil)
+        _ = try #require(received)
+        #expect(calls == 1)
+        let transferred = try #require(selector.takeTransferredPanel())
+        #expect(transferred === panel)
+        #expect(!transferred.isVisible)
         selector.cancel(); selector.cancel()
         #expect(calls == 1)
-        #expect(panel.contentView == nil)
-        #expect(selector.takeEditorPanel() == nil)
+        #expect(transferred.contentView != nil)
+        #expect(selector.takeTransferredPanel() == nil)
+        transferred.contentView = nil; transferred.close()
+    }
+
+    @Test func captureGeometryRoundTripsScreenAndCaptureCoordinates() throws {
+        let desktop = CGRect(x: -1280, y: -900, width: 3200, height: 1980)
+        let primaryTop: CGFloat = 1080
+        let screen = CGRect(x: 100, y: 200, width: 300, height: 150)
+        let capture = try #require(CaptureGeometry.captureRect(screen, desktop: desktop, primaryTop: primaryTop))
+        #expect(capture == CGRect(x: 100, y: 730, width: 300, height: 150))
+        #expect(CaptureGeometry.screenFrame(capture, primaryTop: primaryTop) == screen)
+        #expect(CaptureGeometry.flippedLocal(screen, in: CGRect(x: 0, y: 0, width: 1000, height: 800))
+                == CGRect(x: 100, y: 450, width: 300, height: 150))
     }
 
     @Test func regionSelectionConvertsDesktopPointsWithoutScalingPixels() {
         let desktop = CGRect(x: -1280, y: -900, width: 3200, height: 1980)
-        #expect(ScreenshotRegionSelector.captureRect(CGRect(x: -100, y: 100, width: 300, height: 200), desktop: desktop, primaryTop: 1080)
+        #expect(CaptureGeometry.captureRect(CGRect(x: -100, y: 100, width: 300, height: 200), desktop: desktop, primaryTop: 1080)
                 == CGRect(x: -100, y: 780, width: 300, height: 200))
-        #expect(ScreenshotRegionSelector.captureRect(CGRect(x: 100, y: -200, width: 200, height: 100), desktop: desktop, primaryTop: 1080)
+        #expect(CaptureGeometry.captureRect(CGRect(x: 100, y: -200, width: 200, height: 100), desktop: desktop, primaryTop: 1080)
                 == CGRect(x: 100, y: 1180, width: 200, height: 100))
-        #expect(ScreenshotRegionSelector.captureRect(CGRect(x: -1400, y: 0, width: 200, height: 100), desktop: desktop, primaryTop: 1080)
+        #expect(CaptureGeometry.captureRect(CGRect(x: -1400, y: 0, width: 200, height: 100), desktop: desktop, primaryTop: 1080)
                 == CGRect(x: -1280, y: 980, width: 80, height: 100))
-        #expect(ScreenshotRegionSelector.captureRect(.zero, desktop: desktop, primaryTop: 1080) == nil)
-        #expect(ScreenshotRegionSelector.captureRect(CGRect(x: 3000, y: 0, width: 10, height: 10), desktop: desktop, primaryTop: 1080) == nil)
+        #expect(CaptureGeometry.captureRect(.zero, desktop: desktop, primaryTop: 1080) == nil)
+        #expect(CaptureGeometry.captureRect(CGRect(x: 3000, y: 0, width: 10, height: 10), desktop: desktop, primaryTop: 1080) == nil)
     }
 
     @Test @MainActor func regionDragUsesEventCoordinatesWhenPointerHasAlreadyMoved() throws {
-        var result: CGRect?
-        let selector = ScreenshotRegionSelector { result = $0 }
+        var received: RegionSelection?
+        let selector = ScreenshotRegionSelector { received = $0 }
         defer { selector.cancel() }
         selector.show()
         let window = try #require(NSApp.windows.first { $0.isVisible && $0.title == "FastBudo 区域选取" })
@@ -105,18 +122,17 @@ import SwiftUI
         }
         view.mouseDown(with: try event(.leftMouseDown, CGPoint(x: 20, y: 30)))
         view.mouseUp(with: try event(.leftMouseUp, CGPoint(x: 120, y: 90)))
-        let transferred = try #require(selector.takeEditorPanel())
+        let selection = try #require(received)
+        let transferred = try #require(selector.takeTransferredPanel())
         #expect(transferred === window)
         #expect(!transferred.isVisible)
-        #expect(selector.selectedFrame != nil)
-        #expect(selector.takeEditorPanel() == nil)
         selector.cancel()
         #expect(transferred.contentView != nil)
         defer { transferred.contentView = nil; transferred.close() }
-        #expect(selector.copyToClipboard)
+        #expect(selection.copyToClipboard)
         let start = window.convertPoint(toScreen: CGPoint(x: 20, y: 30))
         let top = try #require(NSScreen.screens.first).frame.maxY
-        #expect(result == CGRect(x: start.x, y: top - start.y - 60, width: 100, height: 60))
+        #expect(selection.captureRect == CGRect(x: start.x, y: top - start.y - 60, width: 100, height: 60))
     }
 
     @Test @MainActor func stoppingCaptureReleasesPendingRegionSelection() async throws {
@@ -281,6 +297,31 @@ import SwiftUI
         surface.mouseDragged(with: mouseDragged)
 
         #expect(panel.frame.origin == CGPoint(x: 130, y: 145))
+    }
+
+    @Test @MainActor func closingPinReleasesViewAndNotifiesOwner() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        var closed = 0
+        pin.onClosed = { closed += 1 }
+        #expect(pin.panel.contentView != nil)
+        pin.close()
+        #expect(pin.panel.contentView == nil)
+        #expect(closed == 1)
+    }
+
+    @Test @MainActor func pinClosedDirectlyIsRemovedFromController() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let controller = ScreenshotController()
+        defer { controller.stop() }
+        controller.pin(try #require(context.makeImage()))
+        let pin = try #require(controller.pins.first)
+        // 不经控制器的关闭路径，也不能残留持有环或列表引用。
+        pin.close()
+        #expect(controller.pins.isEmpty)
+        #expect(pin.panel.contentView == nil)
     }
 
     @Test @MainActor func hiddenAndClickThroughPinsCanBeRecoveredAndClosed() throws {

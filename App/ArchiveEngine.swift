@@ -28,6 +28,8 @@ final class ArchiveEngine: @unchecked Sendable {
     init(resources: URL = Bundle.main.resourceURL!, progress: @escaping @Sendable (String) -> Void = { _ in }) {
         self.resources = resources
         self.progress = progress
+        // 子进程若在读取 stdin 前退出，写入密码管道会产生 SIGPIPE；默认动作会终止整个应用。
+        signal(SIGPIPE, SIG_IGN)
     }
     private static func recordWorkspace(_ url: URL, active: Bool) {
         workspaceLock.withLock {
@@ -65,8 +67,9 @@ final class ArchiveEngine: @unchecked Sendable {
         }
         defer { lock.withLock { process = nil } }
         do {
-            try secret.fileHandleForWriting.write(contentsOf: Data(input.utf8))
-            try secret.fileHandleForWriting.close()
+            // 子进程可能已退出；继续读取输出以取得其真实错误码，而不是把 EPIPE 当成最终原因。
+            try? secret.fileHandleForWriting.write(contentsOf: Data(input.utf8))
+            try? secret.fileHandleForWriting.close()
             var data = Data()
             while let chunk = try output.fileHandleForReading.read(upToCount: 65536), !chunk.isEmpty {
                 guard data.count + chunk.count <= 64 * 1024 * 1024 else {

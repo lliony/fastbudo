@@ -1,14 +1,42 @@
 import AppKit
 
+/// 选区完成的几何与动作；面板所有权另行转交，避免 AppKit 对象跨隔离传递。
+struct RegionSelection: Sendable {
+    let captureRect: CGRect
+    let screenFrame: CGRect
+    let copyToClipboard: Bool
+}
+
+/// 屏幕坐标与系统截图坐标的换算口径，三处翻转共用同一实现。
+enum CaptureGeometry {
+    /// AppKit 全局屏幕坐标（左下原点）→ 系统截图坐标（主屏左上原点）。
+    static func captureRect(_ selection: CGRect, desktop: CGRect, primaryTop: CGFloat) -> CGRect? {
+        let rect = selection.standardized.intersection(desktop)
+        guard !rect.isNull, rect.width >= 1, rect.height >= 1 else { return nil }
+        return CGRect(x: rect.minX, y: primaryTop - rect.maxY, width: rect.width, height: rect.height).integral
+    }
+
+    /// 系统截图坐标 → AppKit 全局屏幕坐标。
+    static func screenFrame(_ capture: CGRect, primaryTop: CGFloat) -> CGRect {
+        CGRect(x: capture.minX, y: primaryTop - capture.maxY, width: capture.width, height: capture.height)
+    }
+
+    /// 全局屏幕坐标 → 以 windowFrame 为参照的翻转局部坐标。
+    static func flippedLocal(_ screen: CGRect, in windowFrame: CGRect) -> CGRect {
+        CGRect(x: screen.minX - windowFrame.minX, y: windowFrame.maxY - screen.maxY,
+               width: screen.width, height: screen.height)
+    }
+}
+
 /// 自己处理区域选择，避免系统交互截图强制使用十字指针。
 @MainActor final class ScreenshotRegionSelector {
     private var window: NSPanel?
     private var timeout: Task<Void, Never>?
-    private var completion: ((CGRect?) -> Void)?
-    private(set) var copyToClipboard = false
-    private(set) var selectedFrame: CGRect?
+    private var completion: ((RegionSelection?) -> Void)?
+    /// 成功后由调用方在主线程接管面板并复用为编辑器窗口。
+    private var transferredPanel: NSPanel?
 
-    init(completion: @escaping (CGRect?) -> Void) { self.completion = completion }
+    init(completion: @escaping (RegionSelection?) -> Void) { self.completion = completion }
 
     func show() {
         guard completion != nil, window == nil, let primary = NSScreen.screens.first else { cancel(); return }
@@ -20,12 +48,18 @@ import AppKit
         panel.level = .screenSaver
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         let view = RegionSelectionView(frame: CGRect(origin: .zero, size: desktop.size)) { [weak self] selection, copy in
-            self?.copyToClipboard = copy
-            let capture = selection.flatMap { Self.captureRect($0, desktop: desktop, primaryTop: primary.frame.maxY) }
-            self?.selectedFrame = capture.map {
-                CGRect(x: $0.minX, y: primary.frame.maxY - $0.maxY, width: $0.width, height: $0.height)
+            guard let self else { return }
+            guard let selection,
+                  let capture = CaptureGeometry.captureRect(selection, desktop: desktop, primaryTop: primary.frame.maxY) else {
+                self.finish(nil); return
             }
-            self?.finish(capture)
+            let transferred = self.window
+            self.window = nil
+            transferred?.orderOut(nil)
+            self.transferredPanel = transferred
+            self.finish(RegionSelection(captureRect: capture,
+                                        screenFrame: CaptureGeometry.screenFrame(capture, primaryTop: primary.frame.maxY),
+                                        copyToClipboard: copy))
         }
         panel.contentView = view; window = panel
         panel.orderFrontRegardless(); panel.makeKey(); panel.makeFirstResponder(view)
@@ -36,33 +70,25 @@ import AppKit
         }
     }
 
-    func cancel() { finish(nil); closePanel() }
+    /// 成功后 completion 已消费，再次取消不会关闭已转交给编辑器的面板。
+    func cancel() { finish(nil) }
 
-    // 转交后清理选区任务不能再关闭编辑器持有的面板。
-    func takeEditorPanel() -> NSPanel? {
-        guard completion == nil, selectedFrame != nil else { return nil }
-        let panel = window
-        window = nil
-        return panel
+    /// 取走已转交的面板；重复调用返回 nil。
+    func takeTransferredPanel() -> NSPanel? {
+        defer { transferredPanel = nil }
+        return transferredPanel
     }
 
     private func closePanel() {
         window?.orderOut(nil); window?.contentView = nil; window?.close(); window = nil
     }
 
-    private func finish(_ rect: CGRect?) {
+    private func finish(_ result: RegionSelection?) {
         guard let completion else { return }
         self.completion = nil
         timeout?.cancel(); timeout = nil
-        if rect == nil { closePanel() } else { window?.orderOut(nil) }
-        completion(rect)
-    }
-
-    /// AppKit 以左下为原点，系统截图以主屏左上为原点；保留点坐标，由系统处理 Retina 缩放。
-    nonisolated static func captureRect(_ selection: CGRect, desktop: CGRect, primaryTop: CGFloat) -> CGRect? {
-        let rect = selection.standardized.intersection(desktop)
-        guard !rect.isNull, rect.width >= 1, rect.height >= 1 else { return nil }
-        return CGRect(x: rect.minX, y: primaryTop - rect.maxY, width: rect.width, height: rect.height).integral
+        if result == nil { closePanel() }
+        completion(result)
     }
 }
 

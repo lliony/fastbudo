@@ -103,4 +103,15 @@ struct ArchiveEngineTests {
         #expect(try Data(contentsOf: input) == Data("unchanged".utf8))
     }
 
+    /// 子进程在读 stdin 前退出时，密码管道写入不能以 SIGPIPE 终止进程。
+    @Test func brokenStdinPipeThrowsInsteadOfTerminating() throws {
+        _ = ArchiveEngine()
+        let pipe = Pipe()
+        try pipe.fileHandleForReading.close()
+        #expect(throws: (any Error).self) {
+            try pipe.fileHandleForWriting.write(contentsOf: Data("test-only".utf8))
+        }
+        try? pipe.fileHandleForWriting.close()
+    }
+
 }
