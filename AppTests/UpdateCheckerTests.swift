@@ -96,6 +96,18 @@ struct UpdateCheckerTests {
         #expect(try await UpdateChecker.check(current: "0.2.0", session: session) == nil)
     }
 
+    @Test(arguments: [403, 429]) func unavailableWebsiteAfterRateLimitHasActionableError(status: Int) async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UpdateRateLimitProtocol.self]
+        configuration.httpAdditionalHeaders = ["X-Test-Status": String(status), "X-Test-Website-Status": "404"]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        var unavailable = false
+        do { _ = try await UpdateChecker.check(current: "0.0.5", session: session) }
+        catch UpdateChecker.CheckError.noRelease { unavailable = true }
+        #expect(unavailable)
+    }
+
     @Test func rejectsUntrustedOrInvalidWebsiteResponses() {
         for address in ["https://example.com/lliony/fastbudo/releases/tag/v0.2.0",
                         "http://github.com/lliony/fastbudo/releases/tag/v0.2.0",
@@ -149,7 +161,7 @@ private final class UpdateRateLimitProtocol: URLProtocol, @unchecked Sendable {
             return
         }
         let api = request.url?.host == "api.github.com"
-        let status = api ? Int(request.value(forHTTPHeaderField: "X-Test-Status") ?? "403")! : 200
+        let status = Int(request.value(forHTTPHeaderField: api ? "X-Test-Status" : "X-Test-Website-Status") ?? (api ? "403" : "200"))!
         let url = api ? request.url! : URL(string: "https://github.com/lliony/fastbudo/releases/tag/v0.2.0")!
         let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)

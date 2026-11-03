@@ -29,7 +29,7 @@ enum UpdateChecker {
         var errorDescription: String? {
             switch self {
             case .rateLimited: "GitHub 暂时限制了请求，请稍后重试。"
-            case .noRelease: "暂未找到可用的正式版本。"
+            case .noRelease: "无法访问更新源：仓库可能为私有或尚无正式版本，请联系发布者确认。"
             case .invalidResponse: "版本信息无效，请稍后重试。"
             case .server(let status): "更新服务返回错误（\(status)），请稍后重试。"
             }
@@ -143,6 +143,7 @@ enum UpdateChecker {
     }
 
     static func newerRelease(pageResponse: HTTPURLResponse, current: String) throws -> Release? {
+        if pageResponse.statusCode == 404 { throw CheckError.noRelease }
         guard pageResponse.statusCode == 200 else { throw CheckError.server(pageResponse.statusCode) }
         let prefix = "/lliony/fastbudo/releases/tag/"
         guard let url = pageResponse.url, url.scheme == "https", url.host == "github.com",
