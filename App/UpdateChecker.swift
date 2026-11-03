@@ -44,7 +44,7 @@ enum UpdateChecker {
         var errorDescription: String? {
             switch self {
             case .rateLimited: "GitHub 暂时限制了请求，请稍后重试。"
-            case .noRelease: "更新源不可访问或暂无正式版本，请稍后重试。"
+            case .noRelease: "无法访问更新源：仓库可能为私有或尚无正式版本，请联系发布者确认。"
             case .invalidResponse: "版本信息无效，请稍后重试。"
             case .server(let status): "更新服务返回错误（\(status)），请稍后重试。"
             }

@@ -132,6 +132,18 @@ struct UpdateCheckerTests {
         #expect(try await UpdateChecker.check(current: "0.2.0", session: session) == nil)
     }
 
+    @Test(arguments: [403, 429]) func unavailableWebsiteAfterRateLimitHasActionableError(status: Int) async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UpdateRateLimitProtocol.self]
+        configuration.httpAdditionalHeaders = ["X-Test-Status": String(status), "X-Test-Web-Status": "404"]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        var unavailable = false
+        do { _ = try await UpdateChecker.check(current: "0.0.5", session: session) }
+        catch UpdateChecker.CheckError.noRelease { unavailable = true }
+        #expect(unavailable)
+    }
+
     @Test func rejectsUntrustedOrInvalidWebsiteResponses() {
         for address in ["https://example.com/lliony/fastbudo/releases/tag/v0.2.0",
                         "http://github.com/lliony/fastbudo/releases/tag/v0.2.0",
