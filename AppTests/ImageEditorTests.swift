@@ -269,6 +269,56 @@ import Testing
         #expect(canvas.backdropBuilds == 2)
     }
 
+    @Test func renderResultIsReusedUntilAnnotationsChange() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let first = try model.rendered()
+        #expect(try model.rendered() === first)
+        model.append(ImageAnnotation(tool: .rectangle, points: [CGPoint(x: 10, y: 10), CGPoint(x: 20, y: 20)]))
+        #expect(try model.rendered() !== first)
+    }
+
+    @Test func backdropReusesDisplayImageUntilSizeChangesSignificantly() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+        func render() throws {
+            let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 600, pixelsHigh: 450,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+            let context = try #require(NSGraphicsContext(bitmapImageRep: rep))
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = context
+            canvas.draw(canvas.bounds)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        try render()
+        #expect(canvas.backdropBuilds == 1)
+        canvas.frame = CGRect(x: 0, y: 0, width: 430, height: 322)
+        try render()
+        #expect(canvas.backdropBuilds == 1)
+        canvas.frame = CGRect(x: 0, y: 0, width: 600, height: 450)
+        try render()
+        #expect(canvas.backdropBuilds == 2)
+    }
+
+    @Test func displayCacheKeepsImageOrientation() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        canvas.frame = CGRect(x: 0, y: 0, width: 80, height: 60)
+        let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 80, pixelsHigh: 60,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let context = try #require(NSGraphicsContext(bitmapImageRep: rep))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        canvas.draw(canvas.bounds)
+        NSGraphicsContext.restoreGraphicsState()
+        let top = try #require(rep.colorAt(x: 40, y: 2)?.usingColorSpace(.deviceRGB))
+        let bottom = try #require(rep.colorAt(x: 40, y: 57)?.usingColorSpace(.deviceRGB))
+        #expect(top.redComponent > 0.9 && top.blueComponent < 0.1)
+        #expect(bottom.blueComponent > 0.9 && bottom.redComponent < 0.1)
+    }
+
     @Test func textToolStartsInlineEditingAndCommitsOnReturn() throws {
         let model = ImageEditorModel(image: try textFixture())
         let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),

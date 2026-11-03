@@ -135,7 +135,7 @@ struct PinnedImageToolbarLayout {
     }
 }
 
-@MainActor @Observable final class PinnedImage {
+@MainActor @Observable final class PinnedImage: NSObject, NSWindowDelegate {
     let id = UUID()
     let original: CGImage
     let panel: PinnedImagePanel
@@ -146,6 +146,8 @@ struct PinnedImageToolbarLayout {
     var opacity = 1.0 { didSet { panel.alphaValue = opacity } }
     var clickThrough = false { didSet { panel.ignoresMouseEvents = clickThrough } }
     private(set) var zoom = 1.0
+    /// 面板关闭后通知持有者移除引用；断环与关闭语义都在本模块内完成。
+    var onClosed: (() -> Void)?
     private let pasteboard: NSPasteboard
 
     init(image: CGImage, pasteboard: NSPasteboard = .general) {
@@ -154,6 +156,7 @@ struct PinnedImageToolbarLayout {
         panel = PinnedImagePanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
                                 styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .utilityWindow],
                                 backing: .buffered, defer: false)
+        super.init()
         panel.title = "FastBudo 贴图"
         panel.level = .floating
         panel.hidesOnDeactivate = false
@@ -161,9 +164,18 @@ struct PinnedImageToolbarLayout {
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentMinSize = NSSize(width: 240, height: 160)
+        panel.delegate = self
         panel.contentView = NSHostingView(rootView: PinnedImageView(model: self))
         resize(factor: 1)
         panel.center()
+    }
+
+    func close() { panel.close() }
+
+    func windowWillClose(_ notification: Notification) {
+        // HostingView 持有模型，这里断开模型→面板→视图的循环。
+        panel.contentView = nil
+        onClosed?()
     }
 
     func transform() {
@@ -187,7 +199,7 @@ struct PinnedImageToolbarLayout {
         panel.setContentSize(NSSize(width: width, height: height))
     }
 
-    func copy() {
+    func copyToPasteboard() {
         let value = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
         pasteboard.clearContents()
         pasteboard.writeObjects([value])
@@ -210,7 +222,7 @@ struct PinnedImageToolbarLayout {
         case .opacity:
             return .showOpacity
         case .copy:
-            copy()
+            copyToPasteboard()
         }
         return .none
     }
@@ -272,7 +284,7 @@ private struct PinnedImageView: View {
                 .overlay { PinnedImageDragSurfaceView() }
                 .accessibilityLabel("置顶图片，可拖动图片移动")
         }.background(Color(nsColor: .windowBackgroundColor))
-            .onKeyPress(.escape) { model.panel.orderOut(nil); return .handled }
+            .onKeyPress(.escape) { model.close(); return .handled }
     }
 
     private func actionButton(_ action: PinnedImageAction) -> some View {

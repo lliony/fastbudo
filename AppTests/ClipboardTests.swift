@@ -202,7 +202,7 @@ struct ClipboardStoreTests {
         defer { sqlite3_close(raw) }
         let duplicate = UUID().uuidString
         // 构造旧版本数据库；触发器确保迁移和再次使用都不更新大内容列。
-        let sql = "INSERT INTO clips SELECT '\(duplicate)', CAST(json_set(CAST(meta AS TEXT),'$.id','\(duplicate)') AS BLOB), payload, hash, search, bytes FROM clips; PRAGMA user_version=1; CREATE TRIGGER no_payload_rewrite BEFORE UPDATE OF payload ON clips BEGIN SELECT RAISE(ABORT,'payload rewritten'); END;"
+        let sql = "INSERT INTO clips (id, meta, payload, hash, search, bytes) SELECT '\(duplicate)', CAST(json_set(CAST(meta AS TEXT),'$.id','\(duplicate)') AS BLOB), payload, hash, search, bytes FROM clips; PRAGMA user_version=1; CREATE TRIGGER no_payload_rewrite BEFORE UPDATE OF payload ON clips BEGIN SELECT RAISE(ABORT,'payload rewritten'); END;"
         #expect(sqlite3_exec(raw, sql, nil, nil, nil) == SQLITE_OK)
         let reopened = try ClipboardStore(directory: root)
         let kept = try #require(reopened.list().first)
@@ -216,8 +216,53 @@ struct ClipboardStoreTests {
         #expect(kept.id == id || kept.id.uuidString == duplicate)
     }
 
-    @Test func recentlyUsedKeepsPinAndManualOrders() throws {
-        let (db, root) = try store()
+    @Test func schemaTwoDatabaseMigratesColumnsWithoutLosingData() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        var pinnedID = UUID(), olderID = UUID()
+        do {
+            let db = try ClipboardStore(directory: root)
+            pinnedID = try db.capture(.text("置顶"), source: "Tests", policy: .standard)
+            try db.update(pinnedID, pinned: true)
+            olderID = try db.capture(.text("较早"), source: "Tests", policy: .standard)
+            _ = try db.capture(.text("最新"), source: "Tests", policy: .standard)
+        }
+        // 去掉新增列，还原为 schema 2 的旧版本数据库。
+        var raw: OpaquePointer?
+        let path = root.appendingPathComponent("clipboard.sqlite").path
+        #expect(sqlite3_open(path, &raw) == SQLITE_OK)
+        let downgrade = "DROP INDEX IF EXISTS clip_order; ALTER TABLE clips DROP COLUMN used; "
+            + "ALTER TABLE clips DROP COLUMN pinned; ALTER TABLE clips DROP COLUMN protected; "
+            + "ALTER TABLE clips DROP COLUMN kind; PRAGMA user_version=2;"
+        #expect(sqlite3_exec(raw, downgrade, nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(raw)
+
+        let migrated = try ClipboardStore(directory: root)
+        let items = try migrated.list()
+        #expect(items.count == 3)
+        #expect(items.first?.id == pinnedID)
+        #expect(items.first?.pinned == true)
+        #expect(try migrated.payload(olderID).plainText == "较早")
+
+        var check: OpaquePointer?
+        #expect(sqlite3_open(path, &check) == SQLITE_OK)
+        var stmt: OpaquePointer?
+        #expect(sqlite3_prepare_v2(check, "PRAGMA user_version", -1, &stmt, nil) == SQLITE_OK)
+        #expect(sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 3)
+        sqlite3_finalize(stmt); sqlite3_close(check)
+    }
+
+    @Test func pinnedSortRulePlacesPinsBeforeRecentItems() {
+        var pinned = ClipboardItem(kind: .text, preview: "置顶", source: "Tests")
+        pinned.pinned = true; pinned.used = Date(timeIntervalSince1970: 0)
+        var recent = ClipboardItem(kind: .text, preview: "最近", source: "Tests")
+        recent.used = Date(timeIntervalSince1970: 10_000)
+        #expect(ClipboardItem.precedes(pinned, recent))
+        #expect(!ClipboardItem.precedes(recent, pinned))
+    }
+
+    @Test func recentlyUsedKeepsPinAndManualOrders() throws {        let (db, root) = try store()
         defer { try? FileManager.default.removeItem(at: root) }
         let pinned = try db.capture(.text("置顶"), source: "Tests", policy: .standard)
         var item = try #require(db.list().first)

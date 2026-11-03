@@ -289,9 +289,7 @@ import Carbon
                 invalidateReload()
                 if let index = items.firstIndex(where: { $0.id == id }) {
                     items.remove(at: index)
-                    let destination = items.firstIndex {
-                        updated.pinned != $0.pinned ? updated.pinned : updated.used > $0.used
-                    } ?? items.endIndex
+                    let destination = items.firstIndex { ClipboardItem.precedes(updated, $0) } ?? items.endIndex
                     items.insert(updated, at: destination)
                 }
                 if needsReload { await reload() }

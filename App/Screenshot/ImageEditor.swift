@@ -82,6 +82,7 @@ enum EditorLayout {
     private(set) var annotations: [ImageAnnotation] = []
     private(set) var undone: [ImageAnnotation] = []
     private(set) var revision = 0
+    private var renderCache: (revision: Int, image: NSImage)?
 
     init(image: NSImage) {
         var rect = CGRect(origin: .zero, size: image.size)
@@ -110,7 +111,9 @@ enum EditorLayout {
         annotations.append(last); revision += 1
     }
 
+    /// 原影像素坐标下的完整渲染；同一 revision 的画布预览、复制、保存与贴图共用一份结果。
     func rendered() throws -> NSImage {
+        if let renderCache, renderCache.revision == revision { return renderCache.image }
         guard let source,
               let context = CGContext(data: nil, width: source.width, height: source.height, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw ClipError.invalid }
@@ -120,7 +123,9 @@ enum EditorLayout {
         defer { NSGraphicsContext.restoreGraphicsState() }
         draw(pending: nil)
         guard let result = context.makeImage() else { throw ClipError.invalid }
-        return NSImage(cgImage: result, size: size)
+        let image = NSImage(cgImage: result, size: size)
+        renderCache = (revision, image)
+        return image
     }
 
     private func renderedPixels() throws -> CGImage {
@@ -495,6 +500,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private var displayedRevision = -1
     private var backdropImage: NSImage?
     private var backdropRevision = -1
+    private var backdropPixelSize = CGSize.zero
     private(set) var backdropBuilds = 0
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
@@ -563,14 +569,37 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         commitTextEditing()
     }
 
-    /// 已完成标注只随 revision 重建一次；绘制中的标注另画，避免每次状态变化重放全部标注。
-    private func backdrop() -> NSImage? {
-        if backdropRevision != model.revision {
-            backdropImage = try? model.rendered()
-            backdropRevision = model.revision
-            backdropBuilds += 1
-        }
-        return backdropImage
+    /// 已完成标注按 revision 与画布分辨率缓存，拖动期间只叠加绘制中的标注，不再逐帧缩放原图。
+    private func backdrop(for rect: CGRect) -> NSImage? {
+        let scale = window?.backingScaleFactor ?? 1
+        let pixels = CGSize(width: max(1, (rect.width * scale).rounded()),
+                            height: max(1, (rect.height * scale).rounded()))
+        if backdropRevision == model.revision, let image = backdropImage,
+           Self.matches(backdropPixelSize, pixels) { return image }
+        guard let source = try? model.rendered(), let scaled = Self.scaled(source, to: pixels, pointSize: rect.size) else { return nil }
+        backdropImage = scaled; backdropRevision = model.revision; backdropPixelSize = pixels
+        backdropBuilds += 1
+        return scaled
+    }
+
+    /// 缩放容差内的窗口拖拽复用缓存，避免每一帧都重采样。
+    private static func matches(_ cached: CGSize, _ target: CGSize) -> Bool {
+        guard cached.width > 0, cached.height > 0 else { return false }
+        return abs(cached.width - target.width) <= cached.width * 0.25
+            && abs(cached.height - target.height) <= cached.height * 0.25
+    }
+
+    private static func scaled(_ source: NSImage, to pixels: CGSize, pointSize: CGSize) -> NSImage? {
+        let width = Int(pixels.width), height = Int(pixels.height)
+        var rect = CGRect(origin: .zero, size: source.size)
+        guard width > 0, height > 0,
+              let image = source.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let scaled = context.makeImage() else { return nil }
+        return NSImage(cgImage: scaled, size: pointSize)
     }
 
     func sync(model: ImageEditorModel, revision: Int, annotating: Bool,
@@ -580,6 +609,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             self.model = model
             backdropImage = nil
             backdropRevision = -1
+            backdropPixelSize = .zero
             displayedRevision = -1
         }
         self.onClose = onClose
@@ -600,7 +630,7 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         NSColor.clear.setFill(); bounds.fill(using: .copy)
         let rect = imageRect
         guard rect.width > 0, rect.height > 0 else { return }
-        if let image = backdrop() {
+        if let image = backdrop(for: rect) {
             image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
             guard textField == nil, let pending, let context = NSGraphicsContext.current?.cgContext else { return }
             context.saveGState()
