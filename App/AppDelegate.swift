@@ -20,6 +20,8 @@ import SwiftUI
     private let services = ServicesProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 任务开始自动弹出任务窗口，避免压缩时看不清进度。
+        model.onTaskStart = { [weak self] in self?.showTask() }
         clipboard.start()
         clipboard.pinImage = { [weak self] in self?.screenshot.pinData($0) }
         screenshot.shortcutRecordingChanged = { [weak self] in self?.clipboard.setShortcutRecordingPaused($0) }
@@ -137,7 +139,7 @@ import SwiftUI
             }
         }
         let archives = urls.filter(\.isFileURL)
-        if !archives.isEmpty { model.open(archives); showTask() }
+        if !archives.isEmpty { model.open(archives) }
     }
     func createItem(in directory: URL, type: String) {
         let folder = type == "folder"

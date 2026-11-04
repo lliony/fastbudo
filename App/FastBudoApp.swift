@@ -7,7 +7,7 @@ struct FastBudoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
         MenuBarExtra("FastBudo", systemImage: "command") {
-            StatusPopover(model: delegate.model, screenshot: delegate.screenshot, showSettings: delegate.showSettings, showClipboard: delegate.clipboard.show)
+            StatusPopover(screenshot: delegate.screenshot, showSettings: delegate.showSettings, showClipboard: delegate.clipboard.show)
         }
         .menuBarExtraStyle(.window)
     }
@@ -133,8 +133,8 @@ struct PreferencesView: View {
                             } else {
                                 Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
                             }
-                            LabeledContent("查看任务", value: "菜单栏 ⌘ 图标")
-                            Text("在子菜单选择 ZIP、7z 或 tar.gz 后直接执行。未启用扩展时，可使用右键“服务”中的格式入口。")
+                            LabeledContent("查看任务", value: "FastBudo 任务窗口")
+                            Text("处理归档时会弹出“FastBudo 任务”窗口，进度、取消、重试与密码输入都在该窗口进行。未启用扩展时，可使用右键“服务”中的格式入口。")
                                 .font(.callout).foregroundStyle(.secondary)
                         }
                         SettingsSection("版本更新") {
@@ -421,7 +421,6 @@ struct TaskStatusView: View {
 }
 
 struct StatusPopover: View {
-    @Bindable var model: ArchiveModel
     @Bindable var screenshot: ScreenshotController
     let showSettings: () -> Void
     let showClipboard: () -> Void
@@ -446,7 +445,6 @@ struct StatusPopover: View {
                 Button("恢复显示并取消穿透", action: screenshot.restorePins)
                 Button("关闭全部贴图", action: screenshot.closePins)
             }.disabled(screenshot.pins.isEmpty)
-            TaskStatusView(model: model)
             Divider()
             HStack {
                 Button("设置…", action: showSettings)
