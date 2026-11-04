@@ -29,8 +29,6 @@ struct ArchiveJob: Identifiable, Sendable {
     }
     var message = "暂无任务。从 Finder 右键服务发起压缩。"
     var results: [URL] = []
-    // 任务真正开始执行时调用，供界面弹出任务窗口。
-    var onTaskStart: (() -> Void)?
     private var engine: ArchiveEngine?
 
     func enqueue(_ job: ArchiveJob) { pending.append(job); startNext() }
@@ -38,7 +36,6 @@ struct ArchiveJob: Identifiable, Sendable {
         guard !busy, failed == nil, !pending.isEmpty else { return }
         let job = pending.removeFirst()
         busy = true
-        onTaskStart?()
         message = "正在处理…"
         let runner = ArchiveEngine { [weak self] phase in
             Task { @MainActor in self?.message = phase }

@@ -15,13 +15,10 @@ import SwiftUI
         self.revealNewItem = revealNewItem
         super.init()
     }
-    private var taskWindow: NSWindow?
     private(set) var settingsWindow: NSWindow?
     private let services = ServicesProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 任务开始自动弹出任务窗口，避免压缩时看不清进度。
-        model.onTaskStart = { [weak self] in self?.showTask() }
         clipboard.start()
         clipboard.pinImage = { [weak self] in self?.screenshot.pinData($0) }
         screenshot.shortcutRecordingChanged = { [weak self] in self?.clipboard.setShortcutRecordingPaused($0) }
@@ -51,9 +48,8 @@ import SwiftUI
     func windowWillClose(_ notification: Notification) {
         guard let closing = notification.object as? NSWindow else { return }
         // 只计算主窗口，菜单栏和剪贴板浮窗不需要程序坞图标。
-        let hasOpenWindow = [settingsWindow, taskWindow].compactMap { $0 }.contains {
-            $0 !== closing && ($0.isVisible || $0.isMiniaturized)
-        }
+        let hasOpenWindow = settingsWindow != nil && settingsWindow !== closing
+            && (settingsWindow?.isVisible == true || settingsWindow?.isMiniaturized == true)
         if !hasOpenWindow { NSApp.setActivationPolicy(.accessory) }
     }
 
@@ -158,22 +154,6 @@ import SwiftUI
                 alert.runModal()
             }
         }
-    }
-
-    // 明确持有任务窗口，避免把 Finder 请求错误地送进设置窗口。
-    private func showTask() {
-        NSApp.setActivationPolicy(.regular)
-        if taskWindow == nil {
-            taskWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 300),
-                                  styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-            taskWindow?.isReleasedWhenClosed = false
-            taskWindow?.delegate = self
-            taskWindow?.center()
-        }
-        taskWindow?.title = "FastBudo 任务"
-        taskWindow?.contentViewController = NSHostingController(rootView: TaskStatusView(model: model).padding(24).frame(width: 400))
-        NSApp.activate()
-        taskWindow?.makeKeyAndOrderFront(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) { clipboard.stop(); screenshot.stop() }

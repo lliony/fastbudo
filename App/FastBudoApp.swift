@@ -133,8 +133,8 @@ struct PreferencesView: View {
                             } else {
                                 Button("启用 Finder 右键扩展…") { FIFinderSyncController.showExtensionManagementInterface() }
                             }
-                            LabeledContent("查看任务", value: "FastBudo 任务窗口")
-                            Text("处理归档时会弹出“FastBudo 任务”窗口，进度、取消、重试与密码输入都在该窗口进行。未启用扩展时，可使用右键“服务”中的格式入口。")
+                            LabeledContent("任务执行", value: "后台静默执行")
+                            Text("压缩或解压在后台进行，不弹出进度窗口。未启用扩展时，可使用右键“服务”中的格式入口。")
                                 .font(.callout).foregroundStyle(.secondary)
                         }
                         SettingsSection("版本更新") {
@@ -159,7 +159,7 @@ struct PreferencesView: View {
                             }
                             Text("登录 macOS 后自动驻留菜单栏，不弹出窗口。")
                                 .font(.caption).foregroundStyle(.secondary)
-                            Text("文件在本机处理。收起窗口不影响任务；退出前请先取消任务，等待清理完成。")
+                            Text("文件在本机处理，后台静默执行，不弹出进度窗口；退出前请先等待任务清理完成。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     } else if page == "压缩与解压" {
@@ -182,7 +182,7 @@ struct PreferencesView: View {
                         }
                         SettingsSection("解压 · 安全处理") {
                             Text("大体积或无法预估的归档会在解压前请求确认。")
-                            Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码时，在任务窗口输入后重试。")
+                            Text("拒绝不安全路径、冲突文件名、链接及特殊文件。需要密码的归档不会自动解压，请先在本机解密后再拖入处理。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     } else if page == "新建" {
@@ -380,43 +380,6 @@ struct PreferencesView: View {
         let loginItemStatus = LoginItem.status
         loginItemEnabled = loginItemStatus == .enabled
         loginItemNeedsApproval = loginItemStatus == .requiresApproval
-    }
-}
-
-/// 任务状态由窗口和菜单栏共享，关闭浮窗不会取消任务。
-struct TaskStatusView: View {
-    @Bindable var model: ArchiveModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                if model.busy { ProgressView().controlSize(.small) }
-                Text(model.message).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            }
-            if !model.pending.isEmpty {
-                Text("还有 \(model.pending.count) 个任务排队").font(.caption).foregroundStyle(.secondary)
-            }
-            if model.busy { Button("取消任务", action: model.cancel) }
-            if model.failed != nil {
-                if model.requiresExpansionConfirmation {
-                    Button("确认继续解压", action: model.approveExpansion)
-                } else {
-                    SecureField("重试密码（若需要）", text: $model.password)
-                    HStack {
-                        Button("重试", action: model.retry)
-                        Button("更换输出位置…", action: model.chooseOutput)
-                    }
-                }
-                Button("跳过此任务", action: model.skip)
-            }
-            if let result = model.results.first {
-                Button("在 Finder 中显示结果") { NSWorkspace.shared.activateFileViewerSelecting([result]) }
-            }
-            if !model.residualWorkspaces.isEmpty {
-                Button("查看中断任务的临时目录") {
-                    NSWorkspace.shared.activateFileViewerSelecting(model.residualWorkspaces.map { URL(fileURLWithPath: $0) })
-                }
-            }
-        }
     }
 }
 
