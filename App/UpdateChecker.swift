@@ -14,6 +14,11 @@ enum ReleaseSource {
     }
 }
 
+/// 更新偏好的共享存储键；设置页与应用启动读取同一值，避免字面量分散。
+enum UpdatePreferences {
+    static let autoDownloadKey = "autoDownloadUpdates"
+}
+
 /// 手动查询正式版；下载链接固定在本项目，服务端数据不能指定任意跳转地址。
 enum UpdateChecker {
     struct Release: Decodable {

@@ -1,13 +1,14 @@
 ---
 title: 文档索引
 status: active
-last_updated: 2026-11-03
+last_updated: 2026-11-04
 ---
 
 # 文档索引
 
 | 我想… | 看这里 |
 |---|---|
+| 查看自动下载更新设置验证 | [验证记录](validation/2026-11-04-auto-download-update.md) |
 | 查看性能、内存与崩溃防护加固验证 | [验证记录](validation/2026-11-03-architecture-hardening.md) |
 | 查看 0.0.8 双架构发布验证 | [发布验证](validation/2026-11-03-release-0.0.8.md) |
 | 查看 0.0.7 双架构发布验证 | [发布验证](validation/2026-11-02-release-0.0.7.md) |

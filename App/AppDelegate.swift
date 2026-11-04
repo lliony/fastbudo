@@ -35,8 +35,32 @@ import SwiftUI
         if notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool == true {
             showSettings()
         }
+        scheduleAutomaticUpdateCheck()
     }
     @objc private func publishNewItemTypes() { NewItemTypes.broadcast() }
+
+    /// 开启自动下载后启动静默检查一次；关闭开关、任务忙、检查失败或已最新时都不打扰，下次启动重试。
+    private func scheduleAutomaticUpdateCheck() {
+        Task {
+            // 避开启动高峰与剪贴板、截图初始化，再联网检查。
+            try? await Task.sleep(for: .seconds(30))
+            guard UserDefaults.standard.bool(forKey: UpdatePreferences.autoDownloadKey) else { return }
+            await runAutomaticUpdate()
+        }
+    }
+
+    private func runAutomaticUpdate() async {
+        guard !model.busy else { return }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        // SE-0230 展平后可选：无更新、检查失败都得到 nil，统一静默跳过。
+        guard let release = try? await UpdateChecker.check(current: version) else { return }
+        do {
+            let update = try await UpdateInstaller.prepare(release: release, destination: Bundle.main.bundleURL)
+            try await installUpdate(update)
+        } catch {
+            // 自动流程不弹窗；installUpdate 与 prepare 已清理各自暂存目录。
+        }
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings()

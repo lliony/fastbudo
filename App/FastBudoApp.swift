@@ -80,6 +80,7 @@ struct PreferencesView: View {
     let installUpdate: (UpdateInstaller.Prepared) async throws -> Void
     @AppStorage("excludeDSStore") private var excludeDSStore = true
     @AppStorage("preserveAttributes") private var preserveAttributes = false
+    @AppStorage(UpdatePreferences.autoDownloadKey) private var autoDownloadUpdates = false
     @AppStorage(NewItemTypes.key, store: NewItemTypes.defaults) private var newFileTypes = "txt, md"
     @State private var page = "通用"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -147,7 +148,8 @@ struct PreferencesView: View {
                                 }
                                 .disabled(checkingUpdate || installingUpdate)
                             }
-                            Text("手动检查 Gitee 正式版，更新完成后自动重启。")
+                            SettingsToggle(title: "自动下载更新", isOn: $autoDownloadUpdates)
+                            Text("开启后启动时自动检查 Gitee 正式版，发现新版本直接下载、安装并重启应用，不再询问；关闭时仅在手动检查后询问。归档任务进行中会跳过，失败留待下次启动重试。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         SettingsSection("本机运行") {
@@ -281,6 +283,11 @@ struct PreferencesView: View {
             do {
                 let release = try await UpdateChecker.check(current: currentVersion)
                 availableRelease = release
+                // 开启自动下载时手动检查同样不再询问，直接进入下载安装。
+                if release != nil && autoDownloadUpdates {
+                    updateProgress = .manifest
+                    installingUpdate = true
+                }
                 updateDialogPresented = true
             } catch {
                 if !Task.isCancelled {
