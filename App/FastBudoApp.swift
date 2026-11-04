@@ -147,7 +147,7 @@ struct PreferencesView: View {
                                 }
                                 .disabled(checkingUpdate || installingUpdate)
                             }
-                            Text("手动检查 GitHub 正式版，更新完成后自动重启。")
+                            Text("手动检查 Gitee 正式版，更新完成后自动重启。")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         SettingsSection("本机运行") {

@@ -189,7 +189,7 @@ enum UpdateInstaller {
             guard let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.scheme == "https",
                   let host = response.url?.host,
-                  ["github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"].contains(host),
+                  ["gitee.com", "foruda.gitee.com"].contains(host),
                   let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize,
                   size > 0, size <= maximumSize else {
                 throw ArchiveFailure("无法下载有效安装包或校验文件，请稍后重试。")

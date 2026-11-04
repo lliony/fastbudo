@@ -2,16 +2,15 @@ import Foundation
 
 /// 检查与下载共用发行源；客户端匿名访问，不内置仓库凭据。
 enum ReleaseSource {
-    static let repository = "lliony/fastbudo"
-    static let apiLatest = URL(string: "https://api.github.com/repos/" + repository + "/releases/latest")!
-    static let webLatest = URL(string: "https://github.com/" + repository + "/releases/latest")!
-    static let feed = URL(string: "https://github.com/" + repository + "/releases.atom")!
+    static let repository = "llliony/fastbudo"
+    static let apiLatest = URL(string: "https://gitee.com/api/v5/repos/" + repository + "/releases/latest")!
+    static let webLatest = URL(string: "https://gitee.com/" + repository + "/releases/latest")!
     static let tagPrefix = "/" + repository + "/releases/tag/"
     static func releaseURL(tag: String) -> URL {
-        URL(string: "https://github.com/" + repository + "/releases/tag/")!.appendingPathComponent(tag)
+        URL(string: "https://gitee.com/" + repository + "/releases/tag/")!.appendingPathComponent(tag)
     }
     static func downloadBase(tag: String) -> URL {
-        URL(string: "https://github.com/" + repository + "/releases/download/")!.appendingPathComponent(tag)
+        URL(string: "https://gitee.com/" + repository + "/releases/download/")!.appendingPathComponent(tag)
     }
 }
 
@@ -19,7 +18,7 @@ enum ReleaseSource {
 enum UpdateChecker {
     struct Release: Decodable {
         let tag: String
-        let draft: Bool
+        let draft: Bool?
         let prerelease: Bool
         let body: String?
 
@@ -43,7 +42,7 @@ enum UpdateChecker {
 
         var errorDescription: String? {
             switch self {
-            case .rateLimited: "GitHub 暂时限制了请求，请稍后重试。"
+            case .rateLimited: "Gitee 暂时限制了请求，请稍后重试。"
             case .noRelease: "无法访问更新源：仓库可能为私有或尚无正式版本，请联系发布者确认。"
             case .invalidResponse: "版本信息无效，请稍后重试。"
             case .server(let status): "更新服务返回错误（\(status)），请稍后重试。"
@@ -54,7 +53,7 @@ enum UpdateChecker {
     static func check(current: String, session: URLSession = .shared) async throws -> Release? {
         var request = URLRequest(url: ReleaseSource.apiLatest,
                                  cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("FastBudo", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
         try Task.checkCancellation()
@@ -67,82 +66,9 @@ enum UpdateChecker {
             let (_, pageResponse) = try await session.data(for: fallback)
             try Task.checkCancellation()
             guard let pageResponse = pageResponse as? HTTPURLResponse else { throw CheckError.invalidResponse }
-            let release = try newerRelease(pageResponse: pageResponse, current: current)
-            return try await withFeedNotes(release, session: session)
+            return try newerRelease(pageResponse: pageResponse, current: current)
         }
-        let release = try newerRelease(data: data, status: response.statusCode, current: current)
-        return try await withFeedNotes(release, session: session)
-    }
-
-    // 官网 Atom 正文不占 REST API 配额；按已验证的标签匹配，不能拿其他版本说明代替。
-    private static func withFeedNotes(_ release: Release?, session: URLSession) async throws -> Release? {
-        guard let release, release.notes == nil else { return release }
-        let url = ReleaseSource.feed
-        do {
-            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-            let (data, response) = try await session.data(for: request)
-            try Task.checkCancellation()
-            guard let response = response as? HTTPURLResponse, response.statusCode == 200,
-                  response.url == url, let notes = feedNotes(data: data, tag: release.tag) else { return release }
-            return Release(tag: release.tag, draft: release.draft, prerelease: release.prerelease, body: notes)
-        } catch {
-            try Task.checkCancellation()
-            return release
-        }
-    }
-
-    static func feedNotes(data: Data, tag: String) -> String? {
-        guard data.count <= 2 * 1024 * 1024,
-              let xml = String(data: data, encoding: .utf8), !xml.contains("<!DOCTYPE") else { return nil }
-        let delegate = FeedNotes(target: ReleaseSource.releaseURL(tag: tag).absoluteString)
-        let parser = XMLParser(data: data)
-        parser.shouldResolveExternalEntities = false
-        parser.delegate = delegate
-        guard parser.parse(), let html = delegate.result else { return nil }
-        var text = html.replacingOccurrences(of: "(?is)<(script|style)\\b[^>]*>.*?</\\1>", with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: "(?i)<li(?:\\s[^>]*)?>", with: "- ", options: .regularExpression)
-        text = text.replacingOccurrences(of: "(?i)</(?:p|h[1-6]|li|div|ul|ol)>|<br\\s*/?>", with: "\n", options: .regularExpression)
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        let entities = ["&lt;": "<", "&gt;": ">", "&quot;": "\"", "&apos;": "'", "&nbsp;": " "]
-        for (entity, value) in entities { text = text.replacingOccurrences(of: entity, with: value) }
-        if let regex = try? NSRegularExpression(pattern: "&#(x[0-9a-fA-F]+|[0-9]+);") {
-            for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
-                guard let range = Range(match.range(at: 1), in: text), let whole = Range(match.range, in: text) else { continue }
-                let value = String(text[range])
-                let number = value.hasPrefix("x") ? UInt32(value.dropFirst(), radix: 16) : UInt32(value)
-                if let number, let scalar = UnicodeScalar(number) { text.replaceSubrange(whole, with: String(scalar)) }
-            }
-        }
-        text = text.replacingOccurrences(of: "&amp;", with: "&")
-        let result = text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }.joined(separator: "\n")
-        return result.isEmpty ? nil : result
-    }
-
-    private final class FeedNotes: NSObject, XMLParserDelegate {
-        let target: String
-        var result: String?
-        private var inEntry = false
-        private var inContent = false
-        private var matches = false
-        private var content = ""
-        init(target: String) { self.target = target }
-        func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String]) {
-            if elementName == "entry" { inEntry = true; matches = false; content = "" }
-            if inEntry && elementName == "link" && attributes["href"] == target { matches = true }
-            if inEntry && elementName == "content" { inContent = true }
-        }
-        func parser(_ parser: XMLParser, foundCharacters string: String) { if inContent { content += string } }
-        func parser(_ parser: XMLParser, foundCDATA CDATABlock: Data) {
-            if inContent, let text = String(data: CDATABlock, encoding: .utf8) { content += text }
-        }
-        func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName: String?) {
-            if elementName == "content" { inContent = false }
-            if elementName == "entry" {
-                if matches { result = content }
-                inEntry = false
-            }
-        }
+        return try newerRelease(data: data, status: response.statusCode, current: current)
     }
 
     static func newerRelease(data: Data, status: Int, current: String) throws -> Release? {
@@ -153,7 +79,7 @@ enum UpdateChecker {
         default: throw CheckError.server(status)
         }
         guard let release = try? JSONDecoder().decode(Release.self, from: data),
-              !release.draft, !release.prerelease else { throw CheckError.invalidResponse }
+              release.draft != true, !release.prerelease else { throw CheckError.invalidResponse }
         return try newerRelease(release, current: current)
     }
 
@@ -161,7 +87,7 @@ enum UpdateChecker {
         if pageResponse.statusCode == 404 { throw CheckError.noRelease }
         guard pageResponse.statusCode == 200 else { throw CheckError.server(pageResponse.statusCode) }
         let prefix = ReleaseSource.tagPrefix
-        guard let url = pageResponse.url, url.scheme == "https", url.host == "github.com",
+        guard let url = pageResponse.url, url.scheme == "https", url.host == "gitee.com",
               url.user == nil, url.password == nil, url.port == nil || url.port == 443,
               url.path.hasPrefix(prefix) else { throw CheckError.invalidResponse }
         let tag = String(url.path.dropFirst(prefix.count))
