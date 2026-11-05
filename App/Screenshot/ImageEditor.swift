@@ -30,6 +30,13 @@ struct ImageAnnotation {
         return CGRect(x: min(first.x, last.x), y: min(first.y, last.y),
                       width: abs(last.x - first.x), height: abs(last.y - first.y))
     }
+
+    /// 仅对文字标注返回可在原图像素坐标使用的盒子矩形（宽高≥2），供画布选中高亮引用。
+    var textAnnotatedRect: CGRect? {
+        guard tool == .text else { return nil }
+        let box = rect
+        return box.width >= 2 && box.height >= 2 ? box : nil
+    }
 }
 
 /// 编辑器几何口径：SwiftUI 工具层和 AppKit 画布共用，避免两套坐标。
@@ -251,6 +258,12 @@ enum EditorLayout {
             if let old { NSGraphicsContext.current?.imageInterpolation = old }
             return
         }
+        path.stroke()
+    }
+
+    /// 画布选中态的辅助描边（不进入导出）。
+    func drawAnnotationSelectionRing(path: NSBezierPath, color: NSColor) {
+        color.setStroke()
         path.stroke()
     }
 }
@@ -545,6 +558,12 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     var onMove: ((CGSize) -> Void)?
     private var movePoint: CGPoint?
     private var pending: ImageAnnotation?
+    /// 正在选中的文字盒子索引（供高亮与拖角缩放）。
+    private var selectedTextIndex: Int?
+    /// 命中右下角缩放柄时记录 (索引, 原始盒)。
+    private var textResize: (index: Int, box: CGRect)?
+    /// 拖动选中文字盒子的上一事件图像素点，用于累积位移。
+    private var textMovePoint: CGPoint?
     private(set) var textField: NSTextField?
     private var textEditingOrigin = CGPoint.zero
     /// 文字输入盒子（原图像素坐标）；随拖动定义，单点回退时 nil。
@@ -698,21 +717,42 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         guard rect.width > 0, rect.height > 0 else { return }
         if let image = backdrop(for: rect) {
             image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-            guard textField == nil, let pending, let context = NSGraphicsContext.current?.cgContext else { return }
-            context.saveGState()
-            context.clip(to: rect)
-            context.translateBy(x: rect.minX, y: rect.minY)
-            context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
-            model.draw(annotation: pending)
-            context.restoreGState()
-        } else if textField == nil, let context = NSGraphicsContext.current?.cgContext {
+            drawOverlay(rect)
+        } else {
+            guard textField == nil, let context = NSGraphicsContext.current?.cgContext else { return }
             context.saveGState()
             context.clip(to: rect)
             context.translateBy(x: rect.minX, y: rect.minY)
             context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
             model.draw(pending: pending)
+            drawSelectionHighlight()
             context.restoreGState()
         }
+    }
+
+    /// 在已完成标注底图之上叠加绘制中的标注与选中高亮（仅预览，不进导出）。
+    private func drawOverlay(_ rect: CGRect) {
+        guard textField == nil, let context = NSGraphicsContext.current?.cgContext else { return }
+        context.saveGState()
+        context.clip(to: rect)
+        context.translateBy(x: rect.minX, y: rect.minY)
+        context.scaleBy(x: rect.width / model.size.width, y: rect.height / model.size.height)
+        if let pending { model.draw(annotation: pending) }
+        drawSelectionHighlight()
+        context.restoreGState()
+    }
+
+    /// 画布高亮选中文字盒子（虚线外框 + 右下角缩放柄），仅原图像素坐标叠加层。
+    private func drawSelectionHighlight() {
+        guard let index = selectedTextIndex, model.annotations.indices.contains(index),
+              let box = model.annotations[index].textAnnotatedRect else { return }
+        let ring = NSBezierPath(rect: box.insetBy(dx: -3, dy: -3))
+        ring.lineWidth = 2
+        ring.setLineDash([6, 4], count: 2, phase: 0)
+        model.drawAnnotationSelectionRing(path: ring, color: NSColor(model.color))
+        let handle = NSBezierPath(ovalIn: CGRect(x: box.maxX - 8, y: box.maxY - 8, width: 16, height: 16))
+        NSColor.white.setFill(); handle.fill()
+        NSColor(model.color).setStroke(); handle.lineWidth = 2; handle.stroke()
     }
 
     private func point(_ event: NSEvent) -> CGPoint {
@@ -721,6 +761,15 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
                        y: min(model.size.height, max(0, (local.y - rect.minY) * model.size.height / rect.height)))
     }
 
+    /// 命中原图像素点处的文字盒子索引（按最后添加优先）；无则 nil。
+    private func textAnnotationIndex(at p: CGPoint) -> Int? {
+        for index in model.annotations.indices.reversed() {
+            if let box = model.annotations[index].textAnnotatedRect, box.contains(p) { return index }
+        }
+        return nil
+    }
+
+    /// 拖动画布选区时按 hitTest 优先给文字盒子；非文字工具直接交给画布。
     override func mouseDown(with event: NSEvent) {
         guard imageRect.contains(convert(event.locationInWindow, from: nil)) else { return }
         window?.makeFirstResponder(self)
@@ -731,7 +780,24 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             return
         }
         commitTextEditing()
-        pending = ImageAnnotation(tool: model.tool, points: [point(event)], color: NSColor(model.color), width: model.width)
+        let p = point(event)
+        // 文字工具：先命中已有文字盒子（点击拖动移动／拖右下角缩放柄），否则划框新建。
+        if model.tool == .text {
+            if let index = textAnnotationIndex(at: p) {
+                selectedTextIndex = index
+                let box = model.annotations[index].rect
+                // 落在右下角 32 像素缩放区内 → 进缩放，否则整体移动。
+                let handle = CGRect(x: box.maxX - 32, y: box.maxY - 32, width: 32, height: 32)
+                textResize = handle.contains(p) ? (index, box) : nil
+                // 命中即记为移动起点，第一次拖动就能按位移移动，而不跳过首帧。
+                textMovePoint = p
+                needsDisplay = true
+                return
+            }
+            pending = ImageAnnotation(tool: .text, points: [p], color: NSColor(model.color), width: model.width)
+        } else {
+            pending = ImageAnnotation(tool: model.tool, points: [p], color: NSColor(model.color), width: model.width)
+        }
         needsDisplay = true
     }
 
@@ -740,6 +806,26 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             let current = event.locationInWindow
             movePoint = current
             onMove?(CGSize(width: current.x - previous.x, height: previous.y - current.y))
+            return
+        }
+        // 拖动选中的文字盒子：有缩放柄则缩放，否则整体移动。
+        if let resize = textResize, let selected = selectedTextIndex,
+           model.annotations.indices.contains(selected) {
+            let current = point(event)
+            let origin = resize.box.origin
+            let width = max(40, current.x - origin.x)
+            let height = max(CGFloat(model.width) * 5, current.y - origin.y)
+            model.setTextSize(at: selected, box: CGRect(origin: origin, size: CGSize(width: width, height: height)))
+            needsDisplay = true
+            return
+        }
+        if model.tool == .text, let selected = selectedTextIndex,
+           model.annotations.indices.contains(selected), textResize == nil {
+            let current = point(event)
+            guard let previous = textMovePoint else { textMovePoint = current; return }
+            model.translate(selected, by: CGSize(width: current.x - previous.x, height: current.y - previous.y))
+            textMovePoint = current
+            needsDisplay = true
             return
         }
         guard var mark = pending else { return }
@@ -751,6 +837,9 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
 
     override func mouseUp(with event: NSEvent) {
         movePoint = nil
+        textMovePoint = nil
+        // 松开时保留选择（选中框继续亮显），仅结束本次拖动/缩放。
+        textResize = nil
         guard let mark = pending else { return }
         pending = nil
         // 文字工具：拖动定义盒子，松开进入就地输入；单点回退默认宽度盒子。

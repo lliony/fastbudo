@@ -393,6 +393,55 @@ import Testing
         #expect(field.frame.width >= field.font!.pointSize * 2)
     }
 
+    @Test func clickingTextBoxAndDraggingMovesIt() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        model.append(ImageAnnotation(tool: .text,
+                                     points: [CGPoint(x: 50, y: 40), CGPoint(x: 150, y: 90)],
+                                     color: .systemGreen, width: 4, text: "移动"))
+        canvas.annotating = true
+        let before = model.annotations[0].points
+        // 点→像素 ×2；盒 (50,40)-(150,90) 像素 → 点 (25,20)-(75,45)。
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 50, y: 32), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 70, y: 52), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 70, y: 52), window: window))
+        let after = model.annotations[0].points
+        #expect(after[0].x == before[0].x + 40)
+        #expect(after[0].y == before[0].y + 40)
+        #expect(after[1].x == before[1].x + 40)
+        #expect(after[1].y == before[1].y + 40)
+    }
+
+    @Test func draggingResizeCornerResizesTextBox() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        model.append(ImageAnnotation(tool: .text,
+                                     points: [CGPoint(x: 50, y: 40), CGPoint(x: 150, y: 90)],
+                                     color: .systemGreen, width: 4, text: "缩放"))
+        canvas.annotating = true
+        // 右上角缩放柄：盒 (50,40)-(150,90) 像素 → 右下点 (75,45) 点。
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 75, y: 45), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 115, y: 65), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 115, y: 65), window: window))
+        let rect = model.annotations[0].rect
+        #expect(rect.width == 180)
+        #expect(rect.height == 90)
+    }
+
     /// 文字标注的字号按显示比例换算；用 800×600 像素、400×300 点的图避免输入框高过画布。
     private func textFixture() throws -> NSImage {
         let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 600,
