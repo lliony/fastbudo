@@ -311,6 +311,15 @@ import SwiftUI
         #expect(closed == 1)
     }
 
+    @Test @MainActor func pinnedImageUsesScreensaverLevel() throws {
+        let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        // 贴图需盖过启动器/工具弹出框（如 utools），与区域选区一致用 screenSaver 置顶层。
+        #expect(pin.panel.level == .screenSaver)
+        pin.close()
+    }
+
     @Test @MainActor func pinClosedDirectlyIsRemovedFromController() throws {
         let context = try #require(CGContext(data: nil, width: 2, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
                                             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))

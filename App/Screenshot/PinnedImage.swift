@@ -158,7 +158,7 @@ struct PinnedImageToolbarLayout {
                                 backing: .buffered, defer: false)
         super.init()
         panel.title = "FastBudo 贴图"
-        panel.level = .floating
+        panel.level = .screenSaver
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.isMovableByWindowBackground = true
