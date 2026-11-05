@@ -9,6 +9,7 @@ last_updated: 2026-11-04
 | 我想… | 看这里 |
 |---|---|
 | 查看 0.0.9 双架构发布验证 | [发布验证](validation/2026-11-05-release-0.0.9.md) |
+| 文字标注盒子（宽高可调、自动换行、可移动） | [实施计划](superpowers/plans/2026-11-05-text-annotation-box.md) |
 | 查看自动下载更新设置验证 | [验证记录](validation/2026-11-04-auto-download-update.md) |
 | 查看性能、内存与崩溃防护加固验证 | [验证记录](validation/2026-11-03-architecture-hardening.md) |
 | 查看 0.0.8 双架构发布验证 | [发布验证](validation/2026-11-03-release-0.0.8.md) |
