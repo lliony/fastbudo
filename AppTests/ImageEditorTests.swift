@@ -236,9 +236,13 @@ import Testing
     }
 
     private func mouse(_ type: NSEvent.EventType, at point: CGPoint, window: NSWindow) -> NSEvent {
-        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
-                           windowNumber: window.windowNumber, context: nil, eventNumber: 1,
-                           clickCount: 1, pressure: 1)!
+        // 测试窗口未上屏，合成事件的 locationInWindow 等于传入的 location；
+        // 画布是 flipped，这里把测试用的视图坐标换成未翻转的窗口坐标。
+        let contentHeight = window.contentView?.bounds.height ?? window.frame.height
+        let location = CGPoint(x: point.x, y: contentHeight - point.y)
+        return NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: 0,
+                                  windowNumber: window.windowNumber, context: nil, eventNumber: 1,
+                                  clickCount: 1, pressure: 1)!
     }
 
     @Test func toolSwitchDoesNotRedrawCanvas() throws {
@@ -433,8 +437,8 @@ import Testing
                                      points: [CGPoint(x: 50, y: 40), CGPoint(x: 150, y: 90)],
                                      color: .systemGreen, width: 4, text: "缩放"))
         canvas.annotating = true
-        // 右上角缩放柄：盒 (50,40)-(150,90) 像素 → 右下点 (75,45) 点。
-        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 75, y: 45), window: window))
+        // 右下角缩放区：盒 (50,40)-(150,90) 像素 → 区内 (74,44) 点。
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 74, y: 44), window: window))
         canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 115, y: 65), window: window))
         canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 115, y: 65), window: window))
         let rect = model.annotations[0].rect
