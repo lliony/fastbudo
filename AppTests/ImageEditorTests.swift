@@ -440,6 +440,35 @@ import Testing
         #expect(model.undone.isEmpty)
     }
 
+    @Test func translateAndResizeTextBoxUpdatePixels() async throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let mark = ImageAnnotation(tool: .text, points: [CGPoint(x: 40, y: 30), CGPoint(x: 160, y: 100)],
+                                   color: .systemRed, width: 4, text: "换行测试 WrapBox")
+        model.append(mark)
+        let before = try await model.png()
+        model.translate(0, by: CGSize(width: 30, height: 20))
+        let moved = try await model.png()
+        #expect(before != moved, "移动盒子必须改变导出像素")
+        model.setTextSize(at: 0, box: CGRect(x: 60, y: 50, width: 90, height: 30))
+        let resized = try await model.png()
+        #expect(moved != resized, "缩放盒子必须改变导出像素")
+    }
+
+    @Test func textWrapsInsideBoxOnExport() async throws {
+        let model = ImageEditorModel(image: try textFixture())
+        // 窄盒 + 长文本：渲染结果必须是被换行约束到盒内的像素（比单行裸文本高）。
+        let mark = ImageAnnotation(tool: .text, points: [CGPoint(x: 40, y: 40), CGPoint(x: 150, y: 200)],
+                                   color: .systemBlue, width: 4, text: "这是一段很长需要在框内自动换行的文字内容")
+        model.append(mark)
+        let boxed = try await model.png()
+        // 同尺寸裸文本沿单行绘制（无盒子时回退），两者像素必须不同。
+        let fallback = ImageEditorModel(image: try textFixture())
+        fallback.append(ImageAnnotation(tool: .text, points: [CGPoint(x: 40, y: 40)],
+                                        color: .systemBlue, width: 4, text: "这是一段很长需要在框内自动换行的文字内容"))
+        let raw = try await fallback.png()
+        #expect(boxed != raw, "盒子渲染必须与单行裸文本不同")
+    }
+
     @Test func saveNeverOverwritesExistingOutput() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("fastbudo-editor-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)

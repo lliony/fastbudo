@@ -126,6 +126,26 @@ enum EditorLayout {
         annotations.append(last); revision += 1
     }
 
+    /// 移动第 `index` 条标注整体（文字盒子用）。
+    func translate(_ index: Int, by offset: CGSize) {
+        guard annotations.indices.contains(index) else { return }
+        annotations[index].points = annotations[index].points.map {
+            CGPoint(x: $0.x + offset.width, y: $0.y + offset.height)
+        }
+        undone.removeAll(); revision += 1
+    }
+
+    /// 把第 `index` 条文字标注的盒子改为 `box`（并规范为左上/右下两点）。
+    func setTextSize(at index: Int, box: CGRect) {
+        guard annotations.indices.contains(index) else { return }
+        let standardized = box.standardized
+        annotations[index].points = [
+            CGPoint(x: standardized.minX, y: standardized.minY),
+            CGPoint(x: standardized.maxX, y: standardized.maxY),
+        ]
+        undone.removeAll(); revision += 1
+    }
+
     /// 原影像素坐标下的完整渲染；同一 revision 的画布预览、复制、保存与贴图共用一份结果。
     func rendered() throws -> NSImage {
         if let renderCache, renderCache.revision == revision { return renderCache.image }
@@ -199,7 +219,21 @@ enum EditorLayout {
             }
         case .text:
             let font = NSFont.systemFont(ofSize: max(16, mark.width * 5), weight: .medium)
-            (mark.text as NSString).draw(at: first, withAttributes: [.font: font, .foregroundColor: mark.color])
+            let box = mark.rect
+            // 有效盒子（宽高≥2）→ 圆角白底 + 描边 + 自动换行；否则回退旧的单行绘制兼容存量与测试。
+            if box.width >= 2, box.height >= 2 {
+                let boxPath = NSBezierPath(roundedRect: box, xRadius: 6, yRadius: 6)
+                NSColor.white.withAlphaComponent(0.92).setFill(); boxPath.fill()
+                mark.color.setStroke(); boxPath.lineWidth = 1; boxPath.stroke()
+                let textInset = box.insetBy(dx: 6, dy: 5)
+                let paragraph = NSMutableParagraphStyle()
+                paragraph.lineBreakMode = .byWordWrapping
+                (mark.text as NSString).draw(with: textInset, options: [.usesLineFragmentOrigin],
+                                              attributes: [.font: font, .foregroundColor: mark.color,
+                                                           .paragraphStyle: paragraph])
+            } else {
+                (mark.text as NSString).draw(at: first, withAttributes: [.font: font, .foregroundColor: mark.color])
+            }
             return
         case .mosaic:
             let area = mark.rect.intersection(CGRect(origin: .zero, size: size)).integral
