@@ -547,6 +547,8 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private var pending: ImageAnnotation?
     private(set) var textField: NSTextField?
     private var textEditingOrigin = CGPoint.zero
+    /// 文字输入盒子（原图像素坐标）；随拖动定义，单点回退时 nil。
+    private var textEditingBox: CGRect?
     private var textClickMonitor: Any?
     private var displayedRevision = -1
     private var backdropImage: NSImage?
@@ -569,13 +571,17 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     private var imageRect: CGRect { EditorLayout.imageRect(in: bounds, imageSize: model.size) }
 
     /// 文字沿用原图像素坐标；输入框字号按当前显示比例换算，导出的字号与预览一致。
-    private func beginTextEditing(at point: CGPoint) {
+    /// 文字工具的操作是“拖动先定义盒子”，松开才进入就地输入，故输入框按 `box` 定位。
+    private func beginTextEditing(in box: CGRect) {
         commitTextEditing()
+        let standardized = box.standardized
         let scale = imageRect.width / max(1, model.size.width)
         let fontSize = max(16, CGFloat(model.width) * 5) * scale
-        let origin = CGPoint(x: imageRect.minX + point.x * scale, y: imageRect.minY + point.y * scale)
-        let field = NSTextField(frame: CGRect(x: origin.x, y: origin.y, width: max(160, fontSize * 8),
-                                              height: fontSize * 2))
+        let origin = CGPoint(x: imageRect.minX + standardized.minX * scale,
+                             y: imageRect.minY + standardized.minY * scale)
+        let field = NSTextField(frame: CGRect(x: origin.x, y: origin.y,
+                                              width: max(standardized.width * scale, fontSize * 2),
+                                              height: max(standardized.height * scale, fontSize * 2)))
         field.font = .systemFont(ofSize: fontSize)
         field.textColor = NSColor(model.color)
         field.stringValue = ""
@@ -587,7 +593,8 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         field.target = self
         field.action = #selector(commitTextEditing)
         textField = field
-        textEditingOrigin = point
+        textEditingOrigin = CGPoint(x: standardized.minX, y: standardized.minY)
+        textEditingBox = standardized
         addSubview(field)
         window?.makeFirstResponder(field)
         textClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
@@ -602,15 +609,23 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
     @objc func commitTextEditing() {
         guard let field = textField else { return }
         let string = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let box = textEditingBox
         let origin = textEditingOrigin
         let fontSize = field.font?.pointSize ?? 16
         textField = nil
+        textEditingBox = nil
         if let monitor = textClickMonitor { NSEvent.removeMonitor(monitor); textClickMonitor = nil }
         field.removeFromSuperview()
         window?.makeFirstResponder(self)
         guard !string.isEmpty else { return }
-        let mark = ImageAnnotation(tool: .text, points: [origin, CGPoint(x: origin.x + fontSize, y: origin.y)],
+        let mark: ImageAnnotation
+        if let box, box.width >= 2, box.height >= 2 {
+            mark = ImageAnnotation(tool: .text, points: [box.origin, CGPoint(x: box.maxX, y: box.maxY)],
                                    color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+        } else {
+            mark = ImageAnnotation(tool: .text, points: [origin, CGPoint(x: origin.x + fontSize, y: origin.y)],
+                                   color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+        }
         model.append(mark)
         needsDisplay = true
     }
@@ -715,10 +730,6 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
             else { window?.performDrag(with: event) }
             return
         }
-        if model.tool == .text {
-            beginTextEditing(at: point(event))
-            return
-        }
         commitTextEditing()
         pending = ImageAnnotation(tool: model.tool, points: [point(event)], color: NSColor(model.color), width: model.width)
         needsDisplay = true
@@ -742,6 +753,19 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         movePoint = nil
         guard let mark = pending else { return }
         pending = nil
+        // 文字工具：拖动定义盒子，松开进入就地输入；单点回退默认宽度盒子。
+        if model.tool == .text {
+            if mark.rect.width >= 2, mark.rect.height >= 2 {
+                beginTextEditing(in: mark.rect)
+            } else {
+                let first = mark.points.first ?? point(event)
+                let defaultWidth = max(200, CGFloat(model.width) * 5 * 8)
+                let defaultHeight = max(20, CGFloat(model.width) * 5 * 2)
+                beginTextEditing(in: CGRect(x: first.x, y: first.y, width: defaultWidth, height: defaultHeight))
+            }
+            needsDisplay = true
+            return
+        }
         if mark.tool == .pen || mark.rect.width > 0 || mark.rect.height > 0 { model.append(mark) }
         needsDisplay = true
     }

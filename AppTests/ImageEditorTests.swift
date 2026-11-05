@@ -325,7 +325,7 @@ import Testing
         #expect(bottom.blueComponent > 0.9 && bottom.redComponent < 0.1)
     }
 
-    @Test func textToolStartsInlineEditingAndCommitsOnReturn() throws {
+    @Test func textDragDefinesBoxAndCommitsTypedText() throws {
         let model = ImageEditorModel(image: try textFixture())
         let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
                              styleMask: [.borderless], backing: .buffered, defer: false)
@@ -337,6 +337,8 @@ import Testing
         model.select(.text)
         canvas.annotating = true
         canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 200, y: 180), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 200, y: 180), window: window))
         let field = try #require(canvas.textField)
         let imageRect = EditorLayout.imageRect(in: canvas.bounds, imageSize: model.size)
         #expect(imageRect.contains(CGPoint(x: field.frame.minX, y: field.frame.minY)))
@@ -344,7 +346,11 @@ import Testing
         canvas.commitTextEditing()
 
         #expect(model.annotations.count == 1)
-        #expect(model.annotations.first?.text == "Strut")
+        let mark = try #require(model.annotations.first)
+        #expect(mark.text == "Strut")
+        // 输入条目的两点应来自拖动定义的盒子（宽≥2、高≥2）。
+        #expect(mark.rect.width >= 2)
+        #expect(mark.rect.height >= 2)
         #expect(canvas.textField == nil)
     }
 
@@ -360,12 +366,31 @@ import Testing
         model.select(.text)
         canvas.annotating = true
         canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 100, y: 150), window: window))
         let field = try #require(canvas.textField)
         field.stringValue = "   "
         canvas.commitTextEditing()
 
         #expect(model.annotations.isEmpty)
         #expect(canvas.textField == nil)
+    }
+
+    @Test func singleClickOpensDefaultWidthTextBox() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 100, y: 150), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 100, y: 150), window: window))
+        let field = try #require(canvas.textField)
+        // 单点（无有效拖动）回退默认宽度盒子，输入框至少能容纳一个字。
+        #expect(field.frame.width >= field.font!.pointSize * 2)
     }
 
     /// 文字标注的字号按显示比例换算；用 800×600 像素、400×300 点的图避免输入框高过画布。
