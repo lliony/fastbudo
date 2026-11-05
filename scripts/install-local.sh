@@ -33,10 +33,10 @@ sleep 1
 # 时间戳备份旧版（禁止 rm -rf 覆盖重装），再装入新包。
 timestamp=$(date +%s)
 if [[ -d /Applications/FastBudo.app ]]; then
-    mv /Applications/FastBudo.app "/Applications/FastBudo.app.bak.$timestamp"
+    mv /Applications/FastBudo.app "/Applications/FastBudo.app.bak.${timestamp}"
 fi
 mv "$stage/FastBudo.app" /Applications/FastBudo.app
 
 # 重启。
 open /Applications/FastBudo.app
-echo "已安装并重启 FastBudo（备份：FastBudo.app.bak.$timestamp）。"
+echo "已安装并重启 FastBudo（备份：FastBudo.app.bak.${timestamp}）。"
