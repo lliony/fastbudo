@@ -30,7 +30,7 @@
     </nav>
     <div class="nav-right">
       <a href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">更新日志</a>
-      <a class="btn-nav" href="https://gitee.com/llliony/fastbudo/releases">下载</a>
+      <button class="btn-nav" type="button" data-download-open aria-haspopup="dialog" aria-controls="download-dialog">下载</button>
     </div>
   </div>
 </header>
@@ -40,11 +40,11 @@
 <section class="hero" id="top" aria-labelledby="hero-title">
   <div class="hero-fade" aria-hidden="true"></div>
   <div class="wrap hero-inner">
-    <p class="badge"><span class="dot" aria-hidden="true"></span><b>FastBudo 0.0.9</b><span>·</span>macOS 27<span>·</span>Apple 芯片</p>
+    <p class="badge"><span class="dot" aria-hidden="true"></span><b>FastBudo 0.0.9</b><span>·</span>macOS<span>·</span>Apple 芯片 / Intel</p>
     <h1 id="hero-title"><span class="line">文件小事，</span><span class="line grad">右键搞定。</span></h1>
     <p class="hero-sub">压缩、新建、剪贴板、截图贴图。<br>四件小事，都在 Finder 和菜单栏里。</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://gitee.com/llliony/fastbudo/releases">下载 macOS 版 <span class="arrow" aria-hidden="true">↓</span></a>
+      <button class="btn btn-primary" type="button" data-download-open aria-haspopup="dialog" aria-controls="download-dialog">下载 0.0.9 <span class="arrow" aria-hidden="true">↓</span></button>
       <a class="btn btn-ghost" href="#compress">看看它能做什么</a>
     </div>
     <p class="hero-meta">免费开源<span>·</span>本地处理<span>·</span>不登录<span>·</span>不弹进度窗</p>
@@ -319,12 +319,13 @@
     <h2 id="download-title">把小事，交给右键。</h2>
     <p class="lede">免费开源。装好后它只在 Finder 和菜单栏出现，<br>不占 Dock，不弹进度窗。</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://gitee.com/llliony/fastbudo/releases">下载 0.0.9 <span class="arrow" aria-hidden="true">↓</span></a>
+      <button class="btn btn-primary" type="button" data-download-open aria-haspopup="dialog" aria-controls="download-dialog">下载 0.0.9 <span class="arrow" aria-hidden="true">↓</span></button>
       <a class="btn btn-ghost" href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">查看更新日志</a>
     </div>
-    <p class="dl-meta">Apple 芯片 · macOS 27 · 自有代码 MIT 许可<span class="meta-sep"> · </span><br class="mob"><span class="meta-src">源码与校验和在 Gitee</span>
-      <span class="warn">当前安装包未经 Developer ID 签名与公证，首次打开请在 Finder 中右键 → 打开。</span>
+    <p class="dl-meta"><span>Apple 芯片（macOS 27+）· Intel（macOS 14+）</span><br class="mob"><span class="meta-sep"> · </span><span>自有代码 MIT 许可</span><span class="meta-sep"> · </span><span class="meta-src">源码与校验和在 Gitee</span>
+      <span class="warn">安装包未签名、未公证，首次打开请在 Finder 中右键 → 打开；Intel 包为交叉编译，尚未真机验收。</span>
     </p>
+    <noscript><p class="dl-noscript">未启用脚本，可直接下载：<a href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/FastBudo-0.0.9-macOS-arm64.zip">Apple 芯片</a> · <a href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/FastBudo-0.0.9-macOS-x86_64.zip">Intel 芯片</a></p></noscript>
   </div>
 </section>
 
@@ -334,13 +335,79 @@
   <div class="wrap">
     <div class="foot-grid">
       <div class="foot-brand"><img src="assets/icon-512.webp" width="26" height="26" alt=""><div><b>FastBudo</b><span>文件小事，轻松搞定。</span></div></div>
-      <div class="foot-col"><b>产品</b><a href="https://gitee.com/llliony/fastbudo/releases">下载</a><a href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">更新日志</a><a href="#compress">支持格式</a></div>
+      <div class="foot-col"><b>产品</b><a href="#download">下载</a><a href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">更新日志</a><a href="#compress">支持格式</a></div>
       <div class="foot-col"><b>文档</b><a href="https://gitee.com/llliony/fastbudo/blob/main/README.md">使用指南</a><a href="#menubar">剪贴板</a><a href="#menubar">截图与贴图</a></div>
       <div class="foot-col"><b>关于</b><a href="https://gitee.com/llliony/fastbudo">源代码</a><a href="https://gitee.com/llliony/fastbudo/blob/main/THIRD-PARTY-NOTICES.md">第三方许可</a><a href="https://gitee.com/llliony/fastbudo/issues">反馈问题</a></div>
     </div>
     <div class="foot-bottom"><span>© 2026 FastBudo · 自有代码 MIT 许可 · 文件在本机处理</span><span>Made for macOS</span></div>
   </div>
 </footer>
+
+<dialog class="dl-dialog" id="download-dialog" aria-labelledby="dl-title" aria-describedby="dl-sub">
+  <form method="dialog" class="dl-close-form"><button class="dl-close" aria-label="关闭下载选项">×</button></form>
+  <div class="dl-inner">
+    <div class="dl-top">
+      <img src="assets/icon-512.webp" width="46" height="46" alt="">
+      <p class="dl-kicker">下载 · 0.0.9</p>
+    </div>
+    <h2 id="dl-title">选择芯片类型</h2>
+    <p class="dl-sub" id="dl-sub">选好后直接开始下载，页面不会跳转。</p>
+    <div class="dl-options">
+      <a class="dl-option" data-download-link autofocus href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/FastBudo-0.0.9-macOS-arm64.zip" download="FastBudo-0.0.9-macOS-arm64.zip">
+        <span class="dl-opt-main"><b>Apple 芯片</b><span class="dl-opt-sub">M1、M2、M3、M4 及后续</span></span>
+        <span class="dl-opt-meta"><span class="dl-rec">推荐</span>macOS 27+</span>
+      </a>
+      <a class="dl-option" data-download-link href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/FastBudo-0.0.9-macOS-x86_64.zip" download="FastBudo-0.0.9-macOS-x86_64.zip">
+        <span class="dl-opt-main"><b>Intel 芯片</b><span class="dl-opt-sub">Intel 处理器的 Mac</span></span>
+        <span class="dl-opt-meta">macOS 14+</span>
+      </a>
+    </div>
+    <p class="dl-help">不确定？苹果菜单  → 关于本机 → 芯片。</p>
+    <div class="dl-extra">
+      <a href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/SHA256SUMS.txt" target="_blank" rel="noopener">SHA-256 校验和</a>
+      <a href="https://gitee.com/llliony/fastbudo/releases/download/v0.0.9/FastBudo-0.0.9-source.tar.gz" target="_blank" rel="noopener">源代码</a>
+      <a href="https://gitee.com/llliony/fastbudo/releases/tag/v0.0.9" target="_blank" rel="noopener">版本说明</a>
+    </div>
+    <p class="dl-note"><b>首次打开：</b>未签名、未公证，请在 Finder 中右键 → 打开。<br>Intel 包为交叉编译，尚未真机验收。</p>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const dialog = document.getElementById('download-dialog');
+  if (!dialog) return;
+  const triggers = document.querySelectorAll('[data-download-open]');
+  const canModal = typeof dialog.showModal === 'function';
+  let lastTrigger = null;
+
+  triggers.forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      if (!canModal) {
+        document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      lastTrigger = trigger;
+      if (!dialog.open) dialog.showModal();
+      document.body.classList.add('dl-open');
+    });
+  });
+
+  dialog.addEventListener('close', () => {
+    document.body.classList.remove('dl-open');
+    if (lastTrigger) lastTrigger.focus();
+  });
+
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+
+  dialog.querySelectorAll('[data-download-link]').forEach((link) => {
+    link.addEventListener('click', () => {
+      setTimeout(() => dialog.close(), 120);
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
