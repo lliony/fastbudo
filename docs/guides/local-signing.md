@@ -13,10 +13,18 @@ last_updated: 2026-10-28
 每次构建完成后执行：
 
 ```bash
+bash scripts/install-local.sh
+```
+
+脚本定位最新 Release 构建产物（也可传 derivedDataPath 指定），复制副本后用 `scripts/sign-local.sh` 以固定身份签名，退出旧进程、时间戳备份旧版并原子替换 `/Applications/FastBudo.app`，最后重启。也可只签名不安装：
+
+```bash
 bash scripts/sign-local.sh .build/xcode/Build/Products/Release/FastBudo.app
 ```
 
-脚本按内置引擎、Finder 扩展、主应用的顺序签名并验证。身份不存在或失效时直接失败，不退回 `codesign --sign -`。签名完成后退出旧进程，再安装到固定的 `/Applications/FastBudo.app`。不要对正在运行的应用重新签名。
+本地安装统一走 `install-local.sh`：它内部调用 `sign-local.sh`，身份不存在或失效时直接失败，不退回 `codesign --sign -`。务必不要手动用 `codesign --sign -`（ad-hoc）签名后安装到 `/Applications`——ad-hoc 签名的 Designated Requirement 锚定二进制内容哈希 CDHash，每次重编译 CDHash 变化，macOS 将新版本视为全新应用，已授权的屏幕录制、辅助功能、文件等 TCC 权限会全部重设。只有固定证书签名的 DR 锚定稳定证书，才能让不同构建被识别为同一应用、权限跨重装保留。
+
+脚本按内置引擎、Finder 扩展、主应用的顺序签名并验证。签名完成后退出旧进程，再安装到固定的 `/Applications/FastBudo.app`。不要对正在运行的应用重新签名。
 
 首次从 ad-hoc 切换身份可能需要重新添加辅助功能授权。以后保持证书、Bundle ID 和安装路径一致，有助于系统将不同构建识别为同一应用；最终权限是否保留仍由 macOS 决定。证书过期前需维护签名身份，不应反复新建证书。
 
