@@ -543,6 +543,45 @@ import Testing
         #expect(boxed != raw, "盒子渲染必须与单行裸文本不同")
     }
 
+    @Test func textCommitAutoFitsBoxHeight() throws {
+        let model = ImageEditorModel(image: try textFixture())
+        let window = NSPanel(contentRect: CGRect(x: 10, y: 20, width: 400, height: 300),
+                             styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let canvas = AnnotationCanvas(model: model, onClose: {})
+        window.contentView = canvas
+        defer { window.contentView = nil; window.close() }
+
+        model.select(.text)
+        canvas.annotating = true
+        // 拖动一个很矮的盒子（高度远小于多行文字所需）。
+        canvas.mouseDown(with: mouse(.leftMouseDown, at: CGPoint(x: 60, y: 60), window: window))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, at: CGPoint(x: 200, y: 64), window: window))
+        canvas.mouseUp(with: mouse(.leftMouseUp, at: CGPoint(x: 200, y: 64), window: window))
+        let field = try #require(canvas.textField)
+        field.stringValue = "这是一段很长的需要多行换行的文字内容来验证高度自适应"
+        canvas.commitTextEditing()
+
+        let mark = try #require(model.annotations.last)
+        // 高度必须容纳完整文字（比原始拖框高度大得多），文字不被裁切。
+        #expect(mark.rect.height > 10)
+    }
+
+    @Test func textBorderToggleRendersDistinctPixels() async throws {
+        let model = ImageEditorModel(image: try textFixture())
+        model.append(ImageAnnotation(tool: .text, points: [CGPoint(x: 50, y: 50), CGPoint(x: 180, y: 120)],
+                                     color: .systemRed, width: 4, text: "带边框文字"))
+        let plain = try await model.png()
+        let bordered = ImageEditorModel(image: try textFixture())
+        var mark = ImageAnnotation(tool: .text, points: [CGPoint(x: 50, y: 50), CGPoint(x: 180, y: 120)],
+                                   color: .systemRed, width: 4, text: "带边框文字")
+        mark.hasBorder = true
+        mark.borderWidth = 4
+        bordered.append(mark)
+        let withBorder = try await bordered.png()
+        #expect(plain != withBorder, "开启边框必须改变导出像素")
+    }
+
     @Test func saveNeverOverwritesExistingOutput() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("fastbudo-editor-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)

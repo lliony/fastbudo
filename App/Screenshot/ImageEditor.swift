@@ -24,6 +24,9 @@ struct ImageAnnotation {
     var color: NSColor = .systemRed
     var width: CGFloat = 4
     var text = ""
+    /// 文字标注的显示边框开关与宽度；默认无边框（透明背景），开启时按该宽度描边。
+    var hasBorder = false
+    var borderWidth: CGFloat = 1
 
     var rect: CGRect {
         guard let first = points.first, let last = points.last else { return .zero }
@@ -98,6 +101,9 @@ enum EditorLayout {
     var tool = AnnotationTool.rectangle
     var color = Color.red
     var width = 4.0
+    /// 新建文字标注时的默认边框开关与宽度；提交时快照进标注。
+    var textBorderEnabled = false
+    var textBorderWidth = 1.0
     /// 标注开关与工具选择合并，避免“选工具”和“进入标注”互相等待。
     var isAnnotating = false
     var message = "选择工具后在图片上拖动；文字工具在点击处添加文字。"
@@ -227,17 +233,19 @@ enum EditorLayout {
         case .text:
             let font = NSFont.systemFont(ofSize: max(16, mark.width * 5), weight: .medium)
             let box = mark.rect
-            // 有效盒子（宽高≥2）→ 圆角白底 + 描边 + 自动换行；否则回退旧的单行绘制兼容存量与测试。
+            // 有效盒子（宽高≥2）→ 透明背景 + 可选边框 + 自动换行；否则回退旧的单行绘制兼容存量与测试。
             if box.width >= 2, box.height >= 2 {
-                let boxPath = NSBezierPath(roundedRect: box, xRadius: 6, yRadius: 6)
-                NSColor.white.withAlphaComponent(0.92).setFill(); boxPath.fill()
-                mark.color.setStroke(); boxPath.lineWidth = 1; boxPath.stroke()
                 let textInset = box.insetBy(dx: 6, dy: 5)
                 let paragraph = NSMutableParagraphStyle()
                 paragraph.lineBreakMode = .byWordWrapping
                 (mark.text as NSString).draw(with: textInset, options: [.usesLineFragmentOrigin],
                                               attributes: [.font: font, .foregroundColor: mark.color,
                                                            .paragraphStyle: paragraph])
+                // 边框可选：默认不显示（不遮盖原内容），开启时按独立宽度描边。
+                if mark.hasBorder {
+                    let border = NSBezierPath(roundedRect: box, xRadius: 6, yRadius: 6)
+                    mark.color.setStroke(); border.lineWidth = mark.borderWidth; border.stroke()
+                }
             } else {
                 (mark.text as NSString).draw(at: first, withAttributes: [.font: font, .foregroundColor: mark.color])
             }
@@ -471,6 +479,16 @@ struct ImageEditor: View {
                 Slider(value: $model.width, in: 2...20).accessibilityLabel("笔宽或字号")
                 Text("\(Int(model.width))").monospacedDigit().frame(width: 24)
             }
+            if model.tool == .text {
+                Toggle("文字边框", isOn: $model.textBorderEnabled)
+                if model.textBorderEnabled {
+                    HStack {
+                        Text("边框宽度")
+                        Slider(value: $model.textBorderWidth, in: 1...12).accessibilityLabel("文字边框宽度")
+                        Text("\(Int(model.textBorderWidth))").monospacedDigit().frame(width: 24)
+                    }
+                }
+            }
             Button("完成") { options = false }.frame(maxWidth: .infinity, alignment: .trailing)
         }.padding(16).frame(width: 280)
             .tint(PreferencesPalette.primary).preferredColorScheme(.light)
@@ -637,13 +655,27 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         field.removeFromSuperview()
         window?.makeFirstResponder(self)
         guard !string.isEmpty else { return }
-        let mark: ImageAnnotation
+        var mark: ImageAnnotation
         if let box, box.width >= 2, box.height >= 2 {
-            mark = ImageAnnotation(tool: .text, points: [box.origin, CGPoint(x: box.maxX, y: box.maxY)],
+            // 盒子宽度自适应文字高度：按字体与盒宽量出完整换行高度，避免文字被裁切。
+            let font = NSFont.systemFont(ofSize: max(16, model.width * 5), weight: .medium)
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.lineBreakMode = .byWordWrapping
+            let constraint = CGSize(width: max(1, box.width - 12), height: .greatestFiniteMagnitude)
+            let measured = (string as NSString).boundingRect(with: constraint, options: [.usesLineFragmentOrigin],
+                                                             attributes: [.font: font, .paragraphStyle: paragraph])
+            let fittedBox = CGRect(x: box.origin.x, y: box.origin.y,
+                                   width: box.width,
+                                   height: max(box.height, ceil(measured.height) + 10))
+            mark = ImageAnnotation(tool: .text, points: [fittedBox.origin, CGPoint(x: fittedBox.maxX, y: fittedBox.maxY)],
                                    color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+            mark.hasBorder = model.textBorderEnabled
+            mark.borderWidth = CGFloat(model.textBorderWidth)
         } else {
             mark = ImageAnnotation(tool: .text, points: [origin, CGPoint(x: origin.x + fontSize, y: origin.y)],
                                    color: NSColor(model.color), width: model.width, text: String(string.prefix(2000)))
+            mark.hasBorder = model.textBorderEnabled
+            mark.borderWidth = CGFloat(model.textBorderWidth)
         }
         model.append(mark)
         needsDisplay = true
