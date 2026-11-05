@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FastBudo — 文件小事，右键搞定。</title>
+<meta name="description" content="FastBudo 是免费、本地运行的 macOS 工具：在 Finder 右键压缩 ZIP、7z、TAR.GZ，解压 RAR 等格式；新建文件、剪贴板历史、截图贴图都在手边。">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FDF8F4">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FastBudo — 文件小事，右键搞定。">
+<meta property="og:description" content="免费、本地运行的 macOS 工具。压缩、新建、剪贴板、截图贴图，四件小事都在 Finder 和菜单栏里。">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="assets/favicon.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">跳到主要内容</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/icon-512.webp" width="30" height="30" alt="">FastBudo</a>
+    <nav class="nav-links" aria-label="页面导航">
+      <a href="#compress">压缩</a>
+      <a href="#new">新建</a>
+      <a href="#menubar">剪贴板与截图</a>
+      <a href="#local">本机</a>
+    </nav>
+    <div class="nav-right">
+      <a href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">更新日志</a>
+      <a class="btn-nav" href="https://gitee.com/llliony/fastbudo/releases">下载</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="hero-fade" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <p class="badge"><span class="dot" aria-hidden="true"></span><b>FastBudo 0.0.9</b><span>·</span>macOS 27<span>·</span>Apple 芯片</p>
+    <h1 id="hero-title"><span class="line">文件小事，</span><span class="line grad">右键搞定。</span></h1>
+    <p class="hero-sub">压缩、新建、剪贴板、截图贴图。<br>四件小事，都在 Finder 和菜单栏里。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://gitee.com/llliony/fastbudo/releases">下载 macOS 版 <span class="arrow" aria-hidden="true">↓</span></a>
+      <a class="btn btn-ghost" href="#compress">看看它能做什么</a>
+    </div>
+    <p class="hero-meta">免费开源<span>·</span>本地处理<span>·</span>不登录<span>·</span>不弹进度窗</p>
+  </div>
+
+  <figure class="shot">
+    <div class="stage" aria-hidden="true">
+      <div class="stage-glow"></div>
+      <div class="finder">
+        <div class="f-titlebar">
+          <div class="traffic"><i></i><i></i><i></i></div>
+          <div class="f-tool">
+            <span class="tb">‹</span><span class="tb">›</span>
+            <span class="f-title">项目</span>
+            <div class="f-search">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              搜索
+            </div>
+            <span class="tb-extra">⋯</span>
+          </div>
+        </div>
+        <div class="f-body">
+          <aside class="f-side">
+            <div class="side-label">个人收藏</div>
+            <div class="side-item"><span class="si blue"></span>隔空投送</div>
+            <div class="side-item"><span class="si grey"></span>最近使用</div>
+            <div class="side-item"><span class="si blue"></span>应用程序</div>
+            <div class="side-item"><span class="si grey"></span>桌面</div>
+            <div class="side-item"><span class="si grey"></span>文稿</div>
+            <div class="side-item"><span class="si blue"></span>下载</div>
+            <div class="side-label">iCloud</div>
+            <div class="side-item"><span class="si grey"></span>云盘</div>
+            <div class="side-item"><span class="si grey"></span>共享</div>
+            <div class="side-label">标签</div>
+            <div class="side-item"><span class="side-dot dot-orange"></span>重要</div>
+            <div class="side-item"><span class="side-dot dot-rose"></span>待发</div>
+            <div class="side-item"><span class="side-dot dot-blue"></span>归档</div>
+          </aside>
+          <div class="f-main">
+            <div class="f-crumb">文稿 <span>›</span> <b>项目</b></div>
+            <div class="f-list">
+              <div class="f-head"><span>名称</span><span>修改日期</span><span>大小</span></div>
+              <div class="f-row sel">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="12" rx="2.4" fill="#4B4B52"/><path d="M8.4 7.6l4.6 2.4-4.6 2.4z" fill="#fff"/></svg></span><span>海边 4K.mov</span></div>
+                <span class="dt">今天 14:02</span><span class="sz">1.24 GB</span>
+              </div>
+              <div class="f-row">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><path d="M2 6.2c0-1 .8-1.8 1.8-1.8h3.4l1.4 1.6h6.6c1 0 1.8.8 1.8 1.8v6.2c0 1-.8 1.8-1.8 1.8H3.8c-1 0-1.8-.8-1.8-1.8z" fill="#6FA8E6"/><path d="M2 8h16v5.9c0 1-.8 1.8-1.8 1.8H3.8c-1 0-1.8-.8-1.8-1.8z" fill="#8FC0F2"/></svg></span><span>项目资料</span></div>
+                <span class="dt">今天 09:41</span><span class="sz">—</span>
+              </div>
+              <div class="f-row">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><path d="M4 2.6h7.4L16 7.2v10.2H4z" fill="#fff" stroke="#CFC5BC" stroke-width=".9"/><path d="M11.4 2.6L16 7.2h-4.6z" fill="#E7DFD7"/><rect x="6" y="10" width="8" height="1.2" fill="#E8896F"/><rect x="6" y="12.4" width="5.6" height="1.2" fill="#E3D9D0"/></svg></span><span>报价单.numbers</span></div>
+                <span class="dt">昨天 18:20</span><span class="sz">88 KB</span>
+              </div>
+              <div class="f-row">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><path d="M4 2.6h7.4L16 7.2v10.2H4z" fill="#fff" stroke="#CFC5BC" stroke-width=".9"/><path d="M11.4 2.6L16 7.2h-4.6z" fill="#E7DFD7"/><text x="10" y="14.2" font-size="4.2" font-family="Arial" font-weight="bold" fill="#8B7E76" text-anchor="middle">ZIP</text></svg></span><span>素材.zip</span></div>
+                <span class="dt">11月2日</span><span class="sz">240 MB</span>
+              </div>
+              <div class="f-row">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><rect x="2.6" y="3.4" width="14.8" height="13.2" rx="2" fill="#EDE7E0" stroke="#CFC5BC" stroke-width=".8"/><circle cx="7" cy="7.6" r="1.6" fill="#FFB27A"/><path d="M4 14.4l4.2-4 3 2.6 2.6-2.2 2.2 3.6z" fill="#9FC7A8"/></svg></span><span>截图 2026-11-05.png</span></div>
+                <span class="dt">11月5日</span><span class="sz">2.1 MB</span>
+              </div>
+              <div class="f-row">
+                <div class="nm"><span class="fi"><svg viewBox="0 0 20 20"><rect x="3.4" y="3.4" width="13.2" height="13.2" rx="3" fill="#F4F0EA" stroke="#D6CCC2" stroke-width=".8"/><circle cx="10" cy="10" r="3.2" fill="#E8896F"/></svg></span><span>设计稿.fig</span></div>
+                <span class="dt">10月30日</span><span class="sz">46 MB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ctx">
+          <div class="mi"><span class="mk"></span>打开<span class="sc">⌘O</span></div>
+          <div class="mi"><span class="mk"></span>打开方式<span class="chev">›</span></div>
+          <div class="sep"></div>
+          <div class="mi"><span class="mk"></span>显示简介<span class="sc">⌘I</span></div>
+          <div class="mi"><span class="mk"></span>重命名</div>
+          <div class="mi"><span class="mk"></span>压缩“海边 4K.mov”</div>
+          <div class="sep"></div>
+          <div class="mi hl">
+            <img class="appico" src="assets/icon-512.webp" width="15" height="15" alt="">FastBudo 压缩<span class="chev">›</span>
+            <div class="sub">
+              <div class="mi"><span class="mk"></span>ZIP<span class="fmt">最通用</span></div>
+              <div class="mi"><span class="mk"></span>7z<span class="fmt">体积更小</span></div>
+              <div class="mi"><span class="mk"></span>TAR.GZ<span class="fmt">Unix</span></div>
+            </div>
+          </div>
+          <div class="mi"><img class="appico" src="assets/icon-512.webp" width="15" height="15" alt="">FastBudo 新建<span class="chev">›</span></div>
+          <div class="sep"></div>
+          <div class="mi"><span class="mk"></span>拷贝<span class="sc">⌘C</span></div>
+          <div class="mi"><span class="mk"></span>移到废纸篓<span class="sc">⌘⌫</span></div>
+        </div>
+        <svg class="cursor cursor-hero" viewBox="0 0 24 26"><path d="M4 2l15 12-7 .8 4.2 7.4-3 1.6-4-7.4L4 21z" fill="#17110F" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <figcaption class="caption">Finder 右键 → FastBudo 压缩 → 选格式<span class="cap-extra">，压缩在后台完成，不抢焦点</span>。</figcaption>
+  </figure>
+</section>
+
+<section class="strip" aria-label="FastBudo 能做什么">
+  <div class="wrap">
+    <div class="strip-grid">
+      <div class="strip-item"><h3><i aria-hidden="true"></i>压缩与解压</h3><p>选中就压，格式一点就走。<br>解压放进独立文件夹。</p></div>
+      <div class="strip-item"><h3><i aria-hidden="true"></i>新建</h3><p>文件夹、TXT、MD，或自定义后缀，<br>原地出现。</p></div>
+      <div class="strip-item"><h3><i aria-hidden="true"></i>剪贴板</h3><p>复制过的东西，搜索、收藏，找得回来。</p></div>
+      <div class="strip-item"><h3><i aria-hidden="true"></i>截图与贴图</h3><p>截完就标，标完就贴，贴在屏幕最上层。</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="feature" id="compress" aria-labelledby="compress-title">
+  <div class="wrap">
+    <div class="copy">
+      <p class="kicker"><span class="kick">压缩与解压</span></p>
+      <h2 id="compress-title">右键，选格式。<br>就一下。</h2>
+      <p class="lede">不打开应用，不把文件拖进窗口。文件在哪，压缩包就出现在哪；任务在后台做完，Finder 里已经多了一个。</p>
+      <ul class="points">
+        <li>ZIP、7z、TAR.GZ 直接创建，不弹选项窗口，也不设密码。</li>
+        <li>RAR4/5、7z、ZIP 分卷、AES-256 加密包都能解，分卷放同一目录即可。</li>
+        <li>解压写入独立文件夹，重名自动编号；不覆盖，也不改动源文件。</li>
+      </ul>
+    </div>
+    <div class="art">
+      <div class="ledger">
+        <table>
+          <caption class="sr-only">FastBudo 支持创建的压缩格式，以及可以解压的格式</caption>
+          <thead>
+            <tr><th scope="col">格式</th><th scope="col">创建</th><th scope="col">解压</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row"><span class="lg-f">ZIP <em>最通用</em></span></th>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="lg-f">7z <em>更小</em></span></th>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="lg-f">TAR.GZ <em>给 Unix</em></span></th>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span class="lg-f">RAR <em>只读</em></span></th>
+              <td><span class="no" aria-hidden="true">—</span><span class="sr-only">不支持</span></td>
+              <td><span class="yes" aria-hidden="true"></span><span class="sr-only">支持</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feature rev" id="new" aria-labelledby="new-title">
+  <div class="wrap">
+    <div class="copy">
+      <p class="kicker"><span class="kick">新建</span></p>
+      <h2 id="new-title">新建，<br>不用离开 Finder。</h2>
+      <p class="lede">在文件夹空白处右键：文件夹、TXT、MD，或者你常用的<span class="nw">后缀</span>。名字直接在 Finder 里改，回车就好。</p>
+      <ul class="points">
+        <li>常用后缀最多 12 个，菜单里直接出现。</li>
+        <li>同名不覆盖，自动编号并选中新项目。</li>
+        <li>新项目落在当前目录，不会钻进选中的文件夹。</li>
+      </ul>
+      <p class="note">自动进入改名需要在辅助功能里允许 FastBudo；没授权时，选中新项目按一下回车也一样。</p>
+    </div>
+    <div class="art">
+      <div class="newstage" aria-hidden="true">
+        <div class="ns-window">
+          <div class="ns-bar"><div class="traffic"><i></i><i></i><i></i></div><span class="ns-title">项目</span></div>
+          <div class="ns-list">
+            <div class="ns-row new"><span class="fi fi-sm"><svg viewBox="0 0 20 20"><path d="M4 2.6h7.4L16 7.2v10.2H4z" fill="#fff" stroke="#CFC5BC" stroke-width=".9"/><path d="M11.4 2.6L16 7.2h-4.6z" fill="#E7DFD7"/></svg></span><span class="ns-name">未命名.md<span class="caret"></span></span><span class="dt">刚刚</span></div>
+            <div class="ns-row"><span class="fi fi-sm"><svg viewBox="0 0 20 20"><path d="M2 6.2c0-1 .8-1.8 1.8-1.8h3.4l1.4 1.6h6.6c1 0 1.8.8 1.8 1.8v6.2c0 1-.8 1.8-1.8 1.8H3.8c-1 0-1.8-.8-1.8-1.8z" fill="#6FA8E6"/></svg></span>项目资料<span class="dt">今天 09:41</span></div>
+            <div class="ns-row"><span class="fi fi-sm"><svg viewBox="0 0 20 20"><path d="M4 2.6h7.4L16 7.2v10.2H4z" fill="#fff" stroke="#CFC5BC" stroke-width=".9"/><path d="M11.4 2.6L16 7.2h-4.6z" fill="#E7DFD7"/></svg></span>需求.md<span class="dt">昨天</span></div>
+            <div class="ns-row"><span class="fi fi-sm"><svg viewBox="0 0 20 20"><path d="M4 2.6h7.4L16 7.2v10.2H4z" fill="#fff" stroke="#CFC5BC" stroke-width=".9"/><path d="M11.4 2.6L16 7.2h-4.6z" fill="#E7DFD7"/></svg></span>会议记录.txt<span class="dt">昨天</span></div>
+          </div>
+        </div>
+        <div class="ctx nm-menu">
+          <div class="mi"><span class="mk"></span>新建文件夹</div>
+          <div class="sep"></div>
+          <div class="mi hl2"><img class="appico" src="assets/icon-512.webp" width="15" height="15" alt="">FastBudo 新建<span class="chev">›</span>
+            <div class="sub">
+              <div class="mi"><span class="mk"></span>文件夹</div>
+              <div class="mi"><span class="mk"></span>TXT 文件</div>
+              <div class="mi"><span class="mk"></span>MD 文件</div>
+              <div class="sep"></div>
+              <div class="mi"><span class="mk"></span>自定义文件…</div>
+            </div>
+          </div>
+          <div class="mi"><span class="mk"></span>显示简介<span class="sc">⌘I</span></div>
+          <div class="mi"><span class="mk"></span>排序方式<span class="chev">›</span></div>
+        </div>
+        <svg class="cursor cursor-new" viewBox="0 0 24 26"><path d="M4 2l15 12-7 .8 4.2 7.4-3 1.6-4-7.4L4 21z" fill="#17110F" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feature" id="menubar" aria-labelledby="menubar-title">
+  <div class="wrap">
+    <div class="copy">
+      <p class="kicker"><span class="kick">菜单栏</span></p>
+      <h2 id="menubar-title">还有两件，<br>抬手就有。</h2>
+      <p class="lede">菜单栏的 ⌘ 图标里，是剪贴板历史和截图。剪贴板默认不记录，要用的时候再打开。</p>
+      <ul class="points">
+        <li><b>剪贴板</b> — 搜索、分类、收藏、快捷回复。Control+Shift+V 唤起。</li>
+        <li><b>截图与贴图</b> — 区域、窗口、整屏；标注后复制、存 PNG，或贴在屏幕上。Control+Shift+S。</li>
+      </ul>
+    </div>
+    <div class="art">
+      <div class="barstage" aria-hidden="true">
+        <div class="mb-strip"><span class="apple"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="#3A332E" d="M17.05 12.54c-.02-2.02 1.65-2.99 1.72-3.04-.94-1.37-2.4-1.56-2.92-1.58-1.24-.13-2.42.73-3.05.73-.63 0-1.6-.71-2.63-.69-1.35.02-2.6.79-3.3 2-1.4 2.44-.36 6.05 1.01 8.03.67.97 1.47 2.06 2.52 2.02 1.01-.04 1.39-.65 2.61-.65 1.22 0 1.56.65 2.63.63 1.09-.02 1.78-.99 2.44-1.96.77-1.12 1.09-2.2 1.11-2.26-.02-.01-2.13-.82-2.15-3.23zM15.04 6.4c.56-.68.94-1.62.84-2.56-.81.03-1.79.54-2.37 1.22-.52.6-.98 1.56-.86 2.48.9.07 1.83-.46 2.39-1.14z"/></svg></span><b>Finder</b><span>文件</span><span>编辑</span><span>显示</span><span>前往</span><span>窗口</span><span>帮助</span><span class="sp"><span class="cmd">⌘</span><span>◔</span><span>14:02</span></span></div>
+        <div class="hotkeys">
+          <div class="hk-label">快捷键</div>
+          <div class="hk"><span class="keys"><kbd>⌃</kbd><kbd>⇧</kbd><kbd>V</kbd></span>剪贴板历史</div>
+          <div class="hk"><span class="keys"><kbd>⌃</kbd><kbd>⇧</kbd><kbd>S</kbd></span>截图</div>
+          <div class="hk"><span class="keys"><kbd>⌃</kbd><kbd>⇧</kbd><kbd>P</kbd></span>贴图</div>
+        </div>
+        <div class="popover">
+          <div class="po-head"><img src="assets/icon-512.webp" width="20" height="20" alt="">FastBudo</div>
+          <div class="po-item">剪贴板…</div>
+          <div class="po-item">截图<span class="chev">›</span></div>
+          <div class="po-item">贴图 · 剪贴板图片</div>
+          <div class="po-item">管理贴图（3）<span class="count">›</span></div>
+          <div class="po-sep"></div>
+          <div class="po-foot"><span>设置…</span><span>退出</span></div>
+        </div>
+        <div class="pin">
+          <div class="pin-img">
+            <div class="pin-bar"><div class="traffic"><i></i><i></i><i></i></div><div class="pin-tools"><i></i><i></i><i></i></div></div>
+            <div class="pin-page">
+              <div class="pg-nav"><i></i><i></i><i></i><span>FastBudo</span></div>
+              <div class="pg-h">把小事，<br>交给右键。</div>
+              <div class="pg-p">压缩、新建、剪贴板、截图贴图。装好之后，它只在 Finder 和菜单栏出现。</div>
+              <div class="pg-btn">下载 macOS 版</div>
+              <div class="pg-side"></div>
+              <div class="ring"></div>
+            </div>
+          </div>
+        </div>
+        <div class="pin-note">
+          <svg class="note-arrow" viewBox="0 0 40 34"><path d="M33 4C27 13 18 21 7 25" fill="none" stroke="#D6465C" stroke-width="2.2" stroke-linecap="round"/><path d="M14 19l-7 6 8 3" fill="none" stroke="#D6465C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>截图贴图，<br>浮在所有窗口上面。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="safe" id="local" aria-labelledby="local-title">
+  <img class="safe-knot" src="assets/icon-512.webp" alt="" aria-hidden="true">
+  <div class="wrap">
+    <div>
+      <p class="kicker"><span class="kick">本机运行</span></p>
+      <h2 id="local-title">文件不出门。</h2>
+      <p>没有账号，没有云端，没有统计埋点。<br>压缩引擎按固定版本源码编译，随应用一起运行；<br>断网也能用。</p>
+    </div>
+    <dl class="facts">
+      <div class="fact"><dt>内置引擎</dt><dd>7-Zip 源码编译进应用，不依赖系统压缩，<br class="mob">也不调用外部命令。</dd></div>
+      <div class="fact"><dt>路径安全</dt><dd>拒绝链接、设备条目与路径穿越；<br>大小写和 Unicode 等价冲突按保守规则处理。</dd></div>
+      <div class="fact"><dt>独立暂存</dt><dd>解压先写独立目录，失败或取消只清理本次任务的内容；<br class="mob">已有文件不覆盖。</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="download" id="download" aria-labelledby="download-title">
+  <div class="wrap">
+    <img class="dl-icon" src="assets/icon-512.webp" width="112" height="112" alt="">
+    <h2 id="download-title">把小事，交给右键。</h2>
+    <p class="lede">免费开源。装好后它只在 Finder 和菜单栏出现，<br>不占 Dock，不弹进度窗。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://gitee.com/llliony/fastbudo/releases">下载 0.0.9 <span class="arrow" aria-hidden="true">↓</span></a>
+      <a class="btn btn-ghost" href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">查看更新日志</a>
+    </div>
+    <p class="dl-meta">Apple 芯片 · macOS 27 · 自有代码 MIT 许可<span class="meta-sep"> · </span><br class="mob"><span class="meta-src">源码与校验和在 Gitee</span>
+      <span class="warn">当前安装包未经 Developer ID 签名与公证，首次打开请在 Finder 中右键 → 打开。</span>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand"><img src="assets/icon-512.webp" width="26" height="26" alt=""><div><b>FastBudo</b><span>文件小事，轻松搞定。</span></div></div>
+      <div class="foot-col"><b>产品</b><a href="https://gitee.com/llliony/fastbudo/releases">下载</a><a href="https://gitee.com/llliony/fastbudo/blob/main/CHANGELOG.md">更新日志</a><a href="#compress">支持格式</a></div>
+      <div class="foot-col"><b>文档</b><a href="https://gitee.com/llliony/fastbudo/blob/main/README.md">使用指南</a><a href="#menubar">剪贴板</a><a href="#menubar">截图与贴图</a></div>
+      <div class="foot-col"><b>关于</b><a href="https://gitee.com/llliony/fastbudo">源代码</a><a href="https://gitee.com/llliony/fastbudo/blob/main/THIRD-PARTY-NOTICES.md">第三方许可</a><a href="https://gitee.com/llliony/fastbudo/issues">反馈问题</a></div>
+    </div>
+    <div class="foot-bottom"><span>© 2026 FastBudo · 自有代码 MIT 许可 · 文件在本机处理</span><span>Made for macOS</span></div>
+  </div>
+</footer>
+
+</body>
+</html>
