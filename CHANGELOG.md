@@ -8,6 +8,10 @@ last_updated: 2026-11-04
 
 记录用户可感知的变化与发布限制。构建方式见 [README](README.md)，实现说明见 [架构文档](ARCHITECTURE.md)，完整记录见 [文档索引](docs/README.md)。
 
+## 未发布
+
+- 修复多显示器（系统开启“显示器各自使用独立 Space”）时区域截图仅在主屏可用的问题：遮罩改为每块屏幕各建一个选区窗口，副屏也能拖动选择与截图。
+
 ## 0.0.9 — 2026-11-05
 
 主应用与 Finder 扩展版本为 `0.0.9`，构建号为 `9`。验证范围见[自动下载更新验证](docs/validation/2026-11-04-auto-download-update.md)与本[发布验证](docs/validation/2026-11-05-release-0.0.9.md)。
