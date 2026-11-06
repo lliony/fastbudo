@@ -30,13 +30,10 @@ bash "$repository/scripts/sign-local.sh" "$stage/FastBudo.app"
 pkill -f 'Contents/MacOS/FastBudo$' 2>/dev/null || true
 sleep 1
 
-# 时间戳备份旧版（禁止 rm -rf 覆盖重装），再装入新包。
-timestamp=$(date +%s)
-if [[ -d /Applications/FastBudo.app ]]; then
-    mv /Applications/FastBudo.app "/Applications/FastBudo.app.bak.${timestamp}"
-fi
+# 开发期本地重装直接替换，不再备份旧应用（项目规则，见 AGENTS.md）。
+rm -rf /Applications/FastBudo.app
 mv "$stage/FastBudo.app" /Applications/FastBudo.app
 
 # 重启。
 open /Applications/FastBudo.app
-echo "已安装并重启 FastBudo（备份：FastBudo.app.bak.${timestamp}）。"
+echo "已直接替换并重启 FastBudo（无备份）。"
