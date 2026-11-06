@@ -20,7 +20,7 @@ struct UpdateCheckerTests {
     }
 
     @Test func releaseLinksUseCurrentRepository() {
-        #expect(ReleaseSource.apiLatest.path == "/api/v5/repos/llliony/fastbudo/releases/latest")
+        #expect(ReleaseSource.apiReleases.path == "/api/v5/repos/llliony/fastbudo/releases")
         #expect(ReleaseSource.releaseURL(tag: "v0.0.6").path == "/llliony/fastbudo/releases/tag/v0.0.6")
         #expect(ReleaseSource.downloadBase(tag: "v0.0.6").appendingPathComponent("SHA256SUMS.txt").path ==
                 "/llliony/fastbudo/releases/download/v0.0.6/SHA256SUMS.txt")
@@ -80,9 +80,20 @@ struct UpdateCheckerTests {
                 try UpdateChecker.newerRelease(data: data, status: 200, current: "0.0.1")
             }
         }
-        #expect(throws: (any Error).self) {
-            try UpdateChecker.newerRelease(data: release("v1.0.0"), status: 200, current: "unknown")
-        }
+        // 当前版本不可解析（如 beta 预发布、未知版本）不报错，视为已是最新。
+        #expect((try? UpdateChecker.newerRelease(data: release("v1.0.0"), status: 200, current: "unknown")) == nil)
+        #expect((try? UpdateChecker.newerRelease(data: release("v1.0.0"), status: 200, current: "0.0.11.beta")) == nil)
+    }
+
+    @Test func choosesNewestStableIgnoringPrerelease() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UpdateListProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        // 仓库最新是 v0.0.11.beta 预发布，正式最新仍是 v0.0.10。
+        let result = try await UpdateChecker.check(current: "0.0.9", session: session)
+        #expect(result?.tag == "v0.0.10")
+        #expect(try await UpdateChecker.check(current: "0.0.10", session: session) == nil)
     }
 
     @Test func httpFailuresAreNotReportedAsUpToDate() {
@@ -140,11 +151,14 @@ struct UpdateCheckerTests {
         for address in ["https://example.com/llliony/fastbudo/releases/tag/v0.2.0",
                         "http://gitee.com/llliony/fastbudo/releases/tag/v0.2.0",
                         "https://gitee.com/other/project/releases/tag/v0.2.0",
-                        "https://gitee.com/llliony/fastbudo/releases/latest",
-                        "https://gitee.com/llliony/fastbudo/releases/tag/v0.2.0-beta"] {
+                        "https://gitee.com/llliony/fastbudo/releases/latest"] {
             let response = HTTPURLResponse(url: URL(string: address)!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             #expect(throws: (any Error).self) { try UpdateChecker.newerRelease(pageResponse: response, current: "0.0.1") }
         }
+        // latest 跳到预发布标签时视为暂无正式版更新，而不是报错。
+        let beta = HTTPURLResponse(url: URL(string: "https://gitee.com/llliony/fastbudo/releases/tag/v0.2.0-beta")!,
+                                   statusCode: 200, httpVersion: nil, headerFields: nil)!
+        #expect((try? UpdateChecker.newerRelease(pageResponse: beta, current: "0.0.1")) == nil)
         let failed = HTTPURLResponse(url: URL(string: "https://gitee.com/llliony/fastbudo/releases/tag/v0.2.0")!,
                                      statusCode: 503, httpVersion: nil, headerFields: nil)!
         #expect(throws: (any Error).self) { try UpdateChecker.newerRelease(pageResponse: failed, current: "0.0.1") }
@@ -162,7 +176,20 @@ private final class UpdateResponseProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(#"{"tag_name":"v0.2.0","draft":false,"prerelease":false}"#.utf8))
+        client?.urlProtocol(self, didLoad: Data(#"[{"tag_name":"v0.2.0","draft":false,"prerelease":false}]"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private final class UpdateListProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        // 仓库最新为 v0.0.11.beta 预发布，正式版最新是 v0.0.10。
+        client?.urlProtocol(self, didLoad: Data(#"[{"tag_name":"v0.0.11.beta","draft":false,"prerelease":true},{"tag_name":"v0.0.10","draft":false,"prerelease":false}]"#.utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
