@@ -224,25 +224,25 @@ import SwiftUI
     @Test func pinToolbarShowsAllActionsOnlyWhenTheyFit() {
         let expected: [PinnedImageAction] = [
             .zoomOut, .zoomIn, .rotateCounterclockwise, .rotateClockwise,
-            .flipHorizontal, .flipVertical, .opacity, .copy
+            .flipHorizontal, .flipVertical, .opacity, .copy, .close
         ]
-        let layout = PinnedImageToolbarLayout.split(availableWidth: 268)
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 300)
         #expect(PinnedImageAction.allCases == expected)
         #expect(layout.visible == expected)
         #expect(layout.overflow.isEmpty)
     }
 
     @Test func pinToolbarReservesMoreButtonBelowFullThreshold() {
-        let layout = PinnedImageToolbarLayout.split(availableWidth: 267)
+        let layout = PinnedImageToolbarLayout.split(availableWidth: 299)
         #expect(!layout.overflow.isEmpty)
-        #expect(layout.visible.count == 6)
+        #expect(layout.visible.count == 7)
         #expect(layout.overflow == [.flipHorizontal, .flipVertical])
     }
 
     @Test func pinToolbarHandlesMinimumAndInvalidWidths() {
         let minimum = PinnedImageToolbarLayout.split(availableWidth: 240)
-        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .rotateClockwise, .opacity, .copy])
-        #expect(minimum.overflow == [.flipHorizontal, .flipVertical])
+        #expect(minimum.visible == [.zoomOut, .zoomIn, .rotateCounterclockwise, .opacity, .copy, .close])
+        #expect(minimum.overflow == [.rotateClockwise, .flipHorizontal, .flipVertical])
         for width in [CGFloat.zero, -1] {
             let layout = PinnedImageToolbarLayout.split(availableWidth: width)
             #expect(layout.visible.isEmpty)
@@ -282,6 +282,26 @@ import SwiftUI
         #expect(pin.perform(.opacity) == .showOpacity)
         #expect(pin.perform(.copy) == .none)
         #expect(board.availableType(from: [.tiff, .png]) != nil)
+        #expect(pin.perform(.close) == .none)
+        #expect(!pin.panel.isVisible)
+    }
+
+    @Test @MainActor func pinImageWindowFitsImageAndEscCloses() throws {
+        let context = try #require(CGContext(data: nil, width: 10, height: 8, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let pin = PinnedImage(image: try #require(context.makeImage()))
+        defer { pin.panel.contentView = nil; pin.panel.close() }
+
+        // 窗口贴住图片点尺寸（宽仅保留「更多」按钮的 44 下限），不被强制放大出白边。
+        #expect(pin.panel.frame.width == max(44, CGFloat(10) / pin.displayScale))
+        #expect(pin.panel.frame.height == CGFloat(8) / pin.displayScale + PinnedImage.toolbarBandHeight)
+
+        let escape = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                                                   windowNumber: pin.panel.windowNumber, context: nil,
+                                                   characters: "\u{1B}", charactersIgnoringModifiers: "\u{1B}",
+                                                   isARepeat: false, keyCode: 53))
+        pin.panel.keyDown(with: escape)
+        #expect(!pin.panel.isVisible)
     }
 
     @Test @MainActor func pinToolbarSelectionReflectsPersistentState() throws {
