@@ -177,6 +177,8 @@ enum EditorLayout {
     }
 
     private func renderedPixels() throws -> CGImage {
+        // 无已完成标注时源图即最终像素，直接返回编码：跳过 rendered() 对同样分辨率再做一次全量重绘。
+        if annotations.isEmpty, let source { return source }
         let image = try rendered()
         var rect = CGRect(origin: .zero, size: size)
         guard let cg = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { throw ClipError.invalid }

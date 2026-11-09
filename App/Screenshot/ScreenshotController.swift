@@ -276,9 +276,10 @@ enum CaptureAction: Equatable {
                     // 等选区遮罩从窗口合成器移除，避免把遮罩一起截入图片。
                     try await Task.sleep(for: .milliseconds(100))
                 } else if case .screen(let number) = mode {
-                    let frozenFrames = await freezeScreens()
-                    if let screen = screens.indices.contains(number - 1) ? screens[number - 1] : nil,
-                       let id = screen.displayID, let frozen = frozenFrames[id] {
+                    // 全屏截图只需目标屏单帧，按显示器只抓该屏，避免把其余各屏整帧一并驻留（多 4K 屏峰值数百 MB）。
+                    let target = screens.indices.contains(number - 1) ? screens[number - 1] : nil
+                    if let id = target?.displayID,
+                       let frozen = await freezeScreens(restrictedTo: [id])[id] {
                         await finishCapturedImage(frozen, region: nil, action: selectedAction)
                         cleanupCapture()
                         return
@@ -364,10 +365,11 @@ enum CaptureAction: Equatable {
 
     /// 触发瞬间按显示器异步冻结桌面帧（ScreenCaptureKit 一次性抓帧）：不激活本应用、不收起正在显示的右键菜单/浮窗提示。
 /// 区域/全屏截图以此为背景与出图来源；窗口截图仍走系统交互，无需冻结。无录制权限或抓帧失败时返回空字典，由调用方回退系统抓取。
-private func freezeScreens() async -> [CGDirectDisplayID: CGImage] {
+/// 指定 `restrictedTo` 时只抓这些显示器（全屏截图只取目标屏），避免把其余各屏整帧一并驻留。
+private func freezeScreens(restrictedTo: Set<CGDirectDisplayID>? = nil) async -> [CGDirectDisplayID: CGImage] {
     guard let content = try? await SCShareableContent.current else { return [:] }
     var frames: [CGDirectDisplayID: CGImage] = [:]
-    for display in content.displays {
+    for display in content.displays where restrictedTo == nil || restrictedTo!.contains(display.displayID) {
         // 每个显示器单独配置并按原生像素宽高抓帧；共用配置或留默认宽高会让副屏帧尺寸与屏幕不匹配，
         // 造成背景/裁剪比例错位与留白（多显示器尤其明显）。
         let config = SCStreamConfiguration()
