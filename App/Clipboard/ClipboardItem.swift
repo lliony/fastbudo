@@ -88,6 +88,14 @@ struct ClipPayload: Codable, Equatable, Sendable {
         encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(self)
     }
+    /// 去重按内容本身判定：富文本表示会随来源应用和复制时的鼠标悬停状态变化。
+    func identity() throws -> Data {
+        if kind == .files { return Data(fileURLs.map(\.absoluteString).sorted().joined(separator: "\n").utf8) }
+        if kind == .image, let data = items.lazy.compactMap({ $0["public.png"] ?? $0["public.tiff"] }).first { return data }
+        let text = plainText
+        if !text.isEmpty { return Data(text.utf8) }
+        return try encoded()
+    }
     func validate() throws {
         guard !items.isEmpty, items.count <= 200, items.allSatisfy({ !$0.isEmpty && Set($0.keys).isSubset(of: Self.allowed) }) else { throw ClipError.invalid }
         guard items.reduce(0, { $0 + $1.values.reduce(0, { $0 + $1.count }) }) <= Self.maximum else { throw ClipError.tooLarge }

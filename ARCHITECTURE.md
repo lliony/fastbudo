@@ -1,7 +1,7 @@
 ---
 title: FastBudo 架构
 status: active
-last_updated: 2026-11-03
+last_updated: 2026-11-09
 ---
 
 # FastBudo 架构
@@ -62,7 +62,7 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 
 `ClipboardController` 是主线程协调者。记录默认关闭；开启后每 0.5 秒检查 changeCount，timer 容差 0.1 秒。暂停时销毁 timer，恢复时跳过暂停期间的旧内容，快捷键保持独立。AppKit 粘贴板操作留在主线程，纯文本转换和数据库工作在后台执行。
 
-采集过滤不支持的类型与敏感标记，并识别应用自身写入。允许文本、RTF、HTML、PNG、TIFF 和文件 URL，单条负载上限 20 MiB。负载校验、编码与 SHA-256 哈希在锁外完成，事务只处理数据库读写。新增内容以内容去重；最近使用时间、置顶与保护状态提升为数据库列，历史排序和清理聚合下推 SQL，不再逐行解码元数据；手动顺序独立保存。
+采集过滤不支持的类型与敏感标记，并识别应用自身写入。允许文本、RTF、HTML、PNG、TIFF 和文件 URL，单条负载上限 20 MiB。负载校验、编码与 SHA-256 哈希在锁外完成，事务只处理数据库读写。去重键是内容身份的 SHA-256：文件取排序后的 URL 集合，图片取首选 PNG/TIFF 字节，其余取纯文本，没有可用身份时退回完整编码；HTML、RTF 表示随来源应用和复制时的鼠标悬停状态变化，不参与判定。命中已有记录只更新使用时间与来源，不重写内容列。最近使用时间、置顶与保护状态提升为数据库列，历史排序和清理聚合下推 SQL，不再逐行解码元数据；手动顺序独立保存。
 
 查询最多保留一个进行中的 reload 任务，并合并最新请求；generation 丢弃过期结果，不依赖 SQLite interrupt。面板隐藏时采集只持久化，显示时再加载。列表缓存筛选结果，批量快照只重建一次；紧凑行使用 Equatable 降低刷新，时间标签按分钟更新，详情按需读取，图片预览降采样。
 
@@ -78,7 +78,7 @@ Finder 扩展处于独立沙箱进程，只构造菜单和请求，不执行压�
 |---|---|
 | 应用偏好 | UserDefaults；登录项启用状态直接查询系统 |
 | 剪贴板历史 | `~/Library/Application Support/FastBudo/Clipboard/clipboard.sqlite`，NSLock 串行保护一个 SQLite FULLMUTEX 连接 |
-| SQLite schema 3 | `clips(id, meta, payload, hash, search, bytes, used, pinned, protected, kind)` 与 `groups(name)`；元数据和负载仍在同一表，排序列建索引；schema 2 及更旧库在事务内补列并逐条回填，失败回滚 |
+| SQLite schema 4 | `clips(id, meta, payload, hash, search, bytes, used, pinned, protected, kind)` 与 `groups(name)`；元数据和负载仍在同一表，排序列建索引；schema 2 及更旧库在事务内补列并逐条回填，schema 3 及更旧库按内容身份重算 `hash` 并合并重复，只更新哈希列不重写内容，失败回滚 |
 | 搜索 | `instr(lower(search), lower(?))` 子串匹配，保留中文及 `%`、`_` 的字面语义；未使用 FTS |
 | 删除 | 开启 SQLite `secure_delete`；单条删除不执行 VACUUM，空间整理留到手动清理。此设置不等于底层磁盘或系统备份的取证擦除 |
 | 备份 | 保留 v1 JSON，流式读写；总大小 2 GiB、单值 64 MiB、最多 10,000 条记录和 1,000 个分类；日期限定 1970–9999 |

@@ -183,6 +183,24 @@ enum EditorLayout {
         return cg
     }
 
+    /// 把「源图 + 已完成标注」渲染到指定像素分辨率，供交互期画布当底图。
+    /// 拖动标注每帧 revision++；按显示尺寸直接渲染，避免为一次预览生成全分辨率位图（导出走 `rendered()`）。
+    func preview(pixels: CGSize, pointSize: CGSize) throws -> NSImage {
+        guard pixels.width > 0, pixels.height > 0, let source,
+              let context = CGContext(data: nil, width: Int(pixels.width.rounded()), height: Int(pixels.height.rounded()),
+                                      bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw ClipError.invalid }
+        // 与画布 drawOverlay 同口径：按显示尺寸对两轴分别缩放并翻转，标注坐标仍用源像素单位。
+        context.translateBy(x: 0, y: pixels.height)
+        context.scaleBy(x: pixels.width / CGFloat(source.width), y: -(pixels.height / CGFloat(source.height)))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        draw(pending: nil)
+        guard let cg = context.makeImage() else { throw ClipError.invalid }
+        return NSImage(cgImage: cg, size: pointSize)
+    }
+
     nonisolated private static func encode(_ image: CGImage) throws -> Data {
         let data = NSMutableData()
         guard let output = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { throw ClipError.invalid }
@@ -686,14 +704,14 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         commitTextEditing()
     }
 
-    /// 已完成标注按 revision 与画布分辨率缓存，拖动期间只叠加绘制中的标注，不再逐帧缩放原图。
+    /// 已完成标注按 revision 与画布分辨率缓存；交互期只渲染预览分辨率底图，不触碰全分辨率 `rendered()`。
     private func backdrop(for rect: CGRect) -> NSImage? {
         let scale = window?.backingScaleFactor ?? 1
         let pixels = CGSize(width: max(1, (rect.width * scale).rounded()),
                             height: max(1, (rect.height * scale).rounded()))
         if backdropRevision == model.revision, let image = backdropImage,
            Self.matches(backdropPixelSize, pixels) { return image }
-        guard let source = try? model.rendered(), let scaled = Self.scaled(source, to: pixels, pointSize: rect.size) else { return nil }
+        guard let scaled = try? model.preview(pixels: pixels, pointSize: rect.size) else { return nil }
         backdropImage = scaled; backdropRevision = model.revision; backdropPixelSize = pixels
         backdropBuilds += 1
         return scaled
@@ -704,19 +722,6 @@ final class AnnotationCanvas: NSView, NSTextFieldDelegate {
         guard cached.width > 0, cached.height > 0 else { return false }
         return abs(cached.width - target.width) <= cached.width * 0.25
             && abs(cached.height - target.height) <= cached.height * 0.25
-    }
-
-    private static func scaled(_ source: NSImage, to pixels: CGSize, pointSize: CGSize) -> NSImage? {
-        let width = Int(pixels.width), height = Int(pixels.height)
-        var rect = CGRect(origin: .zero, size: source.size)
-        guard width > 0, height > 0,
-              let image = source.cgImage(forProposedRect: &rect, context: nil, hints: nil),
-              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let scaled = context.makeImage() else { return nil }
-        return NSImage(cgImage: scaled, size: pointSize)
     }
 
     func sync(model: ImageEditorModel, revision: Int, annotating: Bool,

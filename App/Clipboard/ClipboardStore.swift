@@ -22,7 +22,7 @@ final class ClipboardStore: @unchecked Sendable {
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             let version = try statement("PRAGMA user_version")
             let schema = sqlite3_step(version) == SQLITE_ROW ? sqlite3_column_int(version, 0) : -1
-            let supported = schema >= 0 && schema <= 3
+            let supported = schema >= 0 && schema <= 4
             sqlite3_finalize(version)
             guard supported else { throw ClipError.storage }
             sqlite3_busy_timeout(db, 3000)
@@ -35,6 +35,14 @@ final class ClipboardStore: @unchecked Sendable {
                 try transaction {
                     try backfillColumns()
                     try exec("PRAGMA user_version=3")
+                }
+            }
+            // schema 4 把去重键从全部剪贴板表示改为内容本身；旧库重算后合并重复，失败整体回滚。
+            if schema < 4 {
+                try transaction {
+                    try rehashContentIdentity()
+                    try deduplicate()
+                    try exec("PRAGMA user_version=4")
                 }
             }
         } catch { sqlite3_close(db); db = nil; throw error }
@@ -112,6 +120,23 @@ final class ClipboardStore: @unchecked Sendable {
         } catch { sqlite3_finalize(stmt); throw error }
         sqlite3_finalize(stmt)
         for (_, item) in rows { try updateColumns(item) }
+    }
+    /// 旧哈希覆盖全部剪贴板表示，同一段文字会因富文本差异存成多条；重算后才能按内容合并。
+    private func rehashContentIdentity() throws {
+        let stmt = try statement("SELECT id, payload FROM clips")
+        var hashes: [(id: String, hash: String)] = []
+        do {
+            var code = sqlite3_step(stmt)
+            while code == SQLITE_ROW {
+                let id = String(cString: sqlite3_column_text(stmt, 0))
+                let payload = try JSONDecoder().decode(ClipPayload.self, from: blob(stmt, 1))
+                hashes.append((id, Self.digest(try payload.identity())))
+                code = sqlite3_step(stmt)
+            }
+            guard code == SQLITE_DONE else { throw ClipError.storage }
+        } catch { sqlite3_finalize(stmt); throw error }
+        sqlite3_finalize(stmt)
+        for (id, hash) in hashes { try run("UPDATE clips SET hash=? WHERE id=?", [.text(hash), .text(id)]) }
     }
     private func records(_ query: String = "") throws -> [ClipboardItem] {
         // instr treats %, _ and quotes literally rather than as SQL patterns.
@@ -200,12 +225,15 @@ final class ClipboardStore: @unchecked Sendable {
             try putMetadata(keep, previousTitle: title)
         }
     }
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
     private func put(_ item: ClipboardItem, _ payload: ClipPayload, encoded: (data: Data, hash: String)? = nil) throws {
         if encoded == nil { try payload.validate() }
         guard item.title.count <= 1000, item.group.count <= 80, item.source.count <= 300 else { throw ClipError.invalid }
         if !item.group.isEmpty { try run("INSERT OR IGNORE INTO groups VALUES(?)", [.text(item.group)]) }
         let data = try encoded?.data ?? payload.encoded()
-        let hash = encoded?.hash ?? SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let hash = try encoded?.hash ?? Self.digest(payload.identity())
         let meta = try JSONEncoder().encode(item)
         let search = item.title + "\n" + payload.searchText
         try run("INSERT OR REPLACE INTO clips (id, meta, payload, hash, search, bytes, used, pinned, protected, kind) VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -245,7 +273,7 @@ final class ClipboardStore: @unchecked Sendable {
         try payload.validate()
         guard source.count <= 300 else { throw ClipError.invalid }
         let data = try payload.encoded()
-        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let hash = Self.digest(try payload.identity())
         return try lock.withLock {
             try transaction {
                 let stmt = try statement("SELECT meta FROM clips WHERE hash=?", [.text(hash)])

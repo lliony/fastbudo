@@ -598,4 +598,36 @@ import Testing
         await #expect(throws: (any Error).self) { try await model.save(to: target) }
         #expect(try Data(contentsOf: target) == original)
     }
+
+    @Test func previewRendersAtDisplayPixelsWithoutPopulatingFullResCache() throws {
+        let model = ImageEditorModel(image: try fixture())
+        let image = try model.preview(pixels: CGSize(width: 40, height: 30), pointSize: CGSize(width: 40, height: 30))
+        let tiff = try #require(image.tiffRepresentation)
+        let display = try #require(NSBitmapImageRep(data: tiff))
+        #expect(display.pixelsWide == 40 && display.pixelsHigh == 30)
+    }
+
+    @Test func previewIncludesFinishedAnnotations() throws {
+        let model = ImageEditorModel(image: try fixture())
+        func avgPreview() throws -> Double {
+            let tiff = try #require(model.preview(pixels: CGSize(width: 16, height: 8), pointSize: CGSize(width: 16, height: 8)).tiffRepresentation)
+            let rep = try #require(NSBitmapImageRep(data: tiff))
+            var sum = 0.0
+            for y in 0..<rep.pixelsHigh {
+                for x in 0..<rep.pixelsWide {
+                    guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+                    sum += c.redComponent + c.greenComponent + c.blueComponent
+                }
+            }
+            return sum / Double(rep.pixelsWide * rep.pixelsHigh)
+        }
+        let start = try avgPreview()
+        // 用黑色矩形描边覆盖大片区域（矩形只描边不填充）→ 平均亮度下降，证明已完成标注渲染进预览。
+        model.append(ImageAnnotation(tool: .rectangle,
+            points: [CGPoint(x: 0, y: 0), CGPoint(x: 80, y: 60)], color: .black, width: 20))
+        model.append(ImageAnnotation(tool: .rectangle,
+            points: [CGPoint(x: 10, y: 10), CGPoint(x: 70, y: 50)], color: .black, width: 20))
+        let covered = try avgPreview()
+        #expect(covered < start)
+    }
 }

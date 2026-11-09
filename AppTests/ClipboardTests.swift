@@ -172,6 +172,81 @@ struct ClipboardStoreTests {
         #expect(try reopened.list().contains { $0.id == first && $0.group == "项目" })
         #expect(try reopened.payload(first).plainText == "你好 SQLite %_")
     }
+
+    @Test func sameTextAcrossRichFlavorsKeepsOneRecord() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // 复制时鼠标是否悬停会改写浏览器内联 CSS，同一段文字因此带出不同 HTML。
+        func rich(_ cursor: String) -> ClipPayload {
+            ClipPayload(items: [["public.utf8-plain-text": Data("同一段文字".utf8),
+                                 "public.html": Data("<span style=\"cursor: \(cursor);\">同一段文字</span>".utf8)]])
+        }
+        let first = try db.capture(rich("text"), source: "浏览器", policy: .standard)
+        #expect(try db.capture(rich("auto"), source: "浏览器", policy: .standard) == first)
+        #expect(try db.capture(.text("同一段文字"), source: "编辑器", policy: .standard) == first)
+        #expect(try db.list().count == 1)
+        #expect(try db.payload(first).plainText == "同一段文字")
+        #expect(try db.capture(.text("另一段文字"), source: "编辑器", policy: .standard) != first)
+        #expect(try db.list().count == 2)
+    }
+
+    @Test func sameFilesAcrossFlavorsAndOrderKeepOneRecord() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = URL(fileURLWithPath: "/tmp/甲.txt").absoluteString
+        let b = URL(fileURLWithPath: "/tmp/乙.txt").absoluteString
+        let withText = ClipPayload(items: [["public.file-url": Data(a.utf8), "public.utf8-plain-text": Data("/tmp/甲.txt".utf8)]])
+        let bare = ClipPayload(items: [["public.file-url": Data(a.utf8)]])
+        let first = try db.capture(withText, source: "Finder", policy: .standard)
+        #expect(try db.capture(bare, source: "Finder", policy: .standard) == first)
+        let pair = ClipPayload(items: [["public.file-url": Data(a.utf8)], ["public.file-url": Data(b.utf8)]])
+        let reversed = ClipPayload(items: [["public.file-url": Data(b.utf8)], ["public.file-url": Data(a.utf8)]])
+        let second = try db.capture(pair, source: "Finder", policy: .standard)
+        #expect(second != first)
+        #expect(try db.capture(reversed, source: "Finder", policy: .standard) == second)
+        #expect(try db.list().count == 2)
+    }
+
+    @Test func sameImageAcrossFlavorsKeepsOneRecord() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        func png(_ side: Int) throws -> Data {
+            let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                bytesPerRow: 0, bitsPerPixel: 0))
+            return try #require(bitmap.representation(using: .png, properties: [:]))
+        }
+        let data = try png(2)
+        let tiff = try #require(NSImage(data: data)?.tiffRepresentation)
+        let first = try db.capture(ClipPayload(items: [["public.png": data, "public.tiff": tiff]]), source: "截图", policy: .standard)
+        #expect(try db.capture(ClipPayload(items: [["public.png": data]]), source: "截图", policy: .standard) == first)
+        #expect(try db.capture(ClipPayload(items: [["public.png": try png(3)]]), source: "截图", policy: .standard) != first)
+        #expect(try db.list().count == 2)
+    }
+
+    @Test func legacyFlavorDuplicatesMergeWithoutRewritingPayload() throws {
+        let (db, root) = try store()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let hovered = Data("<span style=\"cursor: text;\">重复文字</span>".utf8)
+        let first = try db.capture(ClipPayload(items: [["public.utf8-plain-text": Data("重复文字".utf8), "public.html": hovered]]),
+                                   source: "浏览器", policy: .standard)
+        try db.update(first, favorite: true)
+        var raw: OpaquePointer?
+        #expect(sqlite3_open(root.appendingPathComponent("clipboard.sqlite").path, &raw) == SQLITE_OK)
+        defer { sqlite3_close(raw) }
+        let other = UUID().uuidString
+        let idle = Data("<span style=\"cursor: auto;\">重复文字</span>".utf8).base64EncodedString()
+        // 旧库哈希覆盖全部表示，同一段文字的两份富文本因此存成不同哈希；迁移只重算哈希，不重写内容。
+        let sql = "INSERT INTO clips (id, meta, payload, hash, search, bytes, used, pinned, protected, kind) SELECT '\(other)', CAST(json_set(CAST(meta AS TEXT),'$.id','\(other)') AS BLOB), CAST(json_set(CAST(payload AS TEXT),'$.items[0].\"public.html\"','\(idle)') AS BLOB), 'legacy-other', search, bytes, used-1, 0, 0, kind FROM clips; UPDATE clips SET hash='legacy-first' WHERE id='\(first.uuidString)'; PRAGMA user_version=3; CREATE TRIGGER no_payload_rewrite BEFORE UPDATE OF payload ON clips BEGIN SELECT RAISE(ABORT,'payload rewritten'); END;"
+        #expect(sqlite3_exec(raw, sql, nil, nil, nil) == SQLITE_OK)
+        let reopened = try ClipboardStore(directory: root)
+        #expect(try reopened.list().count == 1)
+        let kept = try #require(reopened.list().first)
+        #expect(kept.id == first)
+        #expect(kept.favorite)
+        #expect(try reopened.payload(first).items.first?["public.html"] == hovered)
+        #expect(try reopened.capture(.text("重复文字"), source: "Again", policy: .standard) == first)
+    }
     @Test func groupsRepliesAndQueuePersistIndependently() throws {
         let (db, root) = try store()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -249,7 +324,7 @@ struct ClipboardStoreTests {
         #expect(sqlite3_open(path, &check) == SQLITE_OK)
         var stmt: OpaquePointer?
         #expect(sqlite3_prepare_v2(check, "PRAGMA user_version", -1, &stmt, nil) == SQLITE_OK)
-        #expect(sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 3)
+        #expect(sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 4)
         sqlite3_finalize(stmt); sqlite3_close(check)
     }
 

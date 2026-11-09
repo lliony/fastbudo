@@ -96,4 +96,13 @@ struct FinderNewItemDestinationTests {
         #expect(!FinderRename.matches([URL(fileURLWithPath: "/tmp/other/未命名.txt")], target: target))
         #expect(!FinderRename.matches([target, URL(fileURLWithPath: "/tmp/new-item/other.txt")], target: target))
     }
+    // 本地创建的是 /tmp 下的真实文件，Finder 报告可能带 /private/tmp 前缀与尾斜杠；现有路径经符号链接解析后视为同一目标。
+    @Test func canonicalizesSymlinksAndTrailingSlashBeforeComparing() throws {
+        let root = FileManager.default.temporaryDirectory
+        let file = try NewItem.create(in: root, name: "未命名.txt", folder: false)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let canonical = root.resolvingSymlinksInPath().appendingPathComponent(file.lastPathComponent)
+        #expect(FinderRename.equivalent(file, to: canonical))
+        #expect(FinderRename.equivalent(root, to: URL(fileURLWithPath: root.path + "/", isDirectory: true)))
+    }
 }
