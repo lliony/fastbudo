@@ -107,6 +107,49 @@ import SwiftUI
         #expect(CaptureGeometry.captureRect(CGRect(x: 3000, y: 0, width: 10, height: 10), desktop: desktop, primaryTop: 1080) == nil)
     }
 
+    @Test func frozenCropMultipliesCaptureCoordinatesByScale() throws {
+        // 200×200 冻结帧 = 主屏 100×100 点 @ 2x；选区相对显示器原点换算并以像素裁出。
+        let image = CGSize(width: 200, height: 200)
+        #expect(ScreenshotController.pixelRect(CGRect(x: 10, y: 40, width: 30, height: 20),
+                                                inDisplay: .zero, scale: 2, imageSize: image) == CGRect(x: 20, y: 80, width: 60, height: 40))
+        // 非主屏显示器：origin 即该屏左上在系统截图坐标中的位置，仅取相对偏移。
+        #expect(ScreenshotController.pixelRect(CGRect(x: 110, y: 70, width: 20, height: 20),
+                                                inDisplay: CGPoint(x: 100, y: 50), scale: 2, imageSize: image) == CGRect(x: 20, y: 40, width: 40, height: 40))
+        #expect(ScreenshotController.pixelRect(CGRect(x: 10, y: 10, width: 10, height: 10),
+                                                inDisplay: .zero, scale: 0, imageSize: image) == nil)
+    }
+
+    @Test func frozenCropRejectsOutOfBoundsAndNegativeOrigin() throws {
+        let image = CGSize(width: 200, height: 200)
+        // 落在显示器左上（即主屏上/左侧）的负坐标选区无法落到冻结帧内 → 回退系统抓取。
+        #expect(ScreenshotController.pixelRect(CGRect(x: -10, y: 0, width: 20, height: 20), inDisplay: .zero, scale: 1, imageSize: image) == nil)
+        #expect(ScreenshotController.pixelRect(CGRect(x: 0, y: -10, width: 20, height: 20), inDisplay: .zero, scale: 1, imageSize: image) == nil)
+        #expect(ScreenshotController.pixelRect(CGRect(x: -20, y: 0, width: 40, height: 40), inDisplay: CGPoint(x: 100, y: 50), scale: 1, imageSize: image) == nil)
+        // 超出帧边界同样拒绝。
+        #expect(ScreenshotController.pixelRect(CGRect(x: 150, y: 150, width: 100, height: 100), inDisplay: .zero, scale: 1, imageSize: image) == nil)
+        #expect(ScreenshotController.pixelRect(CGRect(x: 150, y: 150, width: 100, height: 100), inDisplay: CGPoint(x: 300, y: 300), scale: 1, imageSize: image) == nil)
+    }
+
+    @Test @MainActor func regionSelectorShowsWithFrozenBackground() throws {
+        let frozen = try #require(makeSolidImage(width: 100, height: 100))
+        let selector = ScreenshotRegionSelector { _ in }
+        if let id = NSScreen.screens.first?.displayID { selector.frozenFrames = [id: frozen] }
+        defer { selector.cancel() }
+        selector.show()
+        #expect(NSApp.windows.contains { $0.isVisible && $0.title == "FastBudo 区域选取" })
+        // 强制触发一次绘制，确保各屏冻结背景的翻转绘制路径可用、不崩溃。
+        for window in NSApp.windows where window.isVisible { window.contentView?.display() }
+        selector.cancel()
+        #expect(!NSApp.windows.contains { $0.isVisible && $0.title == "FastBudo 区域选取" })
+    }
+
+    private func makeSolidImage(width: Int, height: Int) -> CGImage? {
+        let bytesPerRow = width * 4
+        var buffer = [UInt8](repeating: 200, count: height * bytesPerRow)
+        return CGContext(data: &buffer, width: width, height: height, bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
+    }
+
     @Test @MainActor func regionDragUsesEventCoordinatesWhenPointerHasAlreadyMoved() throws {
         var received: RegionSelection?
         let selector = ScreenshotRegionSelector { received = $0 }

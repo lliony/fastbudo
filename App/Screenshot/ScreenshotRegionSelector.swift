@@ -39,6 +39,8 @@ enum CaptureGeometry {
     private var transferredPanel: NSPanel?
     private var desktop: CGRect = .null
     private var primaryTop: CGFloat = 0
+    /// 触发瞬间各显示器的冻结帧（displayID→CGImage）；对应屏有帧时作为选区背景（所见即所得），否则透明穿透实时画面。
+    var frozenFrames: [CGDirectDisplayID: CGImage] = [:]
 
     init(completion: @escaping (RegionSelection?) -> Void) { self.completion = completion }
 
@@ -59,6 +61,7 @@ enum CaptureGeometry {
             let view = RegionSelectionView(frame: CGRect(origin: .zero, size: screen.frame.size))
             view.screenFrame = screen.frame
             view.showsHint = screen.frame.origin == .zero
+            view.frozenImage = screen.displayID.flatMap { frozenFrames[$0] }
             view.onSelection = { [weak self] selection in
                 self?.activePanel = panel
                 self?.apply(selection)
@@ -145,6 +148,7 @@ enum CaptureGeometry {
 @MainActor private final class RegionSelectionView: NSView {
     var screenFrame: CGRect = .zero
     var showsHint = false
+    var frozenImage: CGImage?
     var globalSelection: CGRect? {
         didSet { needsDisplay = true }
     }
@@ -183,6 +187,7 @@ enum CaptureGeometry {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        if let frozenImage { drawFrozenBackground(frozenImage) }
         let shade = NSBezierPath(rect: bounds)
         var local: CGRect?
         if let globalSelection {
@@ -203,5 +208,14 @@ enum CaptureGeometry {
             let size = (message as NSString).size(withAttributes: attributes)
             (message as NSString).draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY), withAttributes: attributes)
         }
+    }
+
+    /// 把本显示器冻结帧绘制为背景（本就是该屏内容，无需切片），选区遮罩叠加在上方形成“明亮/灰显”。
+    /// 直接用 `cgContext.draw` 绘制即可——它是该屏居顶像素，绘制到非翻转视图时会按 CG 图像语义正确放置，
+    /// 不再需要手动 Y 翻转（整图翻转会把整屏上下颠倒）。
+    private func drawFrozenBackground(_ frozen: CGImage) {
+        guard frozen.width > 0, frozen.height > 0 else { return }
+        let ctx = NSGraphicsContext.current?.cgContext
+        ctx?.draw(frozen, in: CGRect(origin: .zero, size: bounds.size))
     }
 }

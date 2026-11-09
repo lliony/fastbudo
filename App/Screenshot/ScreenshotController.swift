@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Carbon
 import UniformTypeIdentifiers
+import ScreenCaptureKit
 
 enum CaptureMode {
     case region, window, screen(Int)
@@ -11,6 +12,14 @@ enum CaptureMode {
         case .window: ["-i", "-w", "-o"]
         case .screen(let number): ["-D", String(max(1, number))]
         }
+    }
+}
+
+/// 屏幕对应的 CGDirectDisplayID，供 ScreenCaptureKit 抓帧与按屏取冻结帧使用。
+extension NSScreen {
+    var displayID: CGDirectDisplayID? {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return nil }
+        return number.uint32Value
     }
 }
 
@@ -228,9 +237,9 @@ enum CaptureAction: Equatable {
         captureTask = Task { [weak self] in
             guard let self else { return }
             switch mode {
-            case .region: break
-            case .window, .screen:
-                // 系统截图仍需等菜单收起和修饰键松开；自有区域选区无需等待。
+            case .region, .screen: break
+            case .window:
+                // 系统窗口选取仍需等菜单收起和修饰键松开；区域/全屏走冻结帧，无需等待。
                 do { try await Task.sleep(for: .milliseconds(350)) } catch { self.capturing = false; return }
             }
             guard !stopped else { capturing = false; return }
@@ -238,17 +247,43 @@ enum CaptureAction: Equatable {
                 var arguments = mode.arguments
                 var selectedAction = action
                 var region: RegionSelection?
-                if case .region = mode {
+                let screens = NSScreen.screens
+                let desktop = screens.reduce(CGRect.null) { $0.union($1.frame) }
+                let primary = screens.first(where: { $0.frame.origin == .zero }) ?? screens.first
+                let primaryTop = primary?.frame.maxY ?? 0
+                if case .window = mode {
+                    // 窗口截图仍走系统交互，无需冻结帧。
+                } else if case .region = mode {
+                    // 先在弹遮罩前冻结桌面帧（ScreenCaptureKit 一次性抓帧）：若不先抓，遮罩会进入抓帧而污染出图。
+                    // 抓帧读取窗口服务器、不激活本应用，正在显示的右键菜单/浮窗保持原样，冻结帧既是背景（所见即所得）也是出图来源。
+                    let frozenFrames = await freezeScreens()
                     region = await withCheckedContinuation { continuation in
                         let selector = ScreenshotRegionSelector { continuation.resume(returning: $0) }
-                        regionSelector = selector; selector.show()
+                        selector.frozenFrames = frozenFrames
+                        regionSelector = selector
+                        selector.show()
                     }
                     pendingEditorPanel = regionSelector?.takeTransferredPanel()
                     selectedAction = action.effective(controlHeld: region?.copyToClipboard ?? false)
                     guard let rect = region?.captureRect, !stopped else { cleanupCapture(); message = "截图已取消。"; return }
+                    if let cropped = cropFrozen(region: rect, desktop: desktop, primaryTop: primaryTop, screens: screens, frozenFrames: frozenFrames) {
+                        await finishCapturedImage(cropped, region: region, action: selectedAction)
+                        cleanupCapture()
+                        return
+                    }
+                    // 冻结帧不可用（选区跨屏/所在屏无帧/无录制权限）时回退系统 `-R` 抓取。
                     arguments = ["-R", "\(Int(rect.minX)),\(Int(rect.minY)),\(Int(rect.width)),\(Int(rect.height))"]
                     // 等选区遮罩从窗口合成器移除，避免把遮罩一起截入图片。
                     try await Task.sleep(for: .milliseconds(100))
+                } else if case .screen(let number) = mode {
+                    let frozenFrames = await freezeScreens()
+                    if let screen = screens.indices.contains(number - 1) ? screens[number - 1] : nil,
+                       let id = screen.displayID, let frozen = frozenFrames[id] {
+                        await finishCapturedImage(frozen, region: nil, action: selectedAction)
+                        cleanupCapture()
+                        return
+                    }
+                    // 冻结帧不含该显示器或无权限时回退系统 `-D` 抓取。
                 }
                 let root = FileManager.default.temporaryDirectory.appendingPathComponent("fastbudo-capture-\(UUID().uuidString)", isDirectory: true)
                 try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
@@ -314,7 +349,63 @@ enum CaptureAction: Equatable {
         }
     }
 
-    private func editCapturedImage(_ image: NSImage, region: RegionSelection?) {
+    /// 直接把已就绪的截图分发到编辑或快速输出，等同 `captureEnded` 解码后的收尾路径。
+    private func finishCapturedImage(_ image: CGImage, region: RegionSelection?, action: CaptureAction) async {
+        let result = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        do {
+            if action == .edit { editCapturedImage(result, region: region) }
+            else { _ = try await deliver(result, action: action) }
+        } catch {
+            guard !stopped, !(error is CancellationError) else { return }
+            editCapturedImage(result, region: region)
+            showError("截图输出失败，图片已保留，可重试：\(error.localizedDescription)")
+        }
+    }
+
+    /// 触发瞬间按显示器异步冻结桌面帧（ScreenCaptureKit 一次性抓帧）：不激活本应用、不收起正在显示的右键菜单/浮窗提示。
+/// 区域/全屏截图以此为背景与出图来源；窗口截图仍走系统交互，无需冻结。无录制权限或抓帧失败时返回空字典，由调用方回退系统抓取。
+private func freezeScreens() async -> [CGDirectDisplayID: CGImage] {
+    guard let content = try? await SCShareableContent.current else { return [:] }
+    var frames: [CGDirectDisplayID: CGImage] = [:]
+    for display in content.displays {
+        // 每个显示器单独配置并按原生像素宽高抓帧；共用配置或留默认宽高会让副屏帧尺寸与屏幕不匹配，
+        // 造成背景/裁剪比例错位与留白（多显示器尤其明显）。
+        let config = SCStreamConfiguration()
+        config.showsCursor = false
+        config.width = display.width
+        config.height = display.height
+        guard let image = try? await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(display: display, excludingWindows: []),
+            configuration: config) else { continue }
+        frames[display.displayID] = image
+    }
+    return frames
+}
+
+/// 把「显示器抓取坐标（主屏左上原点）」的选区换算为该屏像素矩形；选区越出该屏图像返 nil。
+nonisolated static func pixelRect(_ capture: CGRect, inDisplay origin: CGPoint, scale: CGFloat, imageSize: CGSize) -> CGRect? {
+    guard scale > 0 else { return nil }
+    let px = CGRect(x: (capture.minX - origin.x) * scale, y: (capture.minY - origin.y) * scale,
+                    width: capture.width * scale, height: capture.height * scale).integral
+    guard px.minX >= 0, px.minY >= 0, px.maxX <= imageSize.width, px.maxY <= imageSize.height else { return nil }
+    return px
+}
+
+/// 取选区所在显示器的冻结帧并裁剪；选区跨屏或显示器无帧时返回 nil，由调用方回退系统抓取。
+@MainActor
+private func cropFrozen(region capture: CGRect, desktop: CGRect, primaryTop: CGFloat, screens: [NSScreen], frozenFrames: [CGDirectDisplayID: CGImage]) -> CGImage? {
+    for screen in screens {
+        guard let origin = CaptureGeometry.captureRect(screen.frame, desktop: desktop, primaryTop: primaryTop) else { continue }
+        guard origin.contains(capture), let id = screen.displayID, let frozen = frozenFrames[id] else { continue }
+        let scale = CGFloat(frozen.width) / max(1, screen.frame.width)
+        guard let px = Self.pixelRect(capture, inDisplay: origin.origin, scale: scale,
+                                      imageSize: CGSize(width: frozen.width, height: frozen.height)) else { continue }
+        return frozen.cropping(to: px)
+    }
+    return nil
+}
+
+private func editCapturedImage(_ image: NSImage, region: RegionSelection?) {
         if let region, let panel = pendingEditorPanel {
             pendingEditorPanel = nil
             edit(image, in: panel, selectionFrame: region.screenFrame)
