@@ -8,6 +8,7 @@ last_updated: 2026-11-09
 
 | 我想… | 看这里 |
 |---|---|
+| 查看 0.0.12 发布验证 | [发布验证](validation/2026-11-09-release-0.0.12.md) |
 | 查看 0.0.11.beta 发布验证 | [发布验证](validation/2026-11-06-release-0.0.11.beta.md) |
 | 区域/全屏截图截取右键菜单与浮窗（单元已加，实机待验） | [验证记录](validation/2026-11-09-screenshot-frozen-capture.md) |
 | 查看 0.0.10 双架构发布验证 | [发布验证](validation/2026-11-06-release-0.0.10.md) |
